@@ -4,6 +4,7 @@ import { paquetesCatering, formatoPrecio } from '../data/mock'
 import SectionTitle from '../components/SectionTitle'
 import Button from '../components/Button'
 import Input from '../components/Input'
+import DatePicker from '../components/DatePicker'
 
 const tiposEvento = [
   'Cumpleaños', 'Matrimonio', 'Baby shower', 'Evento corporativo',
@@ -165,7 +166,7 @@ export default function Catering() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Input label="Tipo de evento" opciones={tiposEvento} value={form.tipoEvento} onChange={set('tipoEvento')} />
-              <Input label="Fecha del evento *" type="date" min="2026-07-09" required value={form.fecha} onChange={set('fecha')} />
+              <DatePicker label="Fecha del evento *" min="2026-07-09" value={form.fecha} onChange={set('fecha')} />
             </div>
             <Input
               label="Cantidad de personas *"

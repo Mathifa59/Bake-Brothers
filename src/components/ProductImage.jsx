@@ -13,7 +13,7 @@ export default function ProductImage({
           src={producto.foto}
           alt={producto.nombre}
           loading={prioridad ? 'eager' : 'lazy'}
-          fetchPriority={prioridad ? 'high' : 'auto'}
+          fetchpriority={prioridad ? 'high' : 'auto'}
           className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
       </div>

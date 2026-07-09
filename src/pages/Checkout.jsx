@@ -6,6 +6,7 @@ import { distritos, formatoPrecio } from '../data/mock'
 import CheckoutSteps from '../components/CheckoutSteps'
 import Button from '../components/Button'
 import Input from '../components/Input'
+import DatePicker from '../components/DatePicker'
 import Badge from '../components/Badge'
 
 const pasos = ['Datos', 'Entrega', 'Fecha', 'Pago', 'Confirmar']
@@ -179,7 +180,7 @@ export default function Checkout() {
           <div className="anim-fade-in space-y-4">
             <h2 className="font-display text-2xl font-semibold">Fecha y hora</h2>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Input label="Fecha de entrega *" type="date" min="2026-07-09" value={datos.fecha} onChange={set('fecha')} />
+              <DatePicker label="Fecha de entrega *" min="2026-07-09" value={datos.fecha} onChange={set('fecha')} />
               <Input label="Rango horario" opciones={rangosHorarios} value={datos.horario} onChange={set('horario')} />
             </div>
             <Input
