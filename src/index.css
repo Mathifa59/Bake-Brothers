@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@theme {
+  --color-crema: #F4F1F1;
+  --color-hueso: #FBF9F7;
+  --color-tinta: #16110D;
+  --color-acento: #F28C18;
+  --color-acento-oscuro: #D9750B;
+  --color-acento-suave: #FDEFDD;
+  --color-borde: #E7E0DA;
+  --color-gris: #6F675F;
+  --font-display: "Fraunces", Georgia, serif;
+  --font-sans: "Albert Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-crema);
+  color: var(--color-tinta);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-acento);
+  color: white;
+}
+
+/* Animaciones de entrada */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  70% { transform: scale(1.08); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.anim-fade-up { animation: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.anim-fade-in { animation: fade-in 0.5s ease both; }
+.anim-marquee { animation: marquee 28s linear infinite; }
+.anim-float { animation: float-y 5s ease-in-out infinite; }
+.anim-slide-in-right { animation: slide-in-right 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.anim-pop { animation: pop 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+.delay-1 { animation-delay: 0.08s; }
+.delay-2 { animation-delay: 0.16s; }
+.delay-3 { animation-delay: 0.24s; }
+.delay-4 { animation-delay: 0.32s; }
+
+/* Textura de puntos sutil para fondos */
+.bg-puntos {
+  background-image: radial-gradient(rgba(22, 17, 13, 0.06) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* Ocultar scrollbar en carruseles horizontales */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
