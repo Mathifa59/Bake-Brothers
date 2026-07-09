@@ -56,20 +56,12 @@ export default function Nosotros() {
 
         {/* Imagen del equipo / cocina */}
         <div className="anim-fade-up delay-2 relative mx-auto w-full max-w-md">
-          <div
-            className="grid aspect-[4/5] place-items-center rounded-[3rem] shadow-2xl shadow-tinta/10 ring-1 ring-borde"
-            style={{ background: 'linear-gradient(150deg, #F3DFC9, #E4BE97)' }}
-            role="img"
-            aria-label="El equipo de Bake Brothers en la cocina"
-          >
-            <div className="text-center">
-              <div className="flex justify-center gap-2 text-7xl">
-                <span className="anim-float">👨🏽‍🍳</span>
-                <span className="anim-float" style={{ animationDelay: '0.7s' }}>👨🏻‍🍳</span>
-              </div>
-              <p className="mt-6 font-display text-xl font-semibold text-tinta/70">Los hermanos</p>
-              <p className="text-sm text-tinta/50">fundadores y pasteleros</p>
-            </div>
+          <div className="overflow-hidden rounded-[3rem] shadow-2xl shadow-tinta/10 ring-1 ring-borde">
+            <img
+              src="/img/chef-bake-brothers.jpg"
+              alt="Uno de los hermanos de Bake Brothers preparando ganache de chocolate"
+              className="aspect-[4/5] w-full object-cover"
+            />
           </div>
           <div className="absolute -left-4 top-8 rotate-[-6deg] rounded-2xl bg-white px-4 py-2.5 shadow-lg ring-1 ring-borde">
             <p className="text-xs font-bold">🥇 Desde 2018</p>

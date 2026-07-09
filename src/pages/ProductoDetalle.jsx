@@ -59,8 +59,12 @@ export default function ProductoDetalle() {
     .filter((p) => p.id !== producto.id && (p.tipo === producto.tipo || p.categoria === producto.categoria))
     .slice(0, 4)
 
-  // Galería simulada: variaciones del mismo producto
-  const vistas = [producto.emoji, '🍽️', '📦']
+  // Galería: foto real como vista principal (si existe) + vistas simuladas
+  const vistas = [
+    producto,
+    { ...producto, foto: null, emoji: '🍽️' },
+    { ...producto, foto: null, emoji: '📦' },
+  ]
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 md:px-6">
@@ -78,9 +82,10 @@ export default function ProductoDetalle() {
         <div>
           <div className="group overflow-hidden rounded-[2rem] shadow-lg shadow-tinta/8 ring-1 ring-borde">
             <ProductImage
-              producto={{ ...producto, emoji: vistas[imagenActiva] }}
+              producto={vistas[imagenActiva]}
               className="aspect-square w-full"
               tamanoEmoji="text-[10rem]"
+              prioridad
             />
           </div>
           <div className="mt-4 flex gap-3">
@@ -93,11 +98,7 @@ export default function ProductoDetalle() {
                 }`}
                 aria-label={`Ver imagen ${i + 1}`}
               >
-                <ProductImage
-                  producto={{ ...producto, emoji: v }}
-                  className="h-20 w-20"
-                  tamanoEmoji="text-3xl"
-                />
+                <ProductImage producto={v} className="h-20 w-20" tamanoEmoji="text-3xl" />
               </button>
             ))}
           </div>

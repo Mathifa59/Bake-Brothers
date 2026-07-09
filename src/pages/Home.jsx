@@ -5,6 +5,7 @@ import {
   categorias,
   destacados,
   testimonios,
+  productos,
   formatoPrecio,
 } from '../data/mock'
 import Button from '../components/Button'
@@ -30,7 +31,12 @@ const frasesTicker = [
 ]
 
 export default function Home() {
-  const heroDestacados = destacados.slice(0, 3)
+  // Productos con fotografía para la composición del hero
+  const heroDestacados = [
+    productos.find((p) => p.id === 'torta-chocolate'),
+    productos.find((p) => p.id === 'cheesecake-frutos-rojos'),
+    productos.find((p) => p.id === 'petipanes'),
+  ]
 
   return (
     <div>
@@ -76,19 +82,19 @@ export default function Home() {
                 to={`/producto/${heroDestacados[0].id}`}
                 className="group anim-float col-span-2 block overflow-hidden rounded-[2.5rem] shadow-xl shadow-tinta/10 ring-1 ring-borde"
               >
-                <ProductImage producto={heroDestacados[0]} className="aspect-[16/9]" tamanoEmoji="text-9xl" />
+                <ProductImage producto={heroDestacados[0]} className="aspect-[16/9]" tamanoEmoji="text-9xl" prioridad />
               </Link>
               <Link
                 to={`/producto/${heroDestacados[1].id}`}
                 className="group block overflow-hidden rounded-[2rem] shadow-lg shadow-tinta/10 ring-1 ring-borde"
               >
-                <ProductImage producto={heroDestacados[1]} className="aspect-square" tamanoEmoji="text-7xl" />
+                <ProductImage producto={heroDestacados[1]} className="aspect-square" tamanoEmoji="text-7xl" prioridad />
               </Link>
               <Link
                 to={`/producto/${heroDestacados[2].id}`}
                 className="group block overflow-hidden rounded-[2rem] shadow-lg shadow-tinta/10 ring-1 ring-borde"
               >
-                <ProductImage producto={heroDestacados[2]} className="aspect-square" tamanoEmoji="text-7xl" />
+                <ProductImage producto={heroDestacados[2]} className="aspect-square" tamanoEmoji="text-7xl" prioridad />
               </Link>
             </div>
             {/* Etiqueta flotante */}
@@ -204,17 +210,13 @@ export default function Home() {
             </div>
           </div>
           <div className="relative">
-            <div
-              className="grid aspect-[4/3] place-items-center rounded-[2rem] shadow-lg ring-1 ring-borde"
-              style={{ background: 'linear-gradient(140deg, #FBE5D5, #F2BA8C)' }}
-              role="img"
-              aria-label="Mesa dulce para eventos"
-            >
-              <div className="flex gap-3 text-6xl md:text-7xl">
-                <span className="anim-float">🍰</span>
-                <span className="anim-float" style={{ animationDelay: '0.6s' }}>🧁</span>
-                <span className="anim-float" style={{ animationDelay: '1.2s' }}>🍮</span>
-              </div>
+            <div className="overflow-hidden rounded-[2rem] shadow-lg ring-1 ring-borde">
+              <img
+                src="/img/vitrina-pasteleria.jpg"
+                alt="Mesa dulce para eventos"
+                loading="lazy"
+                className="aspect-[4/3] w-full object-cover"
+              />
             </div>
             <div className="absolute -bottom-4 left-6 rounded-2xl bg-white px-4 py-2.5 shadow-lg ring-1 ring-borde">
               <p className="text-xs font-bold text-tinta">✨ Mesas dulces desde {formatoPrecio(350)}</p>

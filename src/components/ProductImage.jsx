@@ -1,6 +1,25 @@
-// Imagen simulada de producto: gradiente suave + emoji grande.
-// Reemplazable por fotografías reales manteniendo la misma interfaz.
-export default function ProductImage({ producto, className = '', tamanoEmoji = 'text-7xl' }) {
+// Imagen de producto: usa fotografía real si el producto tiene `foto`;
+// si no, cae a la composición de gradiente + emoji.
+export default function ProductImage({
+  producto,
+  className = '',
+  tamanoEmoji = 'text-7xl',
+  prioridad = false,
+}) {
+  if (producto.foto) {
+    return (
+      <div className={`relative overflow-hidden ${className}`}>
+        <img
+          src={producto.foto}
+          alt={producto.nombre}
+          loading={prioridad ? 'eager' : 'lazy'}
+          fetchPriority={prioridad ? 'high' : 'auto'}
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+        />
+      </div>
+    )
+  }
+
   const [desde, hasta] = producto.g || ['#F4E9DA', '#E8CFA8']
   return (
     <div

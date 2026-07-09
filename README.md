@@ -46,6 +46,7 @@ src/
 | Tipografía display | Fraunces |
 | Tipografía cuerpo | Albert Sans |
 
-> Las imágenes de producto son composiciones de gradiente + emoji, pensadas como
-> placeholders: el componente `ProductImage` se puede reemplazar por fotografías
-> reales sin tocar el resto del código.
+> Las imágenes principales (hero, categorías, catering y productos destacados) son
+> fotografías referenciales de Pexels, optimizadas en `public/img/`. Los productos
+> sin foto usan una composición de gradiente + emoji como placeholder: basta con
+> agregarles un campo `foto` en `src/data/mock.js` para reemplazarla.

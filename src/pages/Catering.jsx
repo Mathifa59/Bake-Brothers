@@ -50,15 +50,12 @@ export default function Catering() {
             </div>
           </div>
           <div className="anim-fade-up delay-2 relative mx-auto w-full max-w-md">
-            <div
-              className="anim-float grid aspect-square place-items-center rounded-[3rem] shadow-2xl shadow-acento/20 ring-1 ring-borde"
-              style={{ background: 'linear-gradient(140deg, #FBE5D5, #F2BA8C)' }}
-              role="img"
-              aria-label="Mesa dulce elegante"
-            >
-              <div className="grid grid-cols-2 gap-6 text-7xl">
-                <span>🍰</span><span>🧁</span><span>🍮</span><span>🥂</span>
-              </div>
+            <div className="overflow-hidden rounded-[3rem] shadow-2xl shadow-acento/20 ring-1 ring-borde">
+              <img
+                src="/img/mini-tartaletas-fruta.jpg"
+                alt="Mesa dulce elegante con bocaditos artesanales"
+                className="aspect-square w-full object-cover"
+              />
             </div>
             <div className="absolute -bottom-4 -left-2 rotate-[-4deg] rounded-2xl bg-white px-5 py-3 shadow-lg ring-1 ring-borde">
               <p className="text-xs font-bold">🎉 +300 eventos endulzados</p>
@@ -83,14 +80,25 @@ export default function Catering() {
                 key={paq.id}
                 className="flex flex-col overflow-hidden rounded-3xl border border-borde/60 bg-hueso shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-tinta/8"
               >
-                <div
-                  className="grid aspect-[5/3] place-items-center"
-                  style={{ background: `linear-gradient(140deg, ${paq.g[0]}, ${paq.g[1]})` }}
-                  role="img"
-                  aria-label={paq.nombre}
-                >
-                  <span className="text-6xl drop-shadow-sm">{paq.emoji}</span>
-                </div>
+                {paq.foto ? (
+                  <div className="relative aspect-[5/3] overflow-hidden">
+                    <img
+                      src={paq.foto}
+                      alt={paq.nombre}
+                      loading="lazy"
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 hover:scale-105"
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className="grid aspect-[5/3] place-items-center"
+                    style={{ background: `linear-gradient(140deg, ${paq.g[0]}, ${paq.g[1]})` }}
+                    role="img"
+                    aria-label={paq.nombre}
+                  >
+                    <span className="text-6xl drop-shadow-sm">{paq.emoji}</span>
+                  </div>
+                )}
                 <div className="flex flex-1 flex-col p-6">
                   <h3 className="font-display text-xl font-semibold">{paq.nombre}</h3>
                   <p className="mt-1 text-sm text-gris">{paq.descripcion}</p>

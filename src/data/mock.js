@@ -10,6 +10,7 @@ export const productos = [
     precio: 76,
     precioAnterior: 95,
     emoji: '🍫',
+    foto: '/img/torta-chocolate.jpg',
     g: ['#F3DFC9', '#E4BE97'],
     descripcion:
       'Bizcocho húmedo de cacao al 70%, relleno de fudge casero y cubierto con ganache brillante. Nuestra torta más pedida, hecha artesanalmente para compartir.',
@@ -46,6 +47,7 @@ export const productos = [
     tipo: 'Postres',
     precio: 65,
     emoji: '🥭',
+    foto: '/img/tartaletas-maracuya.jpg',
     g: ['#FBEDCB', '#F2D48A'],
     descripcion:
       'Base crocante de galleta, crema de queso sedosa y espejo de maracuyá natural. El equilibrio perfecto entre dulce y ácido.',
@@ -65,6 +67,7 @@ export const productos = [
     precio: 66,
     precioAnterior: 78,
     emoji: '🍓',
+    foto: '/img/tartaletas-fresa.jpg',
     g: ['#FADDE4', '#F0A8B8'],
     descripcion:
       'Cheesecake horneado al estilo clásico, coronado con compota casera de fresas, arándanos y frambuesas.',
@@ -193,6 +196,7 @@ export const productos = [
     tipo: 'Tortas',
     precio: 58,
     emoji: '🥛',
+    foto: '/img/tartas-fresas.jpg',
     g: ['#F2EFE7', '#DED4BE'],
     descripcion:
       'Bizcocho bañado en mezcla de tres leches, cubierto con merengue flameado y canela. Fresca, suave y preparada con cariño.',
@@ -321,6 +325,7 @@ export const productos = [
     tipo: 'Bocaditos',
     precio: 55,
     emoji: '🍢',
+    foto: '/img/bocaditos-vitrina.jpg',
     g: ['#F0E6DB', '#D4BDA2'],
     descripcion:
       'Surtido de empanaditas, enrolladitos de hot dog, mini pizzas y tartaletas saladas. Perfecto para reuniones.',
@@ -357,6 +362,7 @@ export const productos = [
     tipo: 'Bocaditos',
     precio: 34,
     emoji: '🥐',
+    foto: '/img/croissants.jpg',
     g: ['#F3E6D2', '#DFC091'],
     descripcion:
       'Petipanes rellenos de pollo, jamón inglés y queso con verduras frescas. Los infaltables de todo compartir.',
@@ -395,6 +401,7 @@ export const productos = [
     tipo: 'Catering',
     precio: 350,
     emoji: '🍮',
+    foto: '/img/mini-tartaletas-fruta.jpg',
     g: ['#FBE9DD', '#F0C09A'],
     descripcion:
       'Mesa dulce para 20 personas: torta central, cupcakes, brownies, alfajores y shots de postre. Incluye montaje básico.',
@@ -413,6 +420,7 @@ export const productos = [
     tipo: 'Catering',
     precio: 690,
     emoji: '✨',
+    foto: '/img/vitrina-pasteleria.jpg',
     g: ['#F7E3D4', '#EBB98C'],
     descripcion:
       'Mesa dulce para 40 personas con torta temática, postres finos, macarons, decoración completa y personal de apoyo.',
@@ -431,6 +439,7 @@ export const productos = [
     tipo: 'Catering',
     precio: 180,
     emoji: '💼',
+    foto: '/img/vitrina-dulces.jpg',
     g: ['#EEE9E2', '#CFC2AE'],
     descripcion:
       'Box para reuniones de trabajo: bocaditos salados, mini postres y café de pasar para 10 personas. Presentación impecable.',
@@ -488,12 +497,12 @@ export const ofertas = productos.filter((p) => p.precioAnterior)
 export const destacados = productos.filter((p) => p.popular).slice(0, 8)
 
 export const categorias = [
-  { id: 'tortas', nombre: 'Tortas', tipo: 'Tortas', emoji: '🎂', g: ['#F9E2D2', '#F0BE97'], texto: 'Para cumpleaños y celebraciones' },
-  { id: 'postres', nombre: 'Postres', tipo: 'Postres', emoji: '🍰', g: ['#FADDE4', '#F0AEBD'], texto: 'Cheesecakes, pies y más' },
-  { id: 'dulces', nombre: 'Dulces', tipo: 'Dulces', emoji: '🍬', g: ['#FDEBD2', '#F6C88B'], texto: 'Alfajores, galletas y cupcakes' },
-  { id: 'salados', nombre: 'Salados', tipo: 'Salados', emoji: '🥟', g: ['#F5E9D4', '#E3C48F'], texto: 'Empanadas y quiches caseros' },
-  { id: 'bocaditos', nombre: 'Bocaditos', tipo: 'Bocaditos', emoji: '🥪', g: ['#EFF0E2', '#CBD1A4'], texto: 'Para compartir en toda reunión' },
-  { id: 'catering', nombre: 'Catering', tipo: 'Catering', emoji: '🎉', g: ['#FBE5D5', '#F2BA8C'], texto: 'Mesas dulces y eventos' },
+  { id: 'tortas', nombre: 'Tortas', tipo: 'Tortas', emoji: '🎂', foto: '/img/torta-chocolate.jpg', g: ['#F9E2D2', '#F0BE97'], texto: 'Para cumpleaños y celebraciones' },
+  { id: 'postres', nombre: 'Postres', tipo: 'Postres', emoji: '🍰', foto: '/img/tartas-fresas.jpg', g: ['#FADDE4', '#F0AEBD'], texto: 'Cheesecakes, pies y más' },
+  { id: 'dulces', nombre: 'Dulces', tipo: 'Dulces', emoji: '🍬', foto: '/img/vitrina-dulces.jpg', g: ['#FDEBD2', '#F6C88B'], texto: 'Alfajores, galletas y cupcakes' },
+  { id: 'salados', nombre: 'Salados', tipo: 'Salados', emoji: '🥟', foto: '/img/croissants.jpg', g: ['#F5E9D4', '#E3C48F'], texto: 'Empanadas y quiches caseros' },
+  { id: 'bocaditos', nombre: 'Bocaditos', tipo: 'Bocaditos', emoji: '🥪', foto: '/img/bocaditos-vitrina.jpg', g: ['#EFF0E2', '#CBD1A4'], texto: 'Para compartir en toda reunión' },
+  { id: 'catering', nombre: 'Catering', tipo: 'Catering', emoji: '🎉', foto: '/img/vitrina-pasteleria.jpg', g: ['#FBE5D5', '#F2BA8C'], texto: 'Mesas dulces y eventos' },
 ]
 
 export const testimonios = [
@@ -528,6 +537,7 @@ export const paquetesCatering = [
     id: 'catering-basico',
     nombre: 'Catering básico',
     emoji: '🍩',
+    foto: '/img/mini-tartaletas-fruta.jpg',
     g: ['#FBE9D8', '#F1C393'],
     desde: 350,
     descripcion: 'Ideal para reuniones familiares y cumpleaños pequeños.',
@@ -543,6 +553,7 @@ export const paquetesCatering = [
     id: 'catering-premium',
     nombre: 'Catering premium',
     emoji: '✨',
+    foto: '/img/vitrina-pasteleria.jpg',
     g: ['#F7E0CC', '#EDB483'],
     desde: 690,
     descripcion: 'Para eventos que merecen una mesa inolvidable.',
@@ -559,6 +570,7 @@ export const paquetesCatering = [
     id: 'catering-corporativo',
     nombre: 'Catering corporativo',
     emoji: '💼',
+    foto: '/img/vitrina-dulces.jpg',
     g: ['#EDE8E0', '#CDBFA9'],
     desde: 450,
     descripcion: 'Coffee breaks y celebraciones de oficina impecables.',
@@ -574,6 +586,7 @@ export const paquetesCatering = [
     id: 'mesa-dulce-personalizada',
     nombre: 'Mesa dulce personalizada',
     emoji: '🎀',
+    foto: '/img/macarons-artesanales.jpg',
     g: ['#FADFE3', '#EFACB9'],
     desde: 500,
     descripcion: 'Diseñamos la mesa dulce de tus sueños, a tu medida.',
