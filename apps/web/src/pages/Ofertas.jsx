@@ -1,8 +1,9 @@
 import { Flame } from 'lucide-react'
-import { ofertas } from '../data/mock'
+import { useCatalogo } from '../context/CatalogContext'
 import OfferCard from '../components/OfferCard'
 
 export default function Ofertas() {
+  const { ofertas } = useCatalogo()
   return (
     <div>
       {/* Banner superior */}

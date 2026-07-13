@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ShoppingBag, Eye } from 'lucide-react'
 import { useCart } from '../context/CartContext'
-import { descuentoDe, formatoPrecio } from '../data/mock'
+import { descuentoDe, formatoPrecio } from '../utils/formato'
 import ProductImage from './ProductImage'
 import Badge from './Badge'
 import Button from './Button'

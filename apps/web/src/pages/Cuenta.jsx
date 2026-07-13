@@ -1,9 +1,36 @@
+import { useEffect, useState } from 'react'
 import { Link, NavLink, useParams } from 'react-router-dom'
-import { ChevronRight, LogOut, MapPin, Package, User } from 'lucide-react'
-import { pedidosSimulados, coloresEstado, formatoPrecio } from '../data/mock'
-import { useCart } from '../context/CartContext'
+import { ChevronRight, LogOut, Package, User } from 'lucide-react'
+import { formatoPrecio } from '../utils/formato'
+import { coloresEstado } from '../utils/estadoPedido'
+import { api } from '../api/client'
 import Button from '../components/Button'
-import Badge from '../components/Badge'
+
+// Los pedidos ahora vienen de la API (Postgres). La sesión sigue siendo
+// simulada: sin auth real hasta la fase del dashboard, se listan los últimos
+// pedidos del tenant.
+
+const formatoFecha = (iso) =>
+  new Date(iso).toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' })
+
+const textoEntrega = (pedido) =>
+  pedido.tipoEntrega === 'delivery'
+    ? `Delivery — ${pedido.distrito ?? ''}`
+    : 'Recojo en tienda'
+
+function usePedidos() {
+  const [pedidos, setPedidos] = useState([])
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState(null)
+  useEffect(() => {
+    api
+      .getPedidos({ limite: 20 })
+      .then(setPedidos)
+      .catch(setError)
+      .finally(() => setCargando(false))
+  }, [])
+  return { pedidos, cargando, error }
+}
 
 function MarcoCuenta({ titulo, children }) {
   const enlaces = [
@@ -53,13 +80,23 @@ function MarcoCuenta({ titulo, children }) {
   )
 }
 
+function CargandoPedidos() {
+  return (
+    <div className="rounded-3xl border border-dashed border-borde bg-white/60 py-16 text-center">
+      <span className="anim-float inline-block text-5xl">🧁</span>
+      <p className="mt-4 text-gris">Cargando tus pedidos…</p>
+    </div>
+  )
+}
+
 export function MiCuenta() {
+  const { pedidos, cargando } = usePedidos()
   return (
     <MarcoCuenta titulo="Mi cuenta">
       <div className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-3">
           {[
-            ['🧾', 'Pedidos realizados', pedidosSimulados.length],
+            ['🧾', 'Pedidos realizados', cargando ? '…' : pedidos.length],
             ['🧡', 'Producto favorito', 'Torta de chocolate'],
             ['⭐', 'Puntos Bake Club', '340 pts'],
           ].map(([emoji, titulo, valor]) => (
@@ -102,42 +139,70 @@ export function MiCuenta() {
 }
 
 export function MisPedidos() {
+  const { pedidos, cargando } = usePedidos()
   return (
     <MarcoCuenta titulo="Mis pedidos">
-      <div className="space-y-4">
-        {pedidosSimulados.map((pedido) => (
-          <Link
-            key={pedido.id}
-            to={`/cuenta/pedidos/${pedido.id}`}
-            className="group flex flex-wrap items-center gap-4 rounded-3xl border border-borde/60 bg-white p-5 transition-all hover:-translate-y-0.5 hover:border-acento/40 hover:shadow-lg hover:shadow-tinta/5"
-          >
-            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-hueso text-2xl ring-1 ring-borde/60">
-              {pedido.items[0].emoji}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="flex flex-wrap items-center gap-2">
-                <span className="font-display font-semibold">Pedido {pedido.id}</span>
-                <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${coloresEstado[pedido.estado]}`}>
-                  {pedido.estado}
+      {cargando ? (
+        <CargandoPedidos />
+      ) : pedidos.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-borde bg-white/60 py-16 text-center">
+          <span className="text-5xl">🧾</span>
+          <p className="mt-4 text-gris">Aún no tienes pedidos registrados.</p>
+          <Button className="mt-5" to="/catalogo">Hacer mi primer pedido</Button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {pedidos.map((pedido) => (
+            <Link
+              key={pedido.numero}
+              to={`/cuenta/pedidos/${pedido.numero}`}
+              className="group flex flex-wrap items-center gap-4 rounded-3xl border border-borde/60 bg-white p-5 transition-all hover:-translate-y-0.5 hover:border-acento/40 hover:shadow-lg hover:shadow-tinta/5"
+            >
+              <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-hueso text-2xl ring-1 ring-borde/60">
+                {pedido.items[0]?.emoji ?? '🧁'}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="font-display font-semibold">Pedido {pedido.numero}</span>
+                  <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${coloresEstado[pedido.estadoLegible] ?? 'bg-hueso text-tinta'}`}>
+                    {pedido.estadoLegible}
+                  </span>
+                </span>
+                <span className="mt-0.5 block truncate text-xs text-gris">
+                  {formatoFecha(pedido.creadoEn)} · {textoEntrega(pedido)} · {pedido.items.length}{' '}
+                  {pedido.items.length === 1 ? 'producto' : 'productos'}
                 </span>
               </span>
-              <span className="mt-0.5 block truncate text-xs text-gris">
-                {pedido.fecha} · {pedido.entrega} · {pedido.items.length}{' '}
-                {pedido.items.length === 1 ? 'producto' : 'productos'}
-              </span>
-            </span>
-            <span className="font-extrabold">{formatoPrecio(pedido.total)}</span>
-            <ChevronRight size={18} className="text-gris transition-transform group-hover:translate-x-1 group-hover:text-acento" />
-          </Link>
-        ))}
-      </div>
+              <span className="font-extrabold">{formatoPrecio(pedido.total)}</span>
+              <ChevronRight size={18} className="text-gris transition-transform group-hover:translate-x-1 group-hover:text-acento" />
+            </Link>
+          ))}
+        </div>
+      )}
     </MarcoCuenta>
   )
 }
 
 export function PedidoDetalle() {
   const { id } = useParams()
-  const pedido = pedidosSimulados.find((p) => p.id === id)
+  const [pedido, setPedido] = useState(null)
+  const [cargando, setCargando] = useState(true)
+
+  useEffect(() => {
+    api
+      .getPedido(id)
+      .then(setPedido)
+      .catch(() => setPedido(null))
+      .finally(() => setCargando(false))
+  }, [id])
+
+  if (cargando) {
+    return (
+      <MarcoCuenta titulo={`Pedido ${id}`}>
+        <CargandoPedidos />
+      </MarcoCuenta>
+    )
+  }
 
   if (!pedido) {
     return (
@@ -151,18 +216,26 @@ export function PedidoDetalle() {
     )
   }
 
-  const estados = ['Pendiente', 'Confirmado', 'En preparación', 'Listo para recoger', 'Entregado']
-  const indiceEstado = estados.indexOf(pedido.estado)
+  // Línea de tiempo según la máquina de estados real (el último paso depende
+  // del tipo de entrega).
+  const estados = [
+    'Confirmado',
+    'En preparación',
+    pedido.tipoEntrega === 'tienda' ? 'Listo para recoger' : 'En camino',
+    'Entregado',
+  ]
+  const indiceEstado =
+    pedido.estadoLegible === 'Cancelado' ? -1 : estados.indexOf(pedido.estadoLegible)
 
   return (
-    <MarcoCuenta titulo={`Pedido ${pedido.id}`}>
+    <MarcoCuenta titulo={`Pedido ${pedido.numero}`}>
       <div className="space-y-5">
         {/* Línea de tiempo del estado */}
         <div className="rounded-3xl border border-borde/60 bg-white p-6">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-display text-xl font-semibold">Estado del pedido</h2>
-            <span className={`rounded-full px-3 py-1 text-xs font-bold ${coloresEstado[pedido.estado]}`}>
-              {pedido.estado}
+            <span className={`rounded-full px-3 py-1 text-xs font-bold ${coloresEstado[pedido.estadoLegible] ?? 'bg-hueso text-tinta'}`}>
+              {pedido.estadoLegible}
             </span>
           </div>
           <ol className="space-y-0">
@@ -198,9 +271,16 @@ export function PedidoDetalle() {
             {pedido.items.map((item, i) => (
               <li key={i} className="flex items-center gap-3 py-3">
                 <span className="grid h-11 w-11 place-items-center rounded-xl bg-hueso text-xl ring-1 ring-borde/60">
-                  {item.emoji}
+                  {item.emoji ?? '🧁'}
                 </span>
-                <span className="flex-1 text-sm font-semibold">{item.nombre}</span>
+                <span className="flex-1 text-sm font-semibold">
+                  {item.nombre}
+                  {(item.tamano || item.extras?.length > 0) && (
+                    <span className="block text-xs font-normal text-gris">
+                      {[item.tamano, ...(item.extras || [])].filter(Boolean).join(' · ')}
+                    </span>
+                  )}
+                </span>
                 <span className="text-xs text-gris">x{item.cantidad}</span>
                 <span className="font-bold">{formatoPrecio(item.precio)}</span>
               </li>
@@ -208,8 +288,8 @@ export function PedidoDetalle() {
           </ul>
           <div className="mt-4 flex items-center justify-between border-t border-borde pt-4">
             <div className="text-sm text-gris">
-              <p>{pedido.fecha}</p>
-              <p>{pedido.entrega}</p>
+              <p>Entrega: {pedido.fechaEntrega} · {pedido.horario}</p>
+              <p>{textoEntrega(pedido)}</p>
             </div>
             <p className="text-xl font-extrabold text-acento-oscuro">{formatoPrecio(pedido.total)}</p>
           </div>

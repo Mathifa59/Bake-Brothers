@@ -1,4 +1,5 @@
 import { createContext, useContext, useMemo, useState } from 'react'
+import { calcularPrecioLinea, calcularTotales } from '@bakebrothers/domain'
 
 const CartContext = createContext(null)
 
@@ -43,25 +44,22 @@ export function CartProvider({ children }) {
     setCupon(null)
   }
 
-  const precioLinea = (item) => {
-    let precio = item.producto.precio
-    if (item.tamano === 'Mediano') precio = Math.round(precio * 1.35)
-    if (item.tamano === 'Grande') precio = Math.round(precio * 1.7)
-    precio += (item.extras?.length || 0) * 8
-    return precio
-  }
+  // El cálculo de precios vive en @bakebrothers/domain — única fuente de verdad.
+  const precioLinea = (item) =>
+    calcularPrecioLinea({
+      precioBase: item.producto.precio,
+      tamano: item.tamano,
+      cantidadExtras: item.extras?.length || 0,
+    })
 
-  const totales = useMemo(() => {
-    const subtotal = items.reduce((acc, i) => acc + precioLinea(i) * i.cantidad, 0)
-    const descuentoCupon = cupon ? Math.round(subtotal * 0.1 * 100) / 100 : 0
-    const delivery = items.length > 0 ? (subtotal - descuentoCupon >= 150 ? 0 : 12) : 0
-    return {
-      subtotal,
-      descuentoCupon,
-      delivery,
-      total: Math.max(0, subtotal - descuentoCupon + delivery),
-    }
-  }, [items, cupon])
+  const totales = useMemo(
+    () =>
+      calcularTotales({
+        lineas: items.map((i) => ({ precioLinea: precioLinea(i), cantidad: i.cantidad })),
+        cupon: cupon ? { tipo: 'porcentaje', valor: 10 } : null,
+      }),
+    [items, cupon]
+  )
 
   const cantidadTotal = items.reduce((acc, i) => acc + i.cantidad, 0)
 

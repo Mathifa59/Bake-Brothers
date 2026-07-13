@@ -1,13 +1,8 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight, Star, Sparkles } from 'lucide-react'
-import {
-  ofertas,
-  categorias,
-  destacados,
-  testimonios,
-  productos,
-  formatoPrecio,
-} from '../data/mock'
+import { testimonios } from '../data/mock'
+import { formatoPrecio } from '../utils/formato'
+import { useCatalogo } from '../context/CatalogContext'
 import Button from '../components/Button'
 import SectionTitle from '../components/SectionTitle'
 import OfferCard from '../components/OfferCard'
@@ -31,6 +26,7 @@ const frasesTicker = [
 ]
 
 export default function Home() {
+  const { productos, ofertas, categorias, destacados } = useCatalogo()
   // Productos con fotografía para la composición del hero
   const heroDestacados = [
     productos.find((p) => p.id === 'torta-chocolate'),

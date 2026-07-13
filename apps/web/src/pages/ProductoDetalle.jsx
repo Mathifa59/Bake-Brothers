@@ -4,7 +4,10 @@ import {
   ChevronRight, Minus, Plus, ShoppingBag, MessageCircle,
   Clock, Snowflake, Users, Check,
 } from 'lucide-react'
-import { productos, descuentoDe, formatoPrecio } from '../data/mock'
+import { precioPorTamano, calcularPrecioLinea } from '@bakebrothers/domain'
+import { extrasDisponibles } from '../data/mock'
+import { descuentoDe, formatoPrecio } from '../utils/formato'
+import { useCatalogo } from '../context/CatalogContext'
 import { useCart } from '../context/CartContext'
 import ProductImage from '../components/ProductImage'
 import Badge from '../components/Badge'
@@ -12,14 +15,9 @@ import Button from '../components/Button'
 import ProductGrid from '../components/ProductGrid'
 import SectionTitle from '../components/SectionTitle'
 
-const extrasDisponibles = [
-  { id: 'Dedicatoria', texto: 'Dedicatoria personalizada', precio: 8 },
-  { id: 'Vela', texto: 'Vela de celebración', precio: 8 },
-  { id: 'Decoración especial', texto: 'Decoración especial', precio: 8 },
-]
-
 export default function ProductoDetalle() {
   const { id } = useParams()
+  const { productos } = useCatalogo()
   const producto = productos.find((p) => p.id === id)
   const { agregarItem } = useCart()
 
@@ -46,9 +44,12 @@ export default function ProductoDetalle() {
   }
 
   const desc = descuentoDe(producto)
-  const factorTamano = producto.tamanos && tamano === 'Mediano' ? 1.35 : producto.tamanos && tamano === 'Grande' ? 1.7 : 1
-  const precioBase = Math.round(producto.precio * factorTamano)
-  const precioFinal = precioBase + extras.length * 8
+  // El cálculo de precios vive en @bakebrothers/domain — única fuente de verdad.
+  const precioFinal = calcularPrecioLinea({
+    precioBase: producto.precio,
+    tamano: producto.tamanos ? tamano : null,
+    cantidadExtras: extras.length,
+  })
 
   const alternarExtra = (extraId) =>
     setExtras((prev) =>
@@ -143,7 +144,7 @@ export default function ProductoDetalle() {
                   >
                     {t}
                     <span className="block text-[11px] font-semibold opacity-70">
-                      {formatoPrecio(Math.round(producto.precio * (t === 'Mediano' ? 1.35 : t === 'Grande' ? 1.7 : 1)))}
+                      {formatoPrecio(precioPorTamano(producto.precio, t))}
                     </span>
                   </button>
                 ))}

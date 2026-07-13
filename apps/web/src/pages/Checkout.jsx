@@ -2,7 +2,10 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Check, Store, Truck, PartyPopper } from 'lucide-react'
 import { useCart } from '../context/CartContext'
-import { distritos, formatoPrecio } from '../data/mock'
+import { useCatalogo } from '../context/CatalogContext'
+import { extrasDisponibles } from '../data/mock'
+import { formatoPrecio } from '../utils/formato'
+import { api } from '../api/client'
 import CheckoutSteps from '../components/CheckoutSteps'
 import Button from '../components/Button'
 import Input from '../components/Input'
@@ -26,11 +29,32 @@ const rangosHorarios = [
   '6:00 pm – 8:00 pm',
 ]
 
+// El id de extra que guarda el carrito ('Dedicatoria') se traduce al slug de la BD.
+const slugDeExtra = (idExtra) =>
+  extrasDisponibles.find((e) => e.id === idExtra)?.slug ?? idExtra
+
+const hoyISO = () => {
+  const hoy = new Date()
+  return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`
+}
+
+const mensajesError = {
+  ANTICIPACION_INSUFICIENTE:
+    'La fecha elegida no respeta la anticipación mínima de uno de tus productos (las tortas necesitan 48 h). Elige una fecha más adelante.',
+  SIN_CUPO_DISPONIBLE:
+    'Ese día ya no tenemos cupo de producción disponible para uno de tus productos. Elige otra fecha.',
+  CUPON_INVALIDO: 'El cupón aplicado ya no es válido.',
+  ZONA_NO_CUBIERTA: 'Aún no hacemos delivery a ese distrito.',
+  PRODUCTO_NO_DISPONIBLE: 'Uno de los productos de tu carrito ya no está disponible.',
+}
+
 export default function Checkout() {
   const { items, totales, vaciarCarrito, precioLinea, setUltimoPedido, cupon } = useCart()
+  const { distritos } = useCatalogo()
   const navigate = useNavigate()
   const [paso, setPaso] = useState(0)
   const [confirmado, setConfirmado] = useState(false)
+  const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState('')
 
   const [datos, setDatos] = useState({
@@ -76,23 +100,63 @@ export default function Checkout() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const confirmarPedido = () => {
-    const numero = `BB-${Math.floor(2450 + Math.random() * 500)}`
-    setUltimoPedido({
-      numero,
-      datos,
-      items: items.map((i) => ({
-        nombre: i.producto.nombre,
-        cantidad: i.cantidad,
-        precio: precioLinea(i),
-        emoji: i.producto.emoji,
-        detalle: [i.tamano, ...(i.extras || [])].filter(Boolean).join(' · '),
-      })),
-      totales,
-    })
-    setConfirmado(true)
-    vaciarCarrito()
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+  // El pedido se crea en el servidor: la API recalcula precios con
+  // @bakebrothers/domain y valida anticipación, cupo, zona y cupón.
+  const confirmarPedido = async () => {
+    setEnviando(true)
+    setError('')
+    try {
+      const respuesta = await api.crearPedido({
+        cliente: {
+          nombre: datos.nombre,
+          telefono: datos.telefono,
+          correo: datos.correo || null,
+          dni: datos.dni || null,
+        },
+        tipoEntrega: datos.tipoEntrega === 'tienda' ? 'tienda' : 'delivery',
+        direccion: datos.direccion || null,
+        distrito: datos.tipoEntrega === 'delivery' ? datos.distrito : null,
+        referencia: datos.referencia || null,
+        fechaEntrega: datos.fecha,
+        horario: datos.horario,
+        nota: datos.nota || null,
+        metodoPago: datos.pago,
+        cuponCodigo: cupon?.codigo || null,
+        items: items.map((i) => ({
+          productoId: i.producto.id,
+          tamano: i.tamano || null,
+          extras: (i.extras || []).map(slugDeExtra),
+          cantidad: i.cantidad,
+        })),
+      })
+      setUltimoPedido({
+        numero: respuesta.numero,
+        datos,
+        items: items.map((i) => ({
+          nombre: i.producto.nombre,
+          cantidad: i.cantidad,
+          precio: precioLinea(i),
+          emoji: i.producto.emoji,
+          detalle: [i.tamano, ...(i.extras || [])].filter(Boolean).join(' · '),
+        })),
+        totales: {
+          subtotal: respuesta.subtotal,
+          descuentoCupon: respuesta.descuentoCupon,
+          delivery: respuesta.delivery,
+          total: respuesta.total,
+        },
+      })
+      setConfirmado(true)
+      vaciarCarrito()
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch (e) {
+      setError(
+        mensajesError[e.cuerpo?.error] ||
+          'No pudimos registrar tu pedido. Verifica tu conexión e inténtalo de nuevo.'
+      )
+    } finally {
+      setEnviando(false)
+    }
   }
 
   // ——— Pantalla de éxito ———
@@ -180,7 +244,7 @@ export default function Checkout() {
           <div className="anim-fade-in space-y-4">
             <h2 className="font-display text-2xl font-semibold">Fecha y hora</h2>
             <div className="grid gap-4 sm:grid-cols-2">
-              <DatePicker label="Fecha de entrega *" min="2026-07-09" value={datos.fecha} onChange={set('fecha')} />
+              <DatePicker label="Fecha de entrega *" min={hoyISO()} value={datos.fecha} onChange={set('fecha')} />
               <Input label="Rango horario" opciones={rangosHorarios} value={datos.horario} onChange={set('horario')} />
             </div>
             <Input
@@ -317,8 +381,8 @@ export default function Checkout() {
               Continuar <ArrowRight size={16} />
             </Button>
           ) : (
-            <Button tamano="lg" onClick={confirmarPedido}>
-              Confirmar pedido <Check size={17} />
+            <Button tamano="lg" onClick={confirmarPedido} disabled={enviando}>
+              {enviando ? 'Registrando pedido…' : 'Confirmar pedido'} <Check size={17} />
             </Button>
           )}
         </div>

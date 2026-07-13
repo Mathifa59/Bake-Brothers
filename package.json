@@ -1,0 +1,11 @@
+{
+  "name": "bake-brothers-monorepo",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev": "pnpm --filter @bakebrothers/web dev",
+    "dev:api": "pnpm --filter @bakebrothers/api dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test"
+  }
+}

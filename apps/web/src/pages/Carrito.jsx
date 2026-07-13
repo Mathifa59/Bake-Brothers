@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ArrowRight, Ticket, Truck, X } from 'lucide-react'
 import { useCart } from '../context/CartContext'
-import { formatoPrecio } from '../data/mock'
+import { formatoPrecio } from '../utils/formato'
 import CartItem from '../components/CartItem'
 import Button from '../components/Button'
 import SectionTitle from '../components/SectionTitle'

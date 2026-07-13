@@ -489,6 +489,14 @@ export const productos = [
   },
 ]
 
+// Extras disponibles para todo producto (antes vivían dentro de ProductoDetalle.jsx).
+// `id` es el valor que guarda el carrito; `slug` es el identificador para la BD.
+export const extrasDisponibles = [
+  { id: 'Dedicatoria', slug: 'dedicatoria', texto: 'Dedicatoria personalizada', precio: 8 },
+  { id: 'Vela', slug: 'vela', texto: 'Vela de celebración', precio: 8 },
+  { id: 'Decoración especial', slug: 'decoracion-especial', texto: 'Decoración especial', precio: 8 },
+]
+
 export const descuentoDe = (p) =>
   p.precioAnterior ? Math.round((1 - p.precio / p.precioAnterior) * 100) : 0
 

@@ -1,7 +1,7 @@
 import { X, ShoppingBag, ArrowRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
-import { formatoPrecio } from '../data/mock'
+import { formatoPrecio } from '../utils/formato'
 import CartItem from './CartItem'
 import Button from './Button'
 

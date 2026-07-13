@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Check, PartyPopper } from 'lucide-react'
-import { paquetesCatering, formatoPrecio } from '../data/mock'
+import { paquetesCatering } from '../data/mock'
+import { formatoPrecio } from '../utils/formato'
 import SectionTitle from '../components/SectionTitle'
 import Button from '../components/Button'
 import Input from '../components/Input'

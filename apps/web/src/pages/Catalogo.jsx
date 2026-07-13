@@ -1,7 +1,8 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Search, SlidersHorizontal, X } from 'lucide-react'
-import { productos, descuentoDe } from '../data/mock'
+import { descuentoDe } from '../utils/formato'
+import { useCatalogo } from '../context/CatalogContext'
 import ProductGrid from '../components/ProductGrid'
 import SectionTitle from '../components/SectionTitle'
 import Badge from '../components/Badge'
@@ -22,6 +23,7 @@ const ordenamientos = [
 ]
 
 export default function Catalogo() {
+  const { productos } = useCatalogo()
   const [searchParams, setSearchParams] = useSearchParams()
   const [busqueda, setBusqueda] = useState('')
   const [tipo, setTipo] = useState('Todos')

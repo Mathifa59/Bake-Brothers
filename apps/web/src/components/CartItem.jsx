@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Minus, Plus, Trash2 } from 'lucide-react'
 import { useCart } from '../context/CartContext'
-import { formatoPrecio } from '../data/mock'
+import { formatoPrecio } from '../utils/formato'
 import ProductImage from './ProductImage'
 
 export default function CartItem({ item, compacto = false }) {

@@ -1,0 +1,26 @@
+{
+  "name": "@bakebrothers/domain",
+  "version": "0.1.0",
+  "description": "Lógica de negocio pura de la plataforma (precios, anticipación, capacidad, estados). Sin I/O. Única fuente de verdad: el front, el bot y el dashboard la importan.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
