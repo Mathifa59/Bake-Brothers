@@ -38,6 +38,8 @@ const hoyISO = () => {
   return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`
 }
 
+const emailValido = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())
+
 const mensajesError = {
   ANTICIPACION_INSUFICIENTE:
     'La fecha elegida no respeta la anticipación mínima de uno de tus productos (las tortas necesitan 48 h). Elige una fecha más adelante.',
@@ -46,6 +48,7 @@ const mensajesError = {
   CUPON_INVALIDO: 'El cupón aplicado ya no es válido.',
   ZONA_NO_CUBIERTA: 'Aún no hacemos delivery a ese distrito.',
   PRODUCTO_NO_DISPONIBLE: 'Uno de los productos de tu carrito ya no está disponible.',
+  DIRECCION_REQUERIDA: 'Ingresa la dirección de entrega.',
 }
 
 export default function Checkout() {
@@ -84,6 +87,8 @@ export default function Checkout() {
     if (paso === 0) {
       if (!datos.nombre.trim() || !datos.telefono.trim() || !datos.correo.trim())
         return 'Completa tu nombre, teléfono y correo para continuar.'
+      if (datos.telefono.trim().length < 6) return 'Ingresa un teléfono válido (mínimo 6 dígitos).'
+      if (!emailValido(datos.correo)) return 'Ingresa un correo electrónico válido.'
     }
     if (paso === 1 && datos.tipoEntrega === 'delivery') {
       if (!datos.direccion.trim()) return 'Ingresa la dirección de entrega.'
@@ -150,10 +155,19 @@ export default function Checkout() {
       vaciarCarrito()
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (e) {
-      setError(
-        mensajesError[e.cuerpo?.error] ||
-          'No pudimos registrar tu pedido. Verifica tu conexión e inténtalo de nuevo.'
-      )
+      if (e.cuerpo?.error === 'VALIDACION') {
+        setError(
+          `Revisa estos datos: ${e.cuerpo.detalles.map((d) => d.mensaje).join(' · ')}`
+        )
+      } else if (e.status === undefined) {
+        // fetch nunca llegó al servidor: sí es un problema real de conexión
+        setError('No pudimos conectar con el servidor. Verifica tu conexión e inténtalo de nuevo.')
+      } else {
+        setError(
+          mensajesError[e.cuerpo?.error] ||
+            'No pudimos registrar tu pedido. Inténtalo de nuevo en unos segundos.'
+        )
+      }
     } finally {
       setEnviando(false)
     }
