@@ -15,11 +15,11 @@ import Badge from '../components/Badge'
 const pasos = ['Datos', 'Entrega', 'Fecha', 'Pago', 'Confirmar']
 
 const metodosPago = [
-  { id: 'yape', nombre: 'Yape', icono: '📱', detalle: 'Te enviaremos el QR al confirmar' },
-  { id: 'plin', nombre: 'Plin', icono: '💠', detalle: 'Te enviaremos el QR al confirmar' },
-  { id: 'transferencia', nombre: 'Transferencia bancaria', icono: '🏦', detalle: 'BCP, Interbank o BBVA' },
-  { id: 'tarjeta', nombre: 'Tarjeta de crédito / débito', icono: '💳', detalle: 'Visa, Mastercard, Amex' },
-  { id: 'contraentrega', nombre: 'Pago contra entrega', icono: '💵', detalle: 'Efectivo o Yape al recibir' },
+  { id: 'yape', nombre: 'Yape', detalle: 'Te enviaremos el QR al confirmar', marcas: ['Yape'] },
+  { id: 'plin', nombre: 'Plin', detalle: 'Te enviaremos el QR al confirmar', marcas: ['Plin'] },
+  { id: 'transferencia', nombre: 'Transferencia bancaria', detalle: 'Depósito o transferencia directa', marcas: ['BCP', 'Interbank', 'BBVA'] },
+  { id: 'tarjeta', nombre: 'Tarjeta de crédito o débito', detalle: 'En una sola cuota', marcas: ['Visa', 'Mastercard', 'Amex'] },
+  { id: 'contraentrega', nombre: 'Pago contra entrega', detalle: 'Efectivo o Yape al recibir', marcas: [] },
 ]
 
 const rangosHorarios = [
@@ -263,35 +263,45 @@ export default function Checkout() {
         {/* PASO 4 — Método de pago */}
         {paso === 3 && (
           <div className="anim-fade-in space-y-4">
-            <h2 className="font-display text-2xl font-semibold">Método de pago</h2>
-            <div className="space-y-2.5">
-              {metodosPago.map((m) => (
-                <button
+            <h2 className="font-display text-2xl font-semibold">Elige un medio de pago</h2>
+            <div className="overflow-hidden rounded-xl border border-borde">
+              {metodosPago.map((m, i) => (
+                <label
                   key={m.id}
-                  onClick={() => setDatos((d) => ({ ...d, pago: m.id }))}
-                  className={`flex w-full items-center gap-4 rounded-2xl border-2 px-5 py-4 text-left transition-all cursor-pointer ${
-                    datos.pago === m.id
-                      ? 'border-acento bg-acento-suave'
-                      : 'border-borde bg-white hover:border-acento/40'
-                  }`}
+                  htmlFor={`pago-${m.id}`}
+                  className={`flex cursor-pointer items-start gap-3.5 px-4 py-3.5 transition-colors ${
+                    i > 0 ? 'border-t border-borde' : ''
+                  } ${datos.pago === m.id ? 'bg-hueso' : 'bg-white hover:bg-hueso/60'}`}
                 >
-                  <span className="text-2xl">{m.icono}</span>
-                  <span className="flex-1">
-                    <span className="block font-bold">{m.nombre}</span>
+                  <input
+                    id={`pago-${m.id}`}
+                    type="radio"
+                    name="pago"
+                    checked={datos.pago === m.id}
+                    onChange={() => setDatos((d) => ({ ...d, pago: m.id }))}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-tinta"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-tinta">{m.nombre}</span>
                     <span className="block text-xs text-gris">{m.detalle}</span>
+                    {m.marcas.length > 0 && (
+                      <span className="mt-1.5 flex flex-wrap gap-1.5">
+                        {m.marcas.map((marca) => (
+                          <span
+                            key={marca}
+                            className="rounded border border-borde bg-white px-1.5 py-[1px] text-[10px] font-bold uppercase tracking-wide text-gris"
+                          >
+                            {marca}
+                          </span>
+                        ))}
+                      </span>
+                    )}
                   </span>
-                  <span
-                    className={`grid h-5 w-5 place-items-center rounded-full ${
-                      datos.pago === m.id ? 'bg-acento text-white' : 'border-2 border-borde'
-                    }`}
-                  >
-                    {datos.pago === m.id && <Check size={12} strokeWidth={3} />}
-                  </span>
-                </button>
+                </label>
               ))}
             </div>
             <p className="text-xs text-gris">
-              💡 Esta tienda es una demostración: no se procesará ningún pago real.
+              Esta tienda es una demostración: no se procesará ningún pago real.
             </p>
           </div>
         )}

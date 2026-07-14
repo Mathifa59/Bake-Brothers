@@ -1,0 +1,5 @@
+{
+  "buildCommand": "pnpm --filter @bakebrothers/domain build && pnpm --filter @bakebrothers/web build",
+  "installCommand": "pnpm install",
+  "outputDirectory": "apps/web/dist"
+}
