@@ -24,10 +24,22 @@ Tienda web (React) ────────────────────�
 > de estados viven SOLO en `packages/domain`. El front, la API, el bot y el dashboard lo
 > importan. Nunca se duplica esta lógica.**
 
-## 2. Estado actual: FASE 0 COMPLETADA (2026-07-11)
+## 2. Estado actual: FASE 0 completada en código, pero DESACTIVADA en despliegue (2026-08-25)
 
-Monorepo pnpm funcionando de punta a punta: la tienda web lee de Postgres vía la API y los
-pedidos se registran de verdad.
+Monorepo pnpm funcionando de punta a punta en local (la tienda web lee de Postgres vía la API
+y los pedidos se registran de verdad) — pero **`apps/api` nunca se desplegó a internet** y
+`bake-brothers.vercel.app` solo publica `apps/web` (ver `vercel.json`). El sitio en producción
+mostraba pantalla de error porque `apps/web/src/api/client.js` apuntaba por defecto a
+`http://localhost:3001`, inalcanzable para cualquier visitante.
+
+**Arreglo aplicado (2026-08-25):** `apps/web/src/api/client.js` ahora entra en **modo demo**
+automáticamente cuando `VITE_API_URL` no está definida — usa `apps/web/src/api/demoFallback.js`
+(catálogo de `data/mock.js` + pedidos simulados en memoria, con los mismos cálculos de
+`@bakebrothers/domain`) en vez de llamar a la API. Ninguna página cambió: todas siguen usando
+`useCatalogo()` / `api.*` sin saber en qué modo están. Así queda la tienda hoy: **sin backend
+real conectado**, a pedido explícito del usuario. Para volver a Fase 0 real: desplegar
+`apps/api` en algún hosting con proceso persistente (o adaptarlo a función serverless),
+reconectar el proyecto de Supabase (`kxqadxazziybqzqzodrx`) y definir `VITE_API_URL` en Vercel.
 
 ```
 apps/

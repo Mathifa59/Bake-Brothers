@@ -1,7 +1,16 @@
 // Cliente HTTP hacia apps/api. Única puerta de salida a red del front.
+//
+// Modo demo: si VITE_API_URL no está configurada, la tienda funciona
+// enteramente con datos locales (demoFallback.js) — así queda hoy, sin API
+// ni base de datos desplegadas. En cuanto se configure VITE_API_URL (local
+// o en Vercel), este archivo empieza a hablarle a la API real sin que
+// ninguna página tenga que cambiar una sola línea.
+import * as demo from './demoFallback'
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const BASE_URL = import.meta.env.VITE_API_URL
 const TENANT_SLUG = import.meta.env.VITE_TENANT_SLUG || 'bake-brothers'
+
+export const modoDemo = !BASE_URL
 
 async function request(ruta, opciones = {}) {
   const res = await fetch(`${BASE_URL}${ruta}`, {
@@ -22,7 +31,7 @@ async function request(ruta, opciones = {}) {
   return cuerpo
 }
 
-export const api = {
+const apiReal = {
   getProductos: () => request('/api/products'),
   getProducto: (id) => request(`/api/products/${encodeURIComponent(id)}`),
   getCategorias: () => request('/api/categories'),
@@ -37,3 +46,16 @@ export const api = {
   },
   getPedido: (numero) => request(`/api/orders/${encodeURIComponent(numero)}`),
 }
+
+const apiDemo = {
+  getProductos: demo.getProductos,
+  getProducto: demo.getProducto,
+  getCategorias: demo.getCategorias,
+  getDistritos: demo.getDistritos,
+  getDisponibilidad: demo.getDisponibilidad,
+  crearPedido: demo.crearPedido,
+  getPedidos: demo.getPedidos,
+  getPedido: demo.getPedido,
+}
+
+export const api = modoDemo ? apiDemo : apiReal
