@@ -6,17 +6,28 @@ export interface LineaPedido {
 }
 
 /**
- * Precio base ajustado por tamaño, con el mismo redondeo que usaba la UI:
- * Math.round(base × factor). Personal (o producto sin tamaños) = base intacta.
+ * Precio base ajustado por tamaño.
+ *
+ * Si `precioTamano` viene informado (precio real leído de
+ * `product_sizes.precio`, cargado en 0006_catalogo_real.sql), se usa tal
+ * cual — el catálogo real no sigue una relación de factor consistente entre
+ * tamaños. Si no viene (producto legado sin precio explícito por tamaño), se
+ * cae al cálculo por factor: Math.round(base × factor). Personal (o producto
+ * sin tamaños) = base intacta.
  */
-export function precioPorTamano(precioBase: number, tamano?: TamanoId | null): number {
-  const factor = tamano ? (SIZE_FACTORS[tamano] ?? 1) : 1
+export function precioPorTamano(
+  precioBase: number,
+  tamano?: TamanoId | null,
+  precioTamano?: number | null
+): number {
+  if (precioTamano != null) return precioTamano
+  const factor = tamano ? (SIZE_FACTORS[tamano as keyof typeof SIZE_FACTORS] ?? 1) : 1
   return Math.round(precioBase * factor)
 }
 
 /**
- * Precio unitario de una línea de pedido:
- * precio_base × factor_de_tamaño (redondeado) + suma de extras.
+ * Precio unitario de una línea de pedido: precio de tamaño (real o por
+ * factor, ver `precioPorTamano`) + suma de extras.
  *
  * Los extras se expresan como `cantidadExtras` (× precio_extra uniforme, el
  * caso de la UI) o como `preciosExtras` (lista de precios individuales leída
@@ -25,15 +36,23 @@ export function precioPorTamano(precioBase: number, tamano?: TamanoId | null): n
 export function calcularPrecioLinea(params: {
   precioBase: number
   tamano?: TamanoId | null
+  precioTamano?: number | null
   cantidadExtras?: number
   precioExtra?: number
   preciosExtras?: number[]
 }): number {
-  const { precioBase, tamano = null, cantidadExtras = 0, precioExtra = EXTRA_PRICE, preciosExtras } = params
+  const {
+    precioBase,
+    tamano = null,
+    precioTamano = null,
+    cantidadExtras = 0,
+    precioExtra = EXTRA_PRICE,
+    preciosExtras,
+  } = params
   const totalExtras = preciosExtras
     ? preciosExtras.reduce((acc, p) => acc + p, 0)
     : cantidadExtras * precioExtra
-  return precioPorTamano(precioBase, tamano) + totalExtras
+  return precioPorTamano(precioBase, tamano, precioTamano) + totalExtras
 }
 
 export function calcularSubtotal(lineas: LineaPedido[]): number {

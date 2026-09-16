@@ -8,7 +8,13 @@ export const SIZE_FACTORS = {
   Grande: 1.7,
 } as const
 
-export type TamanoId = keyof typeof SIZE_FACTORS
+// Los productos con precio real por tamaño (catálogo cargado en
+// 0006_catalogo_real.sql) no usan este factor — mandan un precio absoluto
+// por tamaño (ver `precioPorTamano`). SIZE_FACTORS queda como fallback para
+// cualquier producto que sí quiera derivar el precio de tamaño por factor.
+// El tamaño ya no es un enum fijo: las etiquetas reales del catálogo son
+// heterogéneas ("Mini 16cm", "Caja x18", "200g", ...).
+export type TamanoId = string
 
 /** Precio por defecto de cada extra (dedicatoria, vela, decoración). */
 export const EXTRA_PRICE = 8

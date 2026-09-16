@@ -52,6 +52,25 @@ describe('precio de línea (tamaño + extras)', () => {
   })
 })
 
+describe('precio de tamaño real (catálogo 0006, sin relación de factor)', () => {
+  it('precioTamano informado gana sobre el cálculo por factor', () => {
+    // Torta de Chocolate con Manjar: precio_base 8.90 (individual), Familiar 24cm 79.90 —
+    // no hay factor consistente entre esos dos valores, por eso el catálogo real
+    // manda el precio absoluto de product_sizes.precio.
+    expect(precioPorTamano(8.9, 'Familiar 24cm', 79.9)).toBe(79.9)
+  })
+
+  it('sin precioTamano, cae al cálculo por factor (compatibilidad con productos legados)', () => {
+    expect(precioPorTamano(BASE, 'Mediano', null)).toBe(Math.round(76 * 1.35))
+  })
+
+  it('calcularPrecioLinea usa precioTamano + extras', () => {
+    expect(
+      calcularPrecioLinea({ precioBase: 8.9, tamano: 'Familiar 24cm', precioTamano: 79.9, cantidadExtras: 1 })
+    ).toBe(87.9)
+  })
+})
+
 describe('subtotal', () => {
   it('suma precio de línea × cantidad', () => {
     expect(

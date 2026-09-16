@@ -90,9 +90,9 @@ export interface ProductoParaPedido {
   nombre: string
   precio_base: string
   disponible: boolean
-  anticipacion_horas: number
+  anticipacion_horas: number | null
   category_id: string | null
-  tamanos_validos: string[]
+  tamanos: { tamano: string; precio: string }[]
 }
 
 /** Extras activos del tenant, indexados por slug (para validar y valorizar pedidos). */
@@ -114,7 +114,10 @@ export async function productosParaPedido(
 ): Promise<ProductoParaPedido[]> {
   const { rows } = await client.query(
     `select p.id, p.slug, p.nombre, p.precio_base, p.disponible, p.anticipacion_horas, p.category_id,
-            coalesce(array_agg(ps.tamano) filter (where ps.tamano is not null), '{}') as tamanos_validos
+            coalesce(
+              jsonb_agg(jsonb_build_object('tamano', ps.tamano, 'precio', ps.precio)) filter (where ps.tamano is not null),
+              '[]'
+            ) as tamanos
      from products p
      left join product_sizes ps on ps.product_id = p.id
      where p.tenant_id = $1 and p.slug = any($2)

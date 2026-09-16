@@ -8,7 +8,6 @@ import {
   cupoRestante,
   esEstadoPedido,
   puedeTransicionar,
-  type TamanoId,
 } from '@bakebrothers/domain'
 import { env } from '../env.js'
 import { withTenantTx, tenantPorSlug } from '../db.js'
@@ -49,7 +48,10 @@ const crearPedidoSchema = z.object({
     .array(
       z.object({
         productoId: z.string().min(1),
-        tamano: z.enum(['Personal', 'Mediano', 'Grande']).nullish(),
+        // Las etiquetas de tamaño del catálogo real son texto libre por
+        // producto ("Mini 16cm", "Caja x18", "200g", ...) — se validan contra
+        // los tamaños reales del producto (product.tamanos), no un enum fijo.
+        tamano: z.string().trim().min(1).nullish(),
         extras: z.array(z.string()).default([]),
         cantidad: z.number().int().positive().max(999),
       })
@@ -89,11 +91,11 @@ export function ordersRoutes(app: FastifyInstance) {
       const catalogoExtras = await extrasActivos(client, req.tenantId)
       for (const item of body.items) {
         const producto = porSlug.get(item.productoId)!
-        const aceptaTamanos = producto.tamanos_validos.length > 0
+        const aceptaTamanos = producto.tamanos.length > 0
         if (item.tamano && !aceptaTamanos) {
           return reply.code(400).send({ error: 'TAMANO_NO_APLICA', producto: item.productoId })
         }
-        if (item.tamano && aceptaTamanos && !producto.tamanos_validos.includes(item.tamano)) {
+        if (item.tamano && aceptaTamanos && !producto.tamanos.some((t) => t.tamano === item.tamano)) {
           return reply.code(400).send({ error: 'TAMANO_INVALIDO', producto: item.productoId })
         }
         const extrasInvalidos = item.extras.filter((e) => !catalogoExtras.has(e))
@@ -103,14 +105,19 @@ export function ordersRoutes(app: FastifyInstance) {
       }
 
       // 3. Anticipación mínima por producto (criterio: torta a 12h → 422)
+      // Catálogo real (0006): la mayoría de productos de tienda no tiene
+      // anticipación mínima documentada por la fuente (solo catering la
+      // especifica, y es un modelo aparte) — null se trata como "sin mínimo
+      // conocido", no como 0 horas prometidas.
       const violaciones = body.items
         .map((item) => {
           const producto = porSlug.get(item.productoId)!
+          const anticipacionHorasMinima = producto.anticipacion_horas ?? 0
           const cumple = cumpleAnticipacionMinima({
             fechaEntregaISO: body.fechaEntrega,
-            anticipacionHorasMinima: producto.anticipacion_horas,
+            anticipacionHorasMinima,
           })
-          return cumple ? null : { productoId: producto.slug, horasMinimas: producto.anticipacion_horas }
+          return cumple ? null : { productoId: producto.slug, horasMinimas: anticipacionHorasMinima }
         })
         .filter(Boolean)
       if (violaciones.length > 0) {
@@ -151,9 +158,13 @@ export function ordersRoutes(app: FastifyInstance) {
       // precio fijo, que se gestionan desde el dashboard en Semana 3).
       const itemsValorizados: OrderItemInsert[] = body.items.map((item) => {
         const producto = porSlug.get(item.productoId)!
+        const tamanoSeleccionado = item.tamano
+          ? producto.tamanos.find((t) => t.tamano === item.tamano)
+          : undefined
         const precioUnitario = calcularPrecioLinea({
           precioBase: Number(producto.precio_base),
-          tamano: (item.tamano ?? null) as TamanoId | null,
+          tamano: item.tamano ?? null,
+          precioTamano: tamanoSeleccionado ? Number(tamanoSeleccionado.precio) : null,
           preciosExtras: item.extras.map((e) => catalogoExtras.get(e)!.precio),
         })
         return {
