@@ -52,9 +52,11 @@ apps/
 ├── api/        Fastify + zod + pg (TypeScript, ESM) — SIN desplegar a internet
 │   ├── migrations/            0001 esquema+RLS · 0002 seed · 0003 orden ·
 │   │                          0004 rediseno_alcance (sedes/stock/combos/reglas_catering/
-│   │                          usuarios_dashboard, fin de RLS multi-tenant)
+│   │                          usuarios_dashboard, fin de RLS multi-tenant) ·
+│   │                          0005 retira delivery_zones (huérfana)
 │   └── src/                   env · db · repositories · routes (orders.ts ajustado:
-│                              sin cupón, delivery ya no se calcula solo)
+│                              sin cupón, delivery ya no se calcula solo;
+│                              deliveryZonesRepo.ts/routes/deliveryZones.ts ELIMINADOS)
 packages/
 └── domain/     precioPorTamano, calcularPrecioLinea, calcularSubtotal, anticipación,
                  capacidad, máquina de estados. SIN cupón/delivery automático (retirado).
@@ -77,7 +79,7 @@ contra la BD real antes de Semana 2.
 | Sedes | `sedes` (2+ locales), con `whatsapp_phone_number_id` para mapear un mensaje entrante de Meta a la sede correcta. |
 | Stock | `stock` por sede y por SKU (producto, o producto+tamaño). `disponible` nunca null; `cantidad` opcional (null = no se lleva conteo exacto). |
 | Cupones → combos | `coupons` (código genérico %/monto fijo) se eliminó. `combos` modela paquetes de precio fijo con canal permitido, si acepta cambios y una condición en texto libre. Aún sin CRUD ni datos — se cargan en Semana 3. |
-| Delivery | Ya no se calcula automáticamente (`DELIVERY_FEE`/`FREE_DELIVERY_THRESHOLD` retirados de `packages/domain`). Lo cotiza el operador manualmente. `delivery_zones` se conserva (útil como referencia de cobertura). |
+| Delivery | Ya no se calcula automáticamente (`DELIVERY_FEE`/`FREE_DELIVERY_THRESHOLD` retirados de `packages/domain`). Lo cotiza el operador manualmente. `delivery_zones` se eliminó en 0005 (huérfana: nada la consultaba tras retirar el cálculo automático — ver §6). Si Semana 3+ necesita cobertura por zona, se diseña de nuevo con `sede_id`, no se resucita tal cual. |
 | Catering / semáforo | `reglas_catering` (por producto: unidades mínimas, si sale el mismo día, anticipación, si requiere auto, si hay que consultar domingos) alimenta `orders.estado_catering` (verde/amarillo/rojo). La función que lo calcula se construye en Semana 3 — hoy solo existe el modelo. |
 | Roles del dashboard | `usuarios_dashboard` (id = `auth.users` de Supabase, rol admin/operador, sede). Las políticas RLS que filtran `orders`/`stock` por sede están redactadas pero **comentadas** — se activan en Semana 3 junto con el login real. |
 | Marketing | `orders.campana` y `orders.ctwa_clid` existen en el modelo para Meta Ads (Semana 4), sin usarse todavía. |
@@ -87,9 +89,10 @@ contra la BD real antes de Semana 2.
 
 ## 4. API (puerto 3001) — sin desplegar
 
-Sin cambios de rutas respecto a antes, salvo:
+Cambios de rutas respecto a antes:
 - `POST /api/orders`: ya no acepta `cuponCodigo`; `canal` admite `'web' | 'whatsapp' | 'facebook' | 'instagram'`; la respuesta trae `descuentoCupon: 0, delivery: 0` (se completan manualmente después).
-- El resto (`GET /api/products`, `/api/categories`, `/api/delivery-zones`, `/api/availability`, `GET/PATCH /api/orders`) sigue igual — esta API sigue sin desplegarse a internet ni siendo consumida por nada en producción.
+- **`GET /api/delivery-zones` eliminada** (0005) — nada la consumía, ni el front ni el resto de la API.
+- El resto (`GET /api/products`, `/api/categories`, `/api/availability`, `GET/PATCH /api/orders`) sigue igual — esta API sigue sin desplegarse a internet ni siendo consumida por nada en producción.
 
 ## 5. Verificado en Semana 1
 
@@ -119,6 +122,15 @@ Sin cambios de rutas respecto a antes, salvo:
   idempotente el mismo ALTER en 0003.
   **Pendiente real:** correr esto una vez contra el Supabase del proyecto (con su
   `auth.users` genuino, no el stub de prueba) antes de darlo por definitivamente bueno.
+- **0005_retira_delivery_zones.sql** también validada de punta a punta (`0001→0005` contra
+  contenedor limpio, misma metodología que 0004). `delivery_zones` estaba huérfana: nada
+  en `packages/domain` ni en `apps/api` la consultaba ya (el cálculo automático de delivery
+  se había retirado en 0004; `tarifaDeZona()` ya estaba muerta). Se eliminó junto con
+  `deliveryZonesRepo.ts`, `routes/deliveryZones.ts` y su registro en `app.ts`. `mock.js`
+  perdió `distritos` (sin consumidores tras esto) y el generador del seed ya no emite ese
+  bloque. `0002_seed_bake_brothers.sql` (ya aplicado/histórico) sigue insertando en
+  `delivery_zones` antes de que 0005 la borre — no rompe la cadena, mismo patrón que
+  `coupons`.
 - **Combos sin CRUD ni datos** — el modelo existe, la carga es manual/dashboard en Semana 3.
 - **Semáforo de catering sin calcular** — `reglas_catering` existe, la función que escribe `orders.estado_catering` se construye en Semana 3.
 - **RLS por sede comentada** — se activa junto con el login real del dashboard (Semana 3).

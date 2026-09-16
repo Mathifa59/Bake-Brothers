@@ -1,0 +1,22 @@
+-- ============================================================================
+-- 0005_retira_delivery_zones — delivery_zones queda huérfana
+--
+-- Verificado tras 0004_rediseno_alcance.sql: ningún endpoint de apps/api ni
+-- ninguna función de packages/domain la consulta ya.
+--   - packages/domain: el cálculo automático de delivery (que era el único
+--     consumidor real de `tarifa_delivery`) se retiró junto con
+--     calcularDelivery/DELIVERY_FEE/FREE_DELIVERY_THRESHOLD.
+--   - apps/api: la única cadena era GET /api/delivery-zones → listarZonas()
+--     (deliveryZonesRepo.ts) → esta tabla. `tarifaDeZona()` ya se había
+--     quitado del repo por huérfana antes de esta migración.
+--   - apps/web: ninguna página ni CatalogContext la piden — no hay checkout
+--     que necesite distritos cubiertos.
+--
+-- Se elimina la tabla y todo lo que solo existía para servirla
+-- (deliveryZonesRepo.ts, routes/deliveryZones.ts, su registro en app.ts).
+-- Si Semana 3+ necesita zonas de cobertura otra vez, probablemente sea por
+-- sede (delivery_zones no tiene sede_id) — se diseña de nuevo entonces,
+-- no se resucita esta tabla tal cual.
+-- ============================================================================
+
+drop table delivery_zones;

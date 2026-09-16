@@ -5,7 +5,6 @@ import { env } from './env.js'
 import { tenantPorSlug } from './db.js'
 import { productsRoutes } from './routes/products.js'
 import { categoriesRoutes } from './routes/categories.js'
-import { deliveryZonesRoutes } from './routes/deliveryZones.js'
 import { availabilityRoutes } from './routes/availability.js'
 import { ordersRoutes } from './routes/orders.js'
 
@@ -52,7 +51,6 @@ export async function buildApp() {
 
   productsRoutes(app)
   categoriesRoutes(app)
-  deliveryZonesRoutes(app)
   availabilityRoutes(app)
   ordersRoutes(app)
 

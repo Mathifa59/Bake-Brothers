@@ -603,10 +603,3 @@ export const paquetesCatering = [
     ],
   },
 ]
-
-// Zonas de delivery: ya no las consume la tienda (sin checkout), pero
-// alimentan el seed de `delivery_zones` en la API (scripts/seed-from-mock.mjs).
-export const distritos = [
-  'Miraflores', 'San Isidro', 'Surco', 'San Borja', 'Barranco',
-  'La Molina', 'Jesús María', 'Magdalena', 'Pueblo Libre', 'Lince', 'Surquillo',
-]

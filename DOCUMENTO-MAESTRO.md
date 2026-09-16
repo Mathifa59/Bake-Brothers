@@ -80,7 +80,8 @@ bake-brothers/
 │   │       ├── utils/whatsapp.js        número/links de WhatsApp (env var)
 │   │       └── data/mock.js             catálogo + input del seed de la API
 │   └── api/                        Fastify + zod + pg — sin desplegar
-│       ├── migrations/                  0001-0003 (heredadas) · 0004 rediseño de alcance
+│       ├── migrations/                  0001-0003 (heredadas) · 0004 rediseño de alcance ·
+│       │                               0005 retira delivery_zones (huérfana)
 │       ├── scripts/seed-from-mock.mjs   regenera el seed desde mock.js
 │       └── src/                         env · db · repositories · routes
 └── packages/
@@ -91,15 +92,16 @@ bake-brothers/
 
 ---
 
-## 5. Modelo de datos (tras 0004_rediseno_alcance.sql)
+## 5. Modelo de datos (tras 0004_rediseno_alcance.sql y 0005_retira_delivery_zones.sql)
 
 | Tabla | Qué guarda | Estado |
 |---|---|---|
 | `tenants` | Bake Brothers, fila única. Sin RLS de aislamiento (ya no hay nada que aislar). | Heredada, sin cambios de forma |
-| `categories` / `products` / `product_sizes` / `extras` / `customers` / `delivery_zones` | Catálogo, tamaños, extras, clientes, zonas cubiertas. | Heredadas, sin cambios de forma |
+| `categories` / `products` / `product_sizes` / `extras` / `customers` | Catálogo, tamaños, extras, clientes. | Heredadas, sin cambios de forma |
 | `production_capacity` | Cupo de producción por día/categoría. | Heredada, sin cambios |
 | `order_sequences` / `orders` / `order_items` | Numeración, pedidos, ítems con precio congelado. `orders` ganó `sede_id`, `campana`, `ctwa_clid`, `estado_catering`; `canal` admite `facebook`/`instagram`. | Ampliadas |
 | ~~`coupons`~~ | Eliminada — reemplazada por `combos`. | Retirada |
+| ~~`delivery_zones`~~ | Eliminada — nada la consultaba tras retirar el cálculo automático de delivery. Si hace falta cobertura por zona en Semana 3+, se diseña con `sede_id`, no se resucita. | Retirada |
 | `sedes` | Los 2+ locales, con `whatsapp_phone_number_id` para enrutar mensajes de Meta a la sede correcta. | Nueva |
 | `stock` | Disponibilidad + cantidad opcional por sede y por SKU (producto, o producto+tamaño). | Nueva |
 | `combos` / `combo_items` | Paquetes de precio fijo con canal permitido, si acepta cambios y condición en texto libre. Sin datos todavía. | Nueva |
@@ -144,13 +146,14 @@ draft → confirmed → payment_pending → paid → in_production → out_for_d
   final, es lo mínimo para no romper el build; la reescritura real es Semana 3).
 - ✅ `pnpm build` y `pnpm test` verificados en verde.
 - ✅ Cadena `0001→0004` validada de punta a punta contra Postgres 16 real en Docker (local) — ver §8 para el detalle y la evidencia de los 3 sanity checks.
+- ✅ `delivery_zones` confirmada huérfana (nada en `packages/domain` ni en `apps/api` la consultaba) y eliminada en `0005_retira_delivery_zones.sql`, junto con `deliveryZonesRepo.ts`, `routes/deliveryZones.ts` y `distritos` en `mock.js`. Cadena `0001→0005` revalidada contra contenedor limpio.
 - ⚠️ Sigue pendiente correrla contra el Supabase real del proyecto (con su `auth.users` genuino) antes de Semana 2.
 
 ---
 
 ## 8. Qué falta · deuda conocida
 
-- **Validado localmente, falta contra Supabase real.** La cadena 0001→0004 se corrió de punta a punta contra Postgres 16 en Docker (con un `auth.users` de prueba simulando lo que Supabase ya provee) y quedó limpia, con los 3 sanity checks confirmados por evidencia real (constraint de canal, ausencia de políticas de aislamiento, grants de `app_api` probados con `SET ROLE` + INSERT/SELECT reales — `usuarios_dashboard` deniega el acceso a `app_api` a propósito, esa tabla la gestiona Supabase Auth). En el camino se encontró y arregló un bug real preexistente: 0002 insertaba usando `products.orden`, columna que 0003 recién crea — la cadena en orden estricto nunca se había probado antes. Falta correrla una vez contra el Supabase real del proyecto.
+- **Validado localmente, falta contra Supabase real.** La cadena 0001→0005 se corrió de punta a punta contra Postgres 16 en Docker (con un `auth.users` de prueba simulando lo que Supabase ya provee) y quedó limpia, con los 3 sanity checks de 0004 confirmados por evidencia real (constraint de canal, ausencia de políticas de aislamiento, grants de `app_api` probados con `SET ROLE` + INSERT/SELECT reales — `usuarios_dashboard` deniega el acceso a `app_api` a propósito, esa tabla la gestiona Supabase Auth). En el camino se encontró y arregló un bug real preexistente: 0002 insertaba usando `products.orden`, columna que 0003 recién crea — la cadena en orden estricto nunca se había probado antes. `delivery_zones` resultó huérfana tras 0004 y se retiró en 0005. Falta correrla una vez contra el Supabase real del proyecto.
 - Combos sin CRUD ni datos de catálogo real.
 - Semáforo de catering sin función de cálculo.
 - RLS por sede comentada, sin activar.

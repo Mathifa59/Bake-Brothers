@@ -9,7 +9,6 @@
 import {
   productos,
   categorias,
-  distritos,
   extrasDisponibles,
 } from '../../web/src/data/mock.js'
 
@@ -117,16 +116,10 @@ for (const e of extrasDisponibles) {
   )
 }
 
-// ——— zonas de delivery ———
-lineas.push(`-- Zonas de delivery (${distritos.length})`)
-distritos.forEach((d, i) => {
-  lineas.push(
-    `insert into delivery_zones (tenant_id, nombre, activo, tarifa_delivery, orden)`,
-    `values (${tenantId}, ${q(d)}, true, null, ${i})`,
-    `on conflict (tenant_id, nombre) do update set activo = true, orden = excluded.orden;`,
-    ``
-  )
-})
+// NOTA: las zonas de delivery se retiraron con el rediseño de alcance
+// (0005_retira_delivery_zones.sql eliminó la tabla `delivery_zones`: nadie
+// la consultaba ya, el delivery lo cotiza el operador manualmente). mock.js
+// ya no es fuente de esos datos.
 
 // NOTA: los cupones (BAKE10) se retiraron con el rediseño de alcance
 // (0004_rediseno_alcance.sql eliminó la tabla `coupons`, reemplazada por
