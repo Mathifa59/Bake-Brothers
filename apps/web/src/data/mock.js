@@ -1,4 +1,6 @@
-// Datos simulados de Bake Brothers — solo frontend, sin backend real.
+// Catálogo de referencia de Bake Brothers. Fuente de datos del modo demo
+// (apps/web/src/api/demoFallback.js) y del generador de seed de la API
+// (apps/api/scripts/seed-from-mock.mjs) — no lo dupliques a mano en otro lado.
 
 export const productos = [
   // ——— DULCES ———
@@ -489,20 +491,14 @@ export const productos = [
   },
 ]
 
-// Extras disponibles para todo producto (antes vivían dentro de ProductoDetalle.jsx).
-// `id` es el valor que guarda el carrito; `slug` es el identificador para la BD.
+// Extras disponibles para todo producto (se muestran en ProductoDetalle.jsx
+// como referencia para armar el mensaje de WhatsApp). `slug` es el
+// identificador que usa la BD.
 export const extrasDisponibles = [
   { id: 'Dedicatoria', slug: 'dedicatoria', texto: 'Dedicatoria personalizada', precio: 8 },
   { id: 'Vela', slug: 'vela', texto: 'Vela de celebración', precio: 8 },
   { id: 'Decoración especial', slug: 'decoracion-especial', texto: 'Decoración especial', precio: 8 },
 ]
-
-export const descuentoDe = (p) =>
-  p.precioAnterior ? Math.round((1 - p.precio / p.precioAnterior) * 100) : 0
-
-export const ofertas = productos.filter((p) => p.precioAnterior)
-
-export const destacados = productos.filter((p) => p.popular).slice(0, 8)
 
 export const categorias = [
   { id: 'tortas', nombre: 'Tortas', tipo: 'Tortas', emoji: '🎂', foto: '/img/torta-chocolate.jpg', g: ['#F9E2D2', '#F0BE97'], texto: 'Para cumpleaños y celebraciones' },
@@ -608,70 +604,9 @@ export const paquetesCatering = [
   },
 ]
 
-export const pedidosSimulados = [
-  {
-    id: 'BB-2417',
-    fecha: '05 de julio, 2026',
-    estado: 'Entregado',
-    total: 96.0,
-    entrega: 'Delivery — Miraflores',
-    items: [
-      { nombre: 'Torta de chocolate artesanal', cantidad: 1, precio: 76, emoji: '🍫' },
-      { nombre: 'Alfajores artesanales (x12)', cantidad: 1, precio: 20, emoji: '🍪' },
-    ],
-  },
-  {
-    id: 'BB-2431',
-    fecha: '06 de julio, 2026',
-    estado: 'Listo para recoger',
-    total: 58.0,
-    entrega: 'Recojo en tienda',
-    items: [{ nombre: 'Torta tres leches', cantidad: 1, precio: 58, emoji: '🥛' }],
-  },
-  {
-    id: 'BB-2438',
-    fecha: '07 de julio, 2026',
-    estado: 'En preparación',
-    total: 111.0,
-    entrega: 'Delivery — San Isidro',
-    items: [
-      { nombre: 'Cheesecake de frutos rojos', cantidad: 1, precio: 66, emoji: '🍓' },
-      { nombre: 'Tequeños de queso (x12)', cantidad: 1, precio: 28, emoji: '🧀' },
-      { nombre: 'Alfajores artesanales (x12)', cantidad: 1, precio: 20, emoji: '🍪' },
-    ],
-  },
-  {
-    id: 'BB-2444',
-    fecha: '08 de julio, 2026',
-    estado: 'Confirmado',
-    total: 120.0,
-    entrega: 'Delivery — Surco',
-    items: [{ nombre: 'Box cumpleaños', cantidad: 1, precio: 120, emoji: '🎂' }],
-  },
-  {
-    id: 'BB-2449',
-    fecha: '08 de julio, 2026',
-    estado: 'Pendiente',
-    total: 62.0,
-    entrega: 'Recojo en tienda',
-    items: [
-      { nombre: 'Box de cupcakes (x12)', cantidad: 1, precio: 51, emoji: '🎁' },
-      { nombre: 'Galletas artesanales (x10)', cantidad: 0.5, precio: 11, emoji: '🍪' },
-    ],
-  },
-]
-
-export const coloresEstado = {
-  Pendiente: 'bg-amber-100 text-amber-800',
-  Confirmado: 'bg-sky-100 text-sky-800',
-  'En preparación': 'bg-orange-100 text-orange-800',
-  'Listo para recoger': 'bg-violet-100 text-violet-800',
-  Entregado: 'bg-emerald-100 text-emerald-800',
-}
-
+// Zonas de delivery: ya no las consume la tienda (sin checkout), pero
+// alimentan el seed de `delivery_zones` en la API (scripts/seed-from-mock.mjs).
 export const distritos = [
   'Miraflores', 'San Isidro', 'Surco', 'San Borja', 'Barranco',
   'La Molina', 'Jesús María', 'Magdalena', 'Pueblo Libre', 'Lince', 'Surquillo',
 ]
-
-export const formatoPrecio = (n) => `S/ ${Number(n).toFixed(2)}`

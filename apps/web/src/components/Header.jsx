@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Link, NavLink, useLocation } from 'react-router-dom'
-import { Menu, ShoppingBag, User, X } from 'lucide-react'
-import { useCart } from '../context/CartContext'
+import { NavLink, useLocation } from 'react-router-dom'
+import { Menu, MessageCircle, X } from 'lucide-react'
+import { whatsappUrl } from '../utils/whatsapp'
 import Logo from './Logo'
 
 const enlaces = [
@@ -16,7 +16,6 @@ const enlaces = [
 
 export default function Header() {
   const [menuAbierto, setMenuAbierto] = useState(false)
-  const { cantidadTotal, abrirDrawer } = useCart()
   const location = useLocation()
 
   const esActivo = (a) => {
@@ -29,7 +28,7 @@ export default function Header() {
     <header className="sticky top-0 z-40 border-b border-borde/70 bg-crema/85 backdrop-blur-lg">
       {/* Barra superior de anuncio */}
       <div className="bg-tinta py-1.5 text-center text-[11px] font-semibold tracking-wide text-white">
-        🚚 Delivery gratis en pedidos desde S/ 150 · Usa el cupón <span className="text-acento">BAKE10</span> y llévate 10% dcto.
+        🧁 Pide directo por WhatsApp y coordina tu entrega en minutos
       </div>
 
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
@@ -52,25 +51,15 @@ export default function Header() {
         </nav>
 
         <div className="flex items-center gap-1.5">
-          <Link
-            to="/login"
-            className="grid h-10 w-10 place-items-center rounded-full text-tinta/70 transition-colors hover:bg-tinta/5 hover:text-tinta"
-            aria-label="Mi cuenta"
+          <a
+            href={whatsappUrl('Hola Bake Brothers 👋 Quiero hacer un pedido')}
+            target="_blank"
+            rel="noreferrer"
+            className="hidden items-center gap-2 rounded-full bg-[#25D366] px-4 py-2.5 text-sm font-bold text-white transition-all hover:brightness-105 active:scale-[0.98] sm:flex"
           >
-            <User size={20} />
-          </Link>
-          <button
-            onClick={abrirDrawer}
-            className="relative grid h-10 w-10 place-items-center rounded-full bg-tinta text-white transition-all hover:bg-acento cursor-pointer"
-            aria-label={`Carrito de compras, ${cantidadTotal} productos`}
-          >
-            <ShoppingBag size={18} />
-            {cantidadTotal > 0 && (
-              <span className="anim-pop absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-acento px-1 text-[11px] font-black text-white ring-2 ring-crema">
-                {cantidadTotal}
-              </span>
-            )}
-          </button>
+            <MessageCircle size={16} fill="white" className="text-[#25D366]" />
+            Pedir por WhatsApp
+          </a>
           <button
             onClick={() => setMenuAbierto(!menuAbierto)}
             className="grid h-10 w-10 place-items-center rounded-full text-tinta transition-colors hover:bg-tinta/5 lg:hidden cursor-pointer"
@@ -100,13 +89,16 @@ export default function Header() {
                 {e.texto}
               </NavLink>
             ))}
-            <NavLink
-              to="/login"
+            <a
+              href={whatsappUrl('Hola Bake Brothers 👋 Quiero hacer un pedido')}
+              target="_blank"
+              rel="noreferrer"
               onClick={() => setMenuAbierto(false)}
-              className="rounded-2xl px-4 py-3 text-sm font-semibold text-tinta/80 hover:bg-tinta/5"
+              className="mt-1 flex items-center justify-center gap-2 rounded-2xl bg-[#25D366] px-4 py-3 text-sm font-bold text-white"
             >
-              👤 Mi cuenta
-            </NavLink>
+              <MessageCircle size={16} fill="white" className="text-[#25D366]" />
+              Pedir por WhatsApp
+            </a>
           </div>
         </nav>
       )}

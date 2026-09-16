@@ -9,10 +9,11 @@ export const pool = new pg.Pool({
 })
 
 /**
- * Ejecuta `fn` dentro de una transacción con `app.tenant_id` fijado, de modo
- * que las políticas RLS filtren todo por tenant. El GUC es transaccional
- * (`set_config(..., true)`), así que no puede filtrarse a otro request que
- * reutilice la misma conexión del pool.
+ * Ejecuta `fn` dentro de una transacción. Bake Brothers es el único negocio
+ * de este proyecto (0004_rediseno_alcance.sql retiró el aislamiento
+ * multi-tenant y sus políticas RLS), así que ya no hace falta fijar ningún
+ * GUC de tenant — `tenantId` se conserva como parámetro porque cada
+ * repositorio sigue filtrando por columna `tenant_id` en su SQL.
  */
 export async function withTenantTx<T>(
   tenantId: string,
@@ -21,7 +22,6 @@ export async function withTenantTx<T>(
   const client = await pool.connect()
   try {
     await client.query('begin')
-    await client.query("select set_config('app.tenant_id', $1, true)", [tenantId])
     const result = await fn(client)
     await client.query('commit')
     return result

@@ -1,10 +1,14 @@
 // Cliente HTTP hacia apps/api. Única puerta de salida a red del front.
 //
 // Modo demo: si VITE_API_URL no está configurada, la tienda funciona
-// enteramente con datos locales (demoFallback.js) — así queda hoy, sin API
-// ni base de datos desplegadas. En cuanto se configure VITE_API_URL (local
-// o en Vercel), este archivo empieza a hablarle a la API real sin que
-// ninguna página tenga que cambiar una sola línea.
+// enteramente con el catálogo local (demoFallback.js) — así queda hoy, sin
+// API ni base de datos desplegadas. En cuanto se configure VITE_API_URL
+// (local o en Vercel), este archivo empieza a hablarle a la API real sin
+// que ninguna página tenga que cambiar una sola línea.
+//
+// El sitio es una vitrina informativa (sin carrito ni checkout): solo
+// necesita leer el catálogo. La creación/consulta de pedidos vive en
+// apps/api para cuando el bot de WhatsApp (Semana 2-3) los use.
 import * as demo from './demoFallback'
 
 const BASE_URL = import.meta.env.VITE_API_URL
@@ -35,27 +39,12 @@ const apiReal = {
   getProductos: () => request('/api/products'),
   getProducto: (id) => request(`/api/products/${encodeURIComponent(id)}`),
   getCategorias: () => request('/api/categories'),
-  getDistritos: () => request('/api/delivery-zones'),
-  getDisponibilidad: (fecha, tipo) =>
-    request(`/api/availability?date=${fecha}&type=${encodeURIComponent(tipo)}`),
-  crearPedido: (pedido) =>
-    request('/api/orders', { method: 'POST', body: JSON.stringify(pedido) }),
-  getPedidos: (filtros = {}) => {
-    const params = new URLSearchParams(filtros).toString()
-    return request(`/api/orders${params ? `?${params}` : ''}`)
-  },
-  getPedido: (numero) => request(`/api/orders/${encodeURIComponent(numero)}`),
 }
 
 const apiDemo = {
   getProductos: demo.getProductos,
   getProducto: demo.getProducto,
   getCategorias: demo.getCategorias,
-  getDistritos: demo.getDistritos,
-  getDisponibilidad: demo.getDisponibilidad,
-  crearPedido: demo.crearPedido,
-  getPedidos: demo.getPedidos,
-  getPedido: demo.getPedido,
 }
 
 export const api = modoDemo ? apiDemo : apiReal

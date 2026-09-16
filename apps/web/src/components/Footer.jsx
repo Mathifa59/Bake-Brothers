@@ -1,6 +1,12 @@
 import { Link } from 'react-router-dom'
 import { Clock, Instagram, Facebook, MapPin, Phone } from 'lucide-react'
+import { whatsappUrl, whatsappNumeroFormateado } from '../utils/whatsapp'
 import Logo from './Logo'
+
+// Redes sociales: URLs reales pendientes (Semana 2). Mientras no se
+// configuren, los íconos quedan inactivos en vez de apuntar a un placeholder.
+const INSTAGRAM_URL = import.meta.env.VITE_INSTAGRAM_URL || '#'
+const FACEBOOK_URL = import.meta.env.VITE_FACEBOOK_URL || '#'
 
 const pagos = [
   { nombre: 'Yape', clase: 'bg-[#742284] text-white' },
@@ -24,21 +30,27 @@ export default function Footer() {
           </p>
           <div className="flex gap-2">
             <a
-              href="#instagram"
+              href={INSTAGRAM_URL}
+              target="_blank"
+              rel="noreferrer"
               className="grid h-10 w-10 place-items-center rounded-full bg-white/10 transition-colors hover:bg-acento"
               aria-label="Instagram de Bake Brothers"
             >
               <Instagram size={17} />
             </a>
             <a
-              href="#facebook"
+              href={FACEBOOK_URL}
+              target="_blank"
+              rel="noreferrer"
               className="grid h-10 w-10 place-items-center rounded-full bg-white/10 transition-colors hover:bg-acento"
               aria-label="Facebook de Bake Brothers"
             >
               <Facebook size={17} />
             </a>
             <a
-              href="#whatsapp"
+              href={whatsappUrl('Hola Bake Brothers 👋')}
+              target="_blank"
+              rel="noreferrer"
               className="grid h-10 w-10 place-items-center rounded-full bg-white/10 transition-colors hover:bg-[#25D366]"
               aria-label="WhatsApp de Bake Brothers"
             >
@@ -57,7 +69,6 @@ export default function Footer() {
               ['Catering', '/catering'],
               ['Sobre nosotros', '/nosotros'],
               ['Contacto', '/contacto'],
-              ['Mi cuenta', '/cuenta'],
             ].map(([texto, ruta]) => (
               <li key={ruta}>
                 <Link to={ruta} className="transition-colors hover:text-acento">
@@ -89,7 +100,7 @@ export default function Footer() {
             </li>
             <li className="flex gap-2.5">
               <Phone size={16} className="mt-0.5 shrink-0 text-acento" />
-              <span>WhatsApp: +51 987 654 321</span>
+              <span>WhatsApp: {whatsappNumeroFormateado}</span>
             </li>
           </ul>
         </div>

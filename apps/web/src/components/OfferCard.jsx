@@ -1,13 +1,10 @@
 import { Link } from 'react-router-dom'
-import { ShoppingBag } from 'lucide-react'
-import { useCart } from '../context/CartContext'
 import { descuentoDe, formatoPrecio } from '../utils/formato'
 import ProductImage from './ProductImage'
 import Badge from './Badge'
 import Button from './Button'
 
 export default function OfferCard({ producto }) {
-  const { agregarItem } = useCart()
   const desc = descuentoDe(producto)
 
   return (
@@ -35,14 +32,9 @@ export default function OfferCard({ producto }) {
             {formatoPrecio(producto.precioAnterior)}
           </span>
         </div>
-        <div className="mt-auto flex flex-col gap-2 pt-2">
-          <Button tamano="sm" onClick={() => agregarItem(producto)}>
-            <ShoppingBag size={15} /> Agregar al carrito
-          </Button>
-          <Button tamano="sm" variante="secundario" to={`/producto/${producto.id}`}>
-            Ver detalle
-          </Button>
-        </div>
+        <Button tamano="sm" className="mt-auto" to={`/producto/${producto.id}`}>
+          Ver detalle
+        </Button>
       </div>
     </article>
   )

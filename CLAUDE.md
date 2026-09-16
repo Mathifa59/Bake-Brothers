@@ -2,145 +2,128 @@
 
 > Documento de contexto persistente del proyecto. Léelo completo al inicio de cada sesión.
 > Si tomas una decisión relevante o cambias el rumbo, actualiza este archivo.
-> El plan maestro original está en `plan bb.md` (secciones 5-7 describen bot y dashboard).
+> `plan bb.md` es el plan original (tienda virtual multi-tenant) y quedó **obsoleto** —
+> no lo uses como referencia de alcance. Este documento y `DOCUMENTO-MAESTRO.md` son
+> la fuente de verdad actual.
 
 ---
 
-## 1. Qué es esto
+## 1. Qué es esto — alcance renegociado (2026-09-16)
 
-Plataforma multi-tenant de pedidos para pastelerías. **Bake Brothers es el tenant #1** de un
-producto vendible a cualquier pastelería/restaurante/florería. Tres consumidores sobre un
-mismo núcleo:
+Proyecto **exclusivo y personalizado** para Bake Brothers (Corporación Hermanos Loarte
+S.A.C.), pastelería con 2+ locales en Chorrillos, Lima. **No se revende a otros negocios** —
+el modelo multi-tenant del plan original (`plan bb.md`) fue descartado.
 
-```
-WhatsApp del cliente ──► Servicio de bot ──┐
-                                           ├──► API + Postgres ──► Dashboard del negocio
-Tienda web (React) ────────────────────────┘
-```
+Tres piezas:
 
-### La regla que ordena todo el proyecto
+1. **Landing institucional** (`apps/web`) — marca, catálogo referencial, accesos directos a
+   WhatsApp/Facebook/Instagram. **Sin carrito, sin checkout, sin pasarela de pagos.**
+2. **Bot omnicanal** (WhatsApp Business, Facebook Messenger, Instagram) sobre un único
+   webhook de Meta. RAG sobre catálogo/promos/FAQs + toma de pedidos estructurada.
+3. **Dashboard/CRM** — gestión de pedidos e inventario, roles por sede, atribución de
+   marketing por canal.
 
-> **El cálculo de precios, la anticipación mínima, la capacidad de producción y la máquina
-> de estados viven SOLO en `packages/domain`. El front, la API, el bot y el dashboard lo
-> importan. Nunca se duplica esta lógica.**
+### La regla que sigue ordenando el proyecto
 
-## 2. Estado actual: FASE 0 completada en código, pero DESACTIVADA en despliegue (2026-08-25)
+> **El cálculo de precios y la anticipación mínima viven SOLO en `packages/domain`. El
+> front, el bot y el dashboard lo importan. Nunca se duplica esta lógica.**
+>
+> Ya NO viven en domain: cupones/descuentos (retirados) ni cálculo automático de delivery
+> (el operador lo cotiza a mano). La capacidad de producción y la máquina de estados de
+> pedido siguen vigentes.
 
-Monorepo pnpm funcionando de punta a punta en local (la tienda web lee de Postgres vía la API
-y los pedidos se registran de verdad) — pero **`apps/api` nunca se desplegó a internet** y
-`bake-brothers.vercel.app` solo publica `apps/web` (ver `vercel.json`). El sitio en producción
-mostraba pantalla de error porque `apps/web/src/api/client.js` apuntaba por defecto a
-`http://localhost:3001`, inalcanzable para cualquier visitante.
+## 2. Estado actual: Semana 1 completada (2026-09-16)
 
-**Arreglo aplicado (2026-08-25):** `apps/web/src/api/client.js` ahora entra en **modo demo**
-automáticamente cuando `VITE_API_URL` no está definida — usa `apps/web/src/api/demoFallback.js`
-(catálogo de `data/mock.js` + pedidos simulados en memoria, con los mismos cálculos de
-`@bakebrothers/domain`) en vez de llamar a la API. Ninguna página cambió: todas siguen usando
-`useCatalogo()` / `api.*` sin saber en qué modo están. Así queda la tienda hoy: **sin backend
-real conectado**, a pedido explícito del usuario. Para volver a Fase 0 real: desplegar
-`apps/api` en algún hosting con proceso persistente (o adaptarlo a función serverless),
-reconectar el proyecto de Supabase (`kxqadxazziybqzqzodrx`) y definir `VITE_API_URL` en Vercel.
+Diagnóstico + poda del código obsoleto + diseño del esquema nuevo. **Nada de esto se
+desplegó** (ver §8, fuera de alcance esta semana).
 
 ```
 apps/
-├── web/        Front React 18 + Vite 6 + Tailwind v4 (JSX, SIN TypeScript — no migrar)
-│   ├── src/api/client.js          fetch wrapper (VITE_API_URL, X-Tenant-Slug)
-│   ├── src/context/CatalogContext.jsx  productos/categorías/distritos desde la API
-│   ├── src/context/CartContext.jsx     carrito; precios vía @bakebrothers/domain
-│   ├── src/utils/formato.js       formatoPrecio/descuentoDe (antes en mock.js)
-│   └── src/data/mock.js           SOLO queda como fuente de: extrasDisponibles (UI),
-│                                  paquetesCatering y testimonios + input del seed.
-├── api/        Fastify 5 + zod + pg (TypeScript, ESM)
-│   ├── migrations/                0001 esquema+RLS · 0002 seed (GENERADO) · 0003 orden
-│   ├── scripts/seed-from-mock.mjs regenera 0002 desde mock.js (no editar 0002 a mano)
-│   └── src/                       env, db (withTenantTx), repositories/, routes/
+├── web/        Landing (React 18 + Vite 6 + Tailwind v4, JSX sin TypeScript)
+│   └── src/
+│       ├── api/client.js + demoFallback.js   solo lectura de catálogo (sin pedidos)
+│       ├── context/CatalogContext.jsx        productos + categorías
+│       ├── utils/whatsapp.js                 número y links de WhatsApp (VITE_WHATSAPP_NUMBER)
+│       ├── data/mock.js                      catálogo + paquetesCatering + testimonios
+│       │                                     + fuente del seed de la API
+│       └── pages/                            Home, Catalogo, ProductoDetalle, Ofertas,
+│                                              Catering, Nosotros, Contacto
+│                                              (Carrito/Checkout/Auth/Cuenta: ELIMINADOS)
+├── api/        Fastify + zod + pg (TypeScript, ESM) — SIN desplegar a internet
+│   ├── migrations/            0001 esquema+RLS · 0002 seed · 0003 orden ·
+│   │                          0004 rediseno_alcance (sedes/stock/combos/reglas_catering/
+│   │                          usuarios_dashboard, fin de RLS multi-tenant)
+│   └── src/                   env · db · repositories · routes (orders.ts ajustado:
+│                              sin cupón, delivery ya no se calcula solo)
 packages/
-└── domain/     TS puro sin I/O — ÚNICA fuente de verdad de reglas + tests vitest (48)
-    ├── pricing.ts        precioPorTamano, calcularPrecioLinea, calcularTotales…
-    ├── availability.ts   cumpleAnticipacionMinima, hayCupoDisponible, cupoRestante
-    └── orderStatus.ts    ESTADOS_PEDIDO, puedeTransicionar, estadoLegible
+└── domain/     precioPorTamano, calcularPrecioLinea, calcularSubtotal, anticipación,
+                 capacidad, máquina de estados. SIN cupón/delivery automático (retirado).
 ```
 
-**Cómo correr:** `pnpm install` · `pnpm dev` (web :5173) · `pnpm dev:api` (API :3001) ·
-`pnpm test`. La API necesita `apps/api/.env` (ver `.env.example`; el `.env` local ya existe
-y NO se versiona).
+**Cómo correr:** `pnpm install` · `pnpm dev` (web :5173, corre en modo demo con catálogo
+local — no necesita la API) · `pnpm dev:api` (API :3001, necesita `apps/api/.env` con
+`DATABASE_URL`; no hay `.env` local en este entorno) · `pnpm test`.
 
 **Supabase:** proyecto `bake-brothers` (id `kxqadxazziybqzqzodrx`, us-east-1, plan free).
-La API se conecta por el session pooler con el rol **`app_api`** (no dueño de tablas →
-siempre sujeto a RLS). El rol `postgres` (MCP/migraciones) bypassa RLS solo para
-administración — mismo modelo que service_role de Supabase.
+**El conector de Supabase de esta sesión está invalidado — sin acceso a la BD real.** La
+migración 0004 se escribió pero NO se aplicó a ningún Postgres real; hay que revisarla
+contra la BD real antes de Semana 2.
 
 ## 3. Decisiones tomadas (no re-litigar)
 
 | Decisión | Detalle |
 |---|---|
-| BD | Postgres vía Supabase. RLS habilitado en TODA tabla de negocio con política `tenant_id = current_setting('app.tenant_id')::uuid`. |
-| Tenant por request | Header `X-Tenant-Slug` → uuid → `withTenantTx()` abre transacción y fija el GUC `app.tenant_id` (transaccional, no se filtra entre requests del pool). |
-| API | Node + TS + Fastify + zod (validación manual con `schema.parse`, sin type-providers). Sin ORM: `pg` a pelo. |
-| Identificadores | `id` interno uuid; el **slug** es el id público (el front usa `torta-chocolate`, nunca uuids). DTOs de la API con los MISMOS nombres de campo que usaba mock.js — por eso los componentes visuales no se tocaron. |
-| Anticipación | **Por producto** (`products.anticipacion_horas`), NO por categoría: el mock real la contradice (tres-leches es Torta con 24h). Regla horas = hasta las 00:00 del día de entrega (conservador). `corte_mismo_dia` (12 pm) se guarda pero NO se valida aún — simplificación consciente de Fase 0. |
-| Capacidad | `production_capacity` (tenant, categoría, fecha, cupo_maximo, bloqueado). Sin fila = sin límite. Reservado se calcula con SUM sobre order_items de pedidos no cancelados (sin contadores mutables → sin drift). |
-| Precios | El cliente HTTP jamás manda precios: solo productoId+tamano+extras+cantidad. `POST /api/orders` recalcula todo con domain. `order_items.precio_unitario` queda congelado (snapshot). |
-| Números de pedido | `order_sequences` por tenant, incremento atómico → `BB-2450`, `BB-2451`… |
-| Estados | draft → confirmed → payment_pending → paid → in_production → out_for_delivery → delivered, cancelled desde cualquier estado previo a delivered. `confirmed → in_production` permitido (contraentrega). Web crea pedidos en `confirmed` (sin pasarela real aún). |
-| Cupones | Tabla `coupons` (BAKE10 = 10% sembrado). El front solo da feedback optimista; la validación real es del servidor. |
-| Front | JSX sin TypeScript, NO migrar. Consume `@bakebrothers/domain` como JS compilado (dist/), no escribe TS. |
+| Multi-tenant | **Retirado.** `tenant_id` se conserva en cada tabla y `tenants` sigue existiendo con una sola fila (Bake Brothers) — decisión deliberada para no tocar cada FK/repositorio en cascada. Las políticas RLS `tenant_isolation` se eliminaron (0004): cero aislamiento entre negocios, porque solo hay uno. |
+| Sedes | `sedes` (2+ locales), con `whatsapp_phone_number_id` para mapear un mensaje entrante de Meta a la sede correcta. |
+| Stock | `stock` por sede y por SKU (producto, o producto+tamaño). `disponible` nunca null; `cantidad` opcional (null = no se lleva conteo exacto). |
+| Cupones → combos | `coupons` (código genérico %/monto fijo) se eliminó. `combos` modela paquetes de precio fijo con canal permitido, si acepta cambios y una condición en texto libre. Aún sin CRUD ni datos — se cargan en Semana 3. |
+| Delivery | Ya no se calcula automáticamente (`DELIVERY_FEE`/`FREE_DELIVERY_THRESHOLD` retirados de `packages/domain`). Lo cotiza el operador manualmente. `delivery_zones` se conserva (útil como referencia de cobertura). |
+| Catering / semáforo | `reglas_catering` (por producto: unidades mínimas, si sale el mismo día, anticipación, si requiere auto, si hay que consultar domingos) alimenta `orders.estado_catering` (verde/amarillo/rojo). La función que lo calcula se construye en Semana 3 — hoy solo existe el modelo. |
+| Roles del dashboard | `usuarios_dashboard` (id = `auth.users` de Supabase, rol admin/operador, sede). Las políticas RLS que filtran `orders`/`stock` por sede están redactadas pero **comentadas** — se activan en Semana 3 junto con el login real. |
+| Marketing | `orders.campana` y `orders.ctwa_clid` existen en el modelo para Meta Ads (Semana 4), sin usarse todavía. |
+| Identificadores | Igual que antes: `id` interno uuid, `slug` es el id público. |
+| Front | JSX sin TypeScript, NO migrar. Vitrina informativa — todo CTA de pedido apunta a WhatsApp (`utils/whatsapp.js`), no hay carrito. |
+| Precios | El cliente HTTP jamás manda precios. `POST /api/orders` sigue recalculando con `packages/domain`, pero ya no aplica cupón ni delivery automático — esos campos quedan en 0 hasta que el operador los ajuste. |
 
-## 4. API (puerto 3001)
+## 4. API (puerto 3001) — sin desplegar
 
-- `GET /api/products` · `/api/products/:slug` · `/api/categories` · `/api/delivery-zones`
-- `GET /api/availability?date=YYYY-MM-DD&type=<slug-categoria>` → cupos
-- `POST /api/orders` → valida catálogo/tamaños/extras (400), anticipación (**422**),
-  cupo (**409**), zona (400), cupón (400); recalcula totales; crea customer+order+items. 201.
-- `GET /api/orders?telefono=&correo=&limite=` · `GET /api/orders/:numero`
-- `PATCH /api/orders/:numero/status` — header `X-Admin-Key` (placeholder hasta el dashboard),
-  valida `puedeTransicionar` (409 si inválida).
+Sin cambios de rutas respecto a antes, salvo:
+- `POST /api/orders`: ya no acepta `cuponCodigo`; `canal` admite `'web' | 'whatsapp' | 'facebook' | 'instagram'`; la respuesta trae `descuentoCupon: 0, delivery: 0` (se completan manualmente después).
+- El resto (`GET /api/products`, `/api/categories`, `/api/delivery-zones`, `/api/availability`, `GET/PATCH /api/orders`) sigue igual — esta API sigue sin desplegarse a internet ni siendo consumida por nada en producción.
 
-Errores: `{ error: 'CODIGO_EN_MAYUSCULAS', ... }`. Zod → 400 `{ error: 'VALIDACION', detalles }`.
+## 5. Verificado en Semana 1
 
-## 5. Verificado en Fase 0 (criterios de aceptación)
+- ✅ `pnpm test`: tests de dominio ajustados (se quitaron los de cupón/delivery/totales; quedan tamaños, precio de línea, subtotal, anticipación, capacidad, máquina de estados).
+- ✅ `pnpm build`: los tres paquetes (`domain`, `api`, `web`) compilan sin errores tras los cambios de esquema/dominio.
+- ✅ Landing revisada página por página: sin referencias a carrito/checkout/cupón/login.
+- ⚠️ La migración 0004 **no se aplicó** a Postgres real (sin acceso a Supabase esta sesión) — falta correrla y verificarla en Semana 2.
 
-- ✅ `pnpm test`: 48 tests de domain (tamaños con redondeo, extras, BAKE10, delivery
-  gratis en el umbral exacto, anticipación 12h vs 48h, cupos, transiciones de estado).
-- ✅ Tienda web idéntica leyendo de Postgres (recorrido completo: catálogo → detalle →
-  carrito+cupón → checkout 5 pasos → pedido BB-2451 en BD → visible en Mis Pedidos).
-- ✅ Torta con 12h de anticipación → 422 ANTICIPACION_INSUFICIENTE.
-- ✅ 3 tortas con cupo 2 → 409 SIN_CUPO_DISPONIBLE.
-- ✅ Aislamiento multi-tenant en ambas direcciones (tenant de prueba creado, verificado y
-  eliminado): un tenant no ve productos ni pedidos del otro (RLS + WHERE explícito).
-- ✅ `get_advisors` de Supabase: cero warnings de seguridad.
+## 6. Qué falta — deuda conocida
 
-**Cambio de UX visible:** "Mis pedidos" ya no muestra los 5 pedidos simulados; muestra los
-pedidos reales del tenant (auth sigue siendo cosmética — sin filtro por usuario hasta tener
-auth real). `pedidosSimulados` sigue en mock.js pero ya no se usa.
+- **Migración 0004 sin aplicar.** Falta correrla contra Supabase y revisar el nombre real de la constraint `orders_canal_check` (se asumió la convención por defecto de Postgres).
+- **Combos sin CRUD ni datos** — el modelo existe, la carga es manual/dashboard en Semana 3.
+- **Semáforo de catering sin calcular** — `reglas_catering` existe, la función que escribe `orders.estado_catering` se construye en Semana 3.
+- **RLS por sede comentada** — se activa junto con el login real del dashboard (Semana 3).
+- **`.env` de `apps/api` no existe en este entorno** — hace falta para correr la API en local.
+- Deuda heredada de antes, sin resolver: auth real, `corte_mismo_dia` sin validar.
 
-## 6. Deuda conocida / pendientes de fases siguientes
+## 7. Roadmap (4 semanas — reemplaza el roadmap de fases de `plan bb.md`)
 
-- Auth real (login web es cosmético; `GET /api/orders` lista pedidos del tenant sin filtrar por usuario).
-- Validación de `corte_mismo_dia` (pedidos "mismo día antes de las 12 pm").
-- `paquetesCatering`, `testimonios` y el formulario de cotización de catering siguen
-  estáticos/simulados (no hay tabla; decidir en fase del dashboard).
-- `payments`, `conversations`, `messages`, `users` (tablas de fases 1-3, ver `plan bb.md` §8).
-- Los INSERT de order_items van en loop (suficiente a este volumen; batch si crece).
-
-## 7. Roadmap (una fase por sesión — ver detalle en `plan bb.md` §9)
-
-- ✅ **Fase 0 — Cimiento**: monorepo + domain + Postgres multi-tenant + API + front conectado.
-- **Fase 1 — Bot WhatsApp (happy path)**: webhook Cloud API oficial de Meta, dedupe por
-  `wa_message_id`, máquina de estados en BD, pedidos por el MISMO flujo de POST /api/orders.
-  Redactar plantillas de Meta y enviarlas a aprobación DE INMEDIATO (tardan).
-- **Fase 2 — Dashboard** (`apps/admin`, React+TS): Kanban con Supabase Realtime + sonido.
-  El clip de venta: un pedido por WhatsApp aparece solo en el dashboard.
-- **Fase 3 — Producción real**: pagos Yape/Plin con captura, plantillas por cambio de
-  estado, bandeja de conversaciones + handoff, CRUD de catálogo.
-- **Fase 4 — Producto**: NLU con LLM, métricas, onboarding de tenant #2 sin tocar código.
+- ✅ **Semana 1 — Diagnóstico + poda + esquema**: landing sin carrito/checkout/auth, migración 0004 (sedes, stock, combos, reglas_catering, usuarios_dashboard, fin del multi-tenant), `packages/domain` sin cupón/delivery.
+- **Semana 2 — Webhook de Meta + RAG**: webhook único (WhatsApp/Messenger/Instagram vía Meta), RAG sobre catálogo/promos/FAQs. Aplicar 0004 a Supabase real.
+- **Semana 3 — Toma de pedidos por el bot + dashboard v1**: pedidos estructurados por el bot (mismo flujo de `POST /api/orders`), `apps/admin` con Kanban de pedidos y gestión de inventario, login real + RLS por sede, combos con CRUD, semáforo de catering calculado.
+- **Semana 4 — Inventario + atribución + cierre**: `stock` conectado al flujo real, atribución de marketing (`campana`/`ctwa_clid`), cierre y entrega.
 
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.
-- Una fase por sesión. No adelantes trabajo de fases siguientes.
+- Una semana por sesión. No adelantes trabajo de semanas siguientes (Semana 1 NO tocó
+  webhook de Meta, RAG, `apps/admin` ni ningún despliegue).
 - No agregar librerías innecesarias. No migrar el front a TypeScript.
 - Nada de lógica de precios/reglas fuera de `packages/domain`.
-- Nada específico de Bake Brothers hardcodeado: va en configuración del tenant (BD).
-- El seed 0002 se REGENERA con `pnpm --filter @bakebrothers/api seed:generate`, nunca se edita a mano.
-- Al terminar una fase, actualizar este archivo.
+- Nada específico de Bake Brothers hardcodeado en código — datos de contacto (WhatsApp,
+  Instagram, Facebook) van en variables de entorno (`apps/web/.env.example`).
+- El seed 0002 se REGENERA con `pnpm --filter @bakebrothers/api seed:generate`, nunca se
+  edita a mano. 0002 sigue insertando en tablas que 0004 no toca (productos, categorías,
+  tamaños, extras, zonas de delivery) — el generador ya no emite el insert de cupones.
+- Al terminar una semana, actualizar este archivo.

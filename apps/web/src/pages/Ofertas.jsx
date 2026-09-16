@@ -1,5 +1,6 @@
-import { Flame } from 'lucide-react'
+import { Flame, MessageCircle } from 'lucide-react'
 import { useCatalogo } from '../context/CatalogContext'
+import { whatsappUrl } from '../utils/whatsapp'
 import OfferCard from '../components/OfferCard'
 
 export default function Ofertas() {
@@ -34,10 +35,14 @@ export default function Ofertas() {
           ))}
         </div>
 
-        <p className="mt-10 rounded-3xl bg-acento-suave px-6 py-5 text-center text-sm font-semibold text-acento-oscuro ring-1 ring-acento/20">
-          🎟️ ¿Quieres un descuento extra? Usa el cupón <strong>BAKE10</strong> en tu carrito
-          y llévate 10% adicional en toda tu compra.
-        </p>
+        <a
+          href={whatsappUrl('Hola Bake Brothers 👋 Vi las ofertas de la semana y quiero pedir')}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-10 flex flex-wrap items-center justify-center gap-2 rounded-3xl bg-acento-suave px-6 py-5 text-center text-sm font-semibold text-acento-oscuro ring-1 ring-acento/20 transition-colors hover:bg-acento hover:text-white"
+        >
+          <MessageCircle size={16} /> ¿Te antoja alguna? Escríbenos por WhatsApp y coordinamos tu pedido.
+        </a>
       </section>
     </div>
   )

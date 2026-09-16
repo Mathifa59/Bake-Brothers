@@ -45,7 +45,7 @@ export async function siguienteNumeroDePedido(
 export interface OrderInsert {
   numero: string
   customerId: string
-  canal: 'web' | 'whatsapp'
+  canal: 'web' | 'whatsapp' | 'facebook' | 'instagram'
   estado: EstadoPedido
   tipoEntrega: TipoEntrega
   direccion: string | null

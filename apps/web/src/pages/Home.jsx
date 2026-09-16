@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, Star, Sparkles } from 'lucide-react'
+import { ArrowRight, Star, Sparkles, MessageCircle } from 'lucide-react'
 import { testimonios } from '../data/mock'
 import { formatoPrecio } from '../utils/formato'
+import { whatsappUrl } from '../utils/whatsapp'
 import { useCatalogo } from '../context/CatalogContext'
 import Button from '../components/Button'
 import SectionTitle from '../components/SectionTitle'
@@ -11,9 +12,9 @@ import ProductGrid from '../components/ProductGrid'
 import ProductImage from '../components/ProductImage'
 
 const pasosCompra = [
-  { emoji: '🧁', titulo: 'Elige tus productos', texto: 'Explora el catálogo y encuentra tus favoritos.' },
-  { emoji: '🛒', titulo: 'Agrégalos al carrito', texto: 'Elige tamaño, extras y cantidad a tu gusto.' },
-  { emoji: '📅', titulo: 'Coordina tu pedido', texto: 'Escoge fecha, hora y método de pago.' },
+  { emoji: '🧁', titulo: 'Explora el catálogo', texto: 'Descubre tortas, postres, dulces y bocaditos.' },
+  { emoji: '💬', titulo: 'Escríbenos por WhatsApp', texto: 'Cuéntanos qué te antoja: tamaño, extras y cantidad.' },
+  { emoji: '📅', titulo: 'Coordina tu pedido', texto: 'Te confirmamos fecha, hora y forma de pago.' },
   { emoji: '🎉', titulo: 'Recibe o recoge', texto: 'Delivery a tu puerta o recojo en tienda.' },
 ]
 
@@ -55,9 +56,14 @@ export default function Home() {
               <Button tamano="lg" to="/catalogo">
                 Ver catálogo <ArrowRight size={17} />
               </Button>
-              <Button tamano="lg" variante="oscuro" to="/checkout">
-                Hacer pedido
-              </Button>
+              <a
+                href={whatsappUrl('Hola Bake Brothers 👋 Quiero hacer un pedido')}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-tinta px-8 py-4 text-base font-semibold tracking-wide text-white transition-all duration-200 hover:bg-black active:scale-[0.97]"
+              >
+                <MessageCircle size={17} /> Hacer pedido
+              </a>
             </div>
             <div className="mt-8 flex items-center gap-3 text-sm text-gris">
               <span className="flex text-acento" aria-label="5 estrellas">

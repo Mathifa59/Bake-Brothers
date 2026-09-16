@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
-  ChevronRight, Minus, Plus, ShoppingBag, MessageCircle,
+  ChevronRight, Minus, Plus, MessageCircle,
   Clock, Snowflake, Users, Check,
 } from 'lucide-react'
 import { precioPorTamano, calcularPrecioLinea } from '@bakebrothers/domain'
 import { extrasDisponibles } from '../data/mock'
 import { descuentoDe, formatoPrecio } from '../utils/formato'
+import { whatsappUrl } from '../utils/whatsapp'
 import { useCatalogo } from '../context/CatalogContext'
-import { useCart } from '../context/CartContext'
 import ProductImage from '../components/ProductImage'
 import Badge from '../components/Badge'
 import Button from '../components/Button'
@@ -19,7 +19,6 @@ export default function ProductoDetalle() {
   const { id } = useParams()
   const { productos } = useCatalogo()
   const producto = productos.find((p) => p.id === id)
-  const { agregarItem } = useCart()
 
   const [cantidad, setCantidad] = useState(1)
   const [tamano, setTamano] = useState('Personal')
@@ -55,6 +54,19 @@ export default function ProductoDetalle() {
     setExtras((prev) =>
       prev.includes(extraId) ? prev.filter((e) => e !== extraId) : [...prev, extraId]
     )
+
+  // Arma el mensaje de WhatsApp con la selección actual (tamaño, extras,
+  // cantidad y precio referencial) para que el operador cotice y confirme.
+  const mensajePedido = () => {
+    const detalle = [
+      producto.tamanos ? `Tamaño: ${tamano}` : null,
+      extras.length > 0 ? `Extras: ${extras.join(', ')}` : null,
+      `Cantidad: ${cantidad}`,
+    ]
+      .filter(Boolean)
+      .join(' · ')
+    return `Hola Bake Brothers 👋 Quiero pedir: ${producto.nombre}\n${detalle}\nPrecio referencial: ${formatoPrecio(precioFinal * cantidad)}`
+  }
 
   const relacionados = productos
     .filter((p) => p.id !== producto.id && (p.tipo === producto.tipo || p.categoria === producto.categoria))
@@ -184,7 +196,7 @@ export default function ProductoDetalle() {
             </div>
           </div>
 
-          {/* Cantidad + acciones */}
+          {/* Cantidad + pedido por WhatsApp */}
           <div className="mt-7 flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1 rounded-full border border-borde bg-white px-2 py-1.5">
               <button
@@ -203,26 +215,22 @@ export default function ProductoDetalle() {
                 <Plus size={16} />
               </button>
             </div>
-            <Button
-              tamano="lg"
-              className="flex-1 min-w-48"
-              disabled={!producto.disponible}
-              onClick={() =>
-                agregarItem(producto, cantidad, producto.tamanos ? tamano : null, extras)
-              }
-            >
-              <ShoppingBag size={17} />
-              {producto.disponible ? `Agregar · ${formatoPrecio(precioFinal * cantidad)}` : 'No disponible'}
-            </Button>
+            {producto.disponible ? (
+              <a
+                href={whatsappUrl(mensajePedido())}
+                target="_blank"
+                rel="noreferrer"
+                className="flex flex-1 min-w-48 items-center justify-center gap-2 rounded-full bg-[#25D366] px-6 py-4 text-sm font-bold text-white transition-all hover:brightness-105 active:scale-[0.98]"
+              >
+                <MessageCircle size={17} fill="white" className="text-[#25D366]" />
+                Pedir por WhatsApp · {formatoPrecio(precioFinal * cantidad)}
+              </a>
+            ) : (
+              <Button tamano="lg" className="flex-1 min-w-48" disabled>
+                No disponible
+              </Button>
+            )}
           </div>
-          <a
-            href={`https://wa.me/51987654321?text=${encodeURIComponent(`Hola Bake Brothers 👋 Quiero pedir: ${producto.nombre}`)}`}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-[#25D366] px-6 py-4 text-sm font-bold text-white transition-all hover:brightness-105 active:scale-[0.98]"
-          >
-            <MessageCircle size={17} fill="white" className="text-[#25D366]" /> Pedir por WhatsApp
-          </a>
 
           {/* Información adicional */}
           <dl className="mt-7 grid gap-3 rounded-3xl border border-borde/60 bg-white p-5 sm:grid-cols-3">

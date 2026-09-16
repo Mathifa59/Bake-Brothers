@@ -1,25 +1,23 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { api } from '../api/client'
 
-// Catálogo del tenant cargado desde la API (reemplaza los arrays de mock.js).
-// `ofertas` y `destacados` se derivan igual que lo hacía mock.js a nivel de módulo.
+// Catálogo del tenant cargado desde la API (o del catálogo local en modo
+// demo). `ofertas` y `destacados` se derivan del array de productos.
 const CatalogContext = createContext(null)
 
 export function CatalogProvider({ children }) {
   const [productos, setProductos] = useState([])
   const [categorias, setCategorias] = useState([])
-  const [distritos, setDistritos] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
 
   const cargar = () => {
     setCargando(true)
     setError(null)
-    Promise.all([api.getProductos(), api.getCategorias(), api.getDistritos()])
-      .then(([p, c, d]) => {
+    Promise.all([api.getProductos(), api.getCategorias()])
+      .then(([p, c]) => {
         setProductos(p)
         setCategorias(c)
-        setDistritos(d)
       })
       .catch((e) => setError(e))
       .finally(() => setCargando(false))
@@ -32,7 +30,7 @@ export function CatalogProvider({ children }) {
 
   return (
     <CatalogContext.Provider
-      value={{ productos, categorias, distritos, ofertas, destacados, cargando, error, recargar: cargar }}
+      value={{ productos, categorias, ofertas, destacados, cargando, error, recargar: cargar }}
     >
       {children}
     </CatalogContext.Provider>

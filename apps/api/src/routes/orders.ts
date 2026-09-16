@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import {
   calcularPrecioLinea,
-  calcularTotales,
+  calcularSubtotal,
   cumpleAnticipacionMinima,
   hayCupoDisponible,
   cupoRestante,
@@ -16,8 +16,6 @@ import {
   productosParaPedido,
   extrasActivos,
 } from '../repositories/productsRepo.js'
-import { cuponVigente } from '../repositories/couponsRepo.js'
-import { tarifaDeZona } from '../repositories/deliveryZonesRepo.js'
 import { cupoMaximoDelDia, unidadesReservadas } from '../repositories/capacityRepo.js'
 import {
   findOrCreateCustomer,
@@ -45,8 +43,7 @@ const crearPedidoSchema = z.object({
   horario: z.string().trim().min(1),
   nota: z.string().nullish(),
   metodoPago: z.enum(['yape', 'plin', 'transferencia', 'tarjeta', 'contraentrega']),
-  cuponCodigo: z.string().trim().nullish(),
-  canal: z.enum(['web', 'whatsapp']).default('web'),
+  canal: z.enum(['web', 'whatsapp', 'facebook', 'instagram']).default('web'),
   // NUNCA se aceptan precios del cliente: solo qué, cuánto y cómo.
   items: z
     .array(
@@ -142,29 +139,16 @@ export function ordersRoutes(app: FastifyInstance) {
         }
       }
 
-      // 5. Entrega: dirección + zona válida si es delivery
-      let tarifaDelivery: number | undefined
-      if (body.tipoEntrega === 'delivery') {
-        if (!body.direccion || !body.distrito) {
-          return reply.code(400).send({ error: 'DIRECCION_REQUERIDA' })
-        }
-        const tarifaZona = await tarifaDeZona(client, req.tenantId, body.distrito)
-        if (tarifaZona === undefined) {
-          return reply.code(400).send({ error: 'ZONA_NO_CUBIERTA', distrito: body.distrito })
-        }
-        tarifaDelivery = tarifaZona ?? undefined // null → tarifa global del dominio
-      } else {
-        tarifaDelivery = 0 // recojo en tienda no paga delivery
+      // 5. Entrega: dirección requerida si es delivery. La tarifa ya no se
+      // calcula sola (0004_rediseno_alcance.sql): el operador la cotiza
+      // manualmente y la ajusta desde el dashboard (Semana 3).
+      if (body.tipoEntrega === 'delivery' && (!body.direccion || !body.distrito)) {
+        return reply.code(400).send({ error: 'DIRECCION_REQUERIDA' })
       }
 
-      // 6. Cupón (la única validación autoritativa; el front solo da feedback)
-      let cupon = null
-      if (body.cuponCodigo) {
-        cupon = await cuponVigente(client, req.tenantId, body.cuponCodigo)
-        if (!cupon) return reply.code(400).send({ error: 'CUPON_INVALIDO' })
-      }
-
-      // 7. Precios: SIEMPRE recalculados en el servidor con @bakebrothers/domain
+      // 6. Precios: SIEMPRE recalculados en el servidor con @bakebrothers/domain.
+      // Los cupones de descuento se retiraron (reemplazados por `combos` de
+      // precio fijo, que se gestionan desde el dashboard en Semana 3).
       const itemsValorizados: OrderItemInsert[] = body.items.map((item) => {
         const producto = porSlug.get(item.productoId)!
         const precioUnitario = calcularPrecioLinea({
@@ -181,13 +165,14 @@ export function ordersRoutes(app: FastifyInstance) {
           cantidad: item.cantidad,
         }
       })
-      const totales = calcularTotales({
-        lineas: itemsValorizados.map((i) => ({ precioLinea: i.precioUnitario, cantidad: i.cantidad })),
-        cupon,
-        tarifaDelivery,
-      })
+      const subtotal = calcularSubtotal(
+        itemsValorizados.map((i) => ({ precioLinea: i.precioUnitario, cantidad: i.cantidad }))
+      )
+      // delivery/total quedan en manos del operador (columnas conservadas
+      // para no romper el esquema; se completan desde el dashboard).
+      const totales = { subtotal, descuentoCupon: 0, delivery: 0, total: subtotal }
 
-      // 8. Persistencia: cliente, número atómico, pedido + items snapshot
+      // 7. Persistencia: cliente, número atómico, pedido + items snapshot
       const customerId = await findOrCreateCustomer(client, req.tenantId, body.cliente)
       const numero = await siguienteNumeroDePedido(client, req.tenantId, tenant.codigo_prefijo)
       await insertarPedido(
@@ -206,7 +191,7 @@ export function ordersRoutes(app: FastifyInstance) {
           horario: body.horario,
           nota: body.nota ?? null,
           metodoPago: body.metodoPago,
-          cuponCodigo: cupon?.codigo ?? null,
+          cuponCodigo: null, // columna conservada por compatibilidad; los cupones se retiraron (ver combos)
           ...totales,
         },
         itemsValorizados

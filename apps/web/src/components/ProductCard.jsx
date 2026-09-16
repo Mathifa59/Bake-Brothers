@@ -1,13 +1,10 @@
 import { Link } from 'react-router-dom'
-import { ShoppingBag, Eye } from 'lucide-react'
-import { useCart } from '../context/CartContext'
 import { descuentoDe, formatoPrecio } from '../utils/formato'
 import ProductImage from './ProductImage'
 import Badge from './Badge'
 import Button from './Button'
 
 export default function ProductCard({ producto }) {
-  const { agregarItem } = useCart()
   const desc = descuentoDe(producto)
 
   return (
@@ -39,24 +36,9 @@ export default function ProductCard({ producto }) {
           )}
         </div>
 
-        <div className="mt-2 flex gap-2">
-          <Button
-            tamano="sm"
-            className="flex-1"
-            disabled={!producto.disponible}
-            onClick={() => agregarItem(producto)}
-          >
-            <ShoppingBag size={15} /> Agregar
-          </Button>
-          <Button
-            tamano="sm"
-            variante="secundario"
-            to={`/producto/${producto.id}`}
-            aria-label={`Ver detalle de ${producto.nombre}`}
-          >
-            <Eye size={15} />
-          </Button>
-        </div>
+        <Button tamano="sm" className="mt-2" variante="secundario" to={`/producto/${producto.id}`}>
+          Ver detalle
+        </Button>
       </div>
     </article>
   )

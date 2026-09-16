@@ -1,3 +1,14 @@
+> ⚠️ **HISTÓRICO / OBSOLETO (desde 2026-09-16).** Este documento describe el plan
+> **multi-tenant** original (tienda virtual vendible a cualquier pastelería, con carrito,
+> checkout y fases 0-4). Ese alcance fue **renegociado con el cliente**: el proyecto pasó a
+> ser exclusivo de Bake Brothers, sin multi-tenant, con landing + bot omnicanal +
+> dashboard/CRM sobre un plan de 4 semanas. Se conserva como referencia de lo que se
+> descartó y por qué — **no lo uses como guía de alcance ni de roadmap vigente.** La
+> documentación actual vive en [`CLAUDE.md`](./CLAUDE.md) y
+> [`DOCUMENTO-MAESTRO.md`](./DOCUMENTO-MAESTRO.md).
+
+---
+
 # CLAUDE.md — Bake Brothers
 
 > Documento de contexto persistente del proyecto. Léelo completo al inicio de cada sesión.

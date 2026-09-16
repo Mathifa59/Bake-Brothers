@@ -1,26 +1,8 @@
-import {
-  SIZE_FACTORS,
-  EXTRA_PRICE,
-  DELIVERY_FEE,
-  FREE_DELIVERY_THRESHOLD,
-  type TamanoId,
-} from './constants.js'
-
-export interface Cupon {
-  tipo: 'porcentaje' | 'monto_fijo'
-  valor: number
-}
+import { SIZE_FACTORS, EXTRA_PRICE, type TamanoId } from './constants.js'
 
 export interface LineaPedido {
   precioLinea: number
   cantidad: number
-}
-
-export interface Totales {
-  subtotal: number
-  descuentoCupon: number
-  delivery: number
-  total: number
 }
 
 /**
@@ -58,59 +40,7 @@ export function calcularSubtotal(lineas: LineaPedido[]): number {
   return lineas.reduce((acc, l) => acc + l.precioLinea * l.cantidad, 0)
 }
 
-/** Descuento de cupón, redondeado a céntimos. Nunca supera el subtotal. */
-export function calcularDescuentoCupon(subtotal: number, cupon: Cupon | null): number {
-  if (!cupon) return 0
-  const bruto =
-    cupon.tipo === 'porcentaje'
-      ? Math.round(subtotal * (cupon.valor / 100) * 100) / 100
-      : cupon.valor
-  return Math.min(bruto, subtotal)
-}
-
-/**
- * Tarifa de delivery: 0 si no hay ítems, 0 si el subtotal con descuento
- * alcanza el umbral de delivery gratis, tarifa plana en caso contrario.
- */
-export function calcularDelivery(params: {
-  subtotalConDescuento: number
-  hayItems: boolean
-  tarifaDelivery?: number
-  umbralGratis?: number
-}): number {
-  const {
-    subtotalConDescuento,
-    hayItems,
-    tarifaDelivery = DELIVERY_FEE,
-    umbralGratis = FREE_DELIVERY_THRESHOLD,
-  } = params
-  if (!hayItems) return 0
-  return subtotalConDescuento >= umbralGratis ? 0 : tarifaDelivery
-}
-
-/**
- * Totales completos de un pedido. Para recojo en tienda pasar
- * `tarifaDelivery: 0`.
- */
-export function calcularTotales(params: {
-  lineas: LineaPedido[]
-  cupon?: Cupon | null
-  tarifaDelivery?: number
-  umbralGratis?: number
-}): Totales {
-  const { lineas, cupon = null, tarifaDelivery, umbralGratis } = params
-  const subtotal = calcularSubtotal(lineas)
-  const descuentoCupon = calcularDescuentoCupon(subtotal, cupon)
-  const delivery = calcularDelivery({
-    subtotalConDescuento: subtotal - descuentoCupon,
-    hayItems: lineas.length > 0,
-    tarifaDelivery,
-    umbralGratis,
-  })
-  return {
-    subtotal,
-    descuentoCupon,
-    delivery,
-    total: Math.max(0, subtotal - descuentoCupon + delivery),
-  }
-}
+// calcularDescuentoCupon, calcularDelivery y calcularTotales se retiraron
+// con el rediseño de alcance (Semana 1): no hay más cupones de descuento
+// (ver `combos` en 0004_rediseno_alcance.sql) y el delivery lo cotiza el
+// operador manualmente en vez de calcularse solo.

@@ -1,8 +1,13 @@
 import { useState } from 'react'
 import { MapPin, Clock, Phone, Instagram, Facebook, MessageCircle } from 'lucide-react'
+import { whatsappUrl, whatsappNumeroFormateado } from '../utils/whatsapp'
 import SectionTitle from '../components/SectionTitle'
 import Button from '../components/Button'
 import Input from '../components/Input'
+
+// Redes sociales: URLs reales pendientes (Semana 2).
+const INSTAGRAM_URL = import.meta.env.VITE_INSTAGRAM_URL || '#'
+const FACEBOOK_URL = import.meta.env.VITE_FACEBOOK_URL || '#'
 
 export default function Contacto() {
   const [enviado, setEnviado] = useState(false)
@@ -70,14 +75,14 @@ export default function Contacto() {
                 <Phone size={18} className="mt-0.5 shrink-0 text-acento" />
                 <span>
                   <strong className="block">WhatsApp</strong>
-                  <span className="text-gris">+51 987 654 321</span>
+                  <span className="text-gris">{whatsappNumeroFormateado}</span>
                 </span>
               </li>
             </ul>
 
             <div className="mt-6 flex flex-wrap gap-2">
               <a
-                href="https://wa.me/51987654321"
+                href={whatsappUrl('Hola Bake Brothers 👋')}
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-2.5 text-xs font-bold text-white transition-transform hover:scale-105"
@@ -85,13 +90,17 @@ export default function Contacto() {
                 <MessageCircle size={14} /> WhatsApp
               </a>
               <a
-                href="#instagram"
+                href={INSTAGRAM_URL}
+                target="_blank"
+                rel="noreferrer"
                 className="flex items-center gap-2 rounded-full bg-tinta px-4 py-2.5 text-xs font-bold text-white transition-transform hover:scale-105"
               >
                 <Instagram size={14} /> @bakebrothers.pe
               </a>
               <a
-                href="#facebook"
+                href={FACEBOOK_URL}
+                target="_blank"
+                rel="noreferrer"
                 className="flex items-center gap-2 rounded-full bg-[#1877F2] px-4 py-2.5 text-xs font-bold text-white transition-transform hover:scale-105"
               >
                 <Facebook size={14} /> Bake Brothers

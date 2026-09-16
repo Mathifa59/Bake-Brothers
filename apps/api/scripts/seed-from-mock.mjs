@@ -128,11 +128,9 @@ distritos.forEach((d, i) => {
   )
 })
 
-// ——— cupón BAKE10 (antes hardcodeado en CartContext) ———
-lineas.push(`-- Cupones`)
-lineas.push(`insert into coupons (tenant_id, codigo, tipo, valor, activo)`)
-lineas.push(`values (${tenantId}, 'BAKE10', 'porcentaje', 10, true)`)
-lineas.push(`on conflict (tenant_id, codigo) do update set tipo = excluded.tipo, valor = excluded.valor, activo = excluded.activo;`)
-lineas.push(``)
+// NOTA: los cupones (BAKE10) se retiraron con el rediseño de alcance
+// (0004_rediseno_alcance.sql eliminó la tabla `coupons`, reemplazada por
+// `combos` de precio fijo). mock.js ya no es la fuente de esos datos — los
+// combos se cargan aparte, desde el dashboard, cuando exista (Semana 3).
 
 process.stdout.write(lineas.join('\n'))

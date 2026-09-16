@@ -1,6 +1,6 @@
-// Valores por defecto de la plataforma. Un tenant puede sobreescribirlos vía
-// configuración en base de datos (p.ej. delivery_zones.tarifa_delivery,
-// product_sizes.factor); estas constantes son el fallback global.
+// Valores por defecto de la plataforma. Bake Brothers puede sobreescribirlos
+// vía configuración en base de datos (p.ej. product_sizes.factor); estas
+// constantes son el fallback global.
 
 export const SIZE_FACTORS = {
   Personal: 1,
@@ -13,8 +13,6 @@ export type TamanoId = keyof typeof SIZE_FACTORS
 /** Precio por defecto de cada extra (dedicatoria, vela, decoración). */
 export const EXTRA_PRICE = 8
 
-/** Tarifa de delivery por defecto. */
-export const DELIVERY_FEE = 12
-
-/** Subtotal (con descuento aplicado) a partir del cual el delivery es gratis. */
-export const FREE_DELIVERY_THRESHOLD = 150
+// DELIVERY_FEE y FREE_DELIVERY_THRESHOLD se retiraron con el rediseño de
+// alcance (Semana 1): el delivery ya no se calcula solo, lo cotiza el
+// operador manualmente. Ver 0004_rediseno_alcance.sql.
