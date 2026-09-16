@@ -106,11 +106,34 @@ create index idx_stock_sede on stock (sede_id);
 -- ============================================================================
 -- 4. orders — canales nuevos, sede, atribución de marketing, semáforo
 -- ============================================================================
--- Nombre de constraint asumido por la convención de Postgres para un CHECK
--- de una sola columna sin nombre explícito ({tabla}_{columna}_check), tal
--- como quedó definido en 0001_init.sql. Si al aplicar esto la migración
--- falla aquí, es que Postgres la nombró distinto — hay que ajustar el nombre.
-alter table orders drop constraint orders_canal_check;
+-- El CHECK de `canal` se definió sin nombre explícito en 0001_init.sql, así
+-- que Postgres lo nombró solo — normalmente sigue la convención
+-- {tabla}_{columna}_check, pero esto NO se verificó contra ningún Postgres
+-- real (sin acceso a Supabase en la sesión que escribió esta migración). En
+-- vez de asumir el nombre a ciegas, este bloque lo busca en pg_constraint
+-- por la columna que realmente restringe y lo borra por su nombre real,
+-- sea cual sea.
+do $$
+declare
+  nombre_constraint text;
+begin
+  select con.conname into nombre_constraint
+  from pg_constraint con
+  join pg_class rel on rel.oid = con.conrelid
+  join pg_attribute att
+    on att.attrelid = con.conrelid and att.attnum = any(con.conkey)
+  where rel.relname = 'orders'
+    and con.contype = 'c'          -- check constraint
+    and att.attname = 'canal'
+    and array_length(con.conkey, 1) = 1;  -- solo la del canal, no un check compuesto
+
+  if nombre_constraint is not null then
+    execute format('alter table orders drop constraint %I', nombre_constraint);
+  else
+    raise notice 'No se encontró un CHECK existente sobre orders.canal — se crea uno nuevo sin borrar nada.';
+  end if;
+end $$;
+
 alter table orders add constraint orders_canal_check
   check (canal in ('web', 'whatsapp', 'facebook', 'instagram'));
 

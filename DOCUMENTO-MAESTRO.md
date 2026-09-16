@@ -149,7 +149,7 @@ draft → confirmed → payment_pending → paid → in_production → out_for_d
 
 ## 8. Qué falta · deuda conocida
 
-- Aplicar 0004 a Supabase real y confirmar el nombre de la constraint `orders_canal_check`.
+- Aplicar 0004 a Supabase real (nunca se corrió contra un Postgres de verdad). El paso que reemplaza el CHECK de `canal` ya busca su nombre real en `pg_constraint` en vez de asumirlo, pero la migración completa sigue sin probarse end-to-end.
 - Combos sin CRUD ni datos de catálogo real.
 - Semáforo de catering sin función de cálculo.
 - RLS por sede comentada, sin activar.

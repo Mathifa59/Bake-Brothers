@@ -100,7 +100,7 @@ Sin cambios de rutas respecto a antes, salvo:
 
 ## 6. Qué falta — deuda conocida
 
-- **Migración 0004 sin aplicar.** Falta correrla contra Supabase y revisar el nombre real de la constraint `orders_canal_check` (se asumió la convención por defecto de Postgres).
+- **Migración 0004 sin aplicar.** Falta correrla contra Supabase real (sin acceso al conector en las sesiones que la escribieron — nunca se probó contra un Postgres de verdad). El paso que reemplaza el CHECK de `orders.canal` ya no asume el nombre de la constraint: la busca en `pg_constraint` por columna y la borra por su nombre real, así que no hace falta verificarlo a mano antes de aplicar — pero sí correr la migración completa una vez contra Supabase (o una copia) antes de darla por buena.
 - **Combos sin CRUD ni datos** — el modelo existe, la carga es manual/dashboard en Semana 3.
 - **Semáforo de catering sin calcular** — `reglas_catering` existe, la función que escribe `orders.estado_catering` se construye en Semana 3.
 - **RLS por sede comentada** — se activa junto con el login real del dashboard (Semana 3).
