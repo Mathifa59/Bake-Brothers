@@ -96,11 +96,29 @@ Sin cambios de rutas respecto a antes, salvo:
 - ✅ `pnpm test`: tests de dominio ajustados (se quitaron los de cupón/delivery/totales; quedan tamaños, precio de línea, subtotal, anticipación, capacidad, máquina de estados).
 - ✅ `pnpm build`: los tres paquetes (`domain`, `api`, `web`) compilan sin errores tras los cambios de esquema/dominio.
 - ✅ Landing revisada página por página: sin referencias a carrito/checkout/cupón/login.
-- ⚠️ La migración 0004 **no se aplicó** a Postgres real (sin acceso a Supabase esta sesión) — falta correrla y verificarla en Semana 2.
+- ✅ Cadena `0001→0004` corrida de punta a punta contra Postgres 16 real en Docker (local, no Supabase) — ver detalle y evidencia en §6.
+- ⚠️ Sigue pendiente correrla contra el Supabase real del proyecto antes de Semana 2.
 
 ## 6. Qué falta — deuda conocida
 
-- **Migración 0004 sin aplicar.** Falta correrla contra Supabase real (sin acceso al conector en las sesiones que la escribieron — nunca se probó contra un Postgres de verdad). El paso que reemplaza el CHECK de `orders.canal` ya no asume el nombre de la constraint: la busca en `pg_constraint` por columna y la borra por su nombre real, así que no hace falta verificarlo a mano antes de aplicar — pero sí correr la migración completa una vez contra Supabase (o una copia) antes de darla por buena.
+- **Cadena 0001→0004 validada localmente (Postgres 16 en Docker), falta contra Supabase real.**
+  Se corrió limpia de punta a punta contra un contenedor Postgres 16 vanilla (no Supabase),
+  con un `auth.users` mínimo creado a mano como fixture de prueba (Supabase ya lo provee de
+  fábrica; Postgres vanilla no). Verificado con evidencia real, no solo revisando el
+  catálogo: `orders_canal_check` acepta `facebook`/`instagram` (insert real), no quedan
+  políticas `tenant_isolation` en `pg_policies` (solo sigue `tenants_read`), y los `grant`
+  a `app_api` funcionan de verdad (`SET ROLE app_api` + INSERT/SELECT real) en `sedes`,
+  `stock`, `combos`, `combo_items` y `reglas_catering`. **`usuarios_dashboard` deniega el
+  acceso a `app_api`** (`permission denied`) — es lo esperado, esa tabla la gestiona
+  Supabase Auth/el dashboard, no la API; no tiene grant a propósito.
+  Al validar se encontró y arregló un bug real preexistente (no introducido en esta
+  sesión): `0002_seed_bake_brothers.sql` insertaba usando `products.orden`, columna que
+  recién se crea en `0003_products_orden.sql` — la cadena 0001→0002→0003 nunca se había
+  corrido en orden estricto contra una BD limpia antes de esta prueba. Se corrigió
+  adelantando `alter table products add column if not exists orden...` a 0002 y volviendo
+  idempotente el mismo ALTER en 0003.
+  **Pendiente real:** correr esto una vez contra el Supabase del proyecto (con su
+  `auth.users` genuino, no el stub de prueba) antes de darlo por definitivamente bueno.
 - **Combos sin CRUD ni datos** — el modelo existe, la carga es manual/dashboard en Semana 3.
 - **Semáforo de catering sin calcular** — `reglas_catering` existe, la función que escribe `orders.estado_catering` se construye en Semana 3.
 - **RLS por sede comentada** — se activa junto con el login real del dashboard (Semana 3).

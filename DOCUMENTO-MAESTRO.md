@@ -143,13 +143,14 @@ draft → confirmed → payment_pending → paid → in_production → out_for_d
   (delivery/descuento quedan en 0 hasta que el operador los complete — no es la solución
   final, es lo mínimo para no romper el build; la reescritura real es Semana 3).
 - ✅ `pnpm build` y `pnpm test` verificados en verde.
-- ⚠️ La migración 0004 **no se aplicó** a Postgres — sin acceso a Supabase esta sesión.
+- ✅ Cadena `0001→0004` validada de punta a punta contra Postgres 16 real en Docker (local) — ver §8 para el detalle y la evidencia de los 3 sanity checks.
+- ⚠️ Sigue pendiente correrla contra el Supabase real del proyecto (con su `auth.users` genuino) antes de Semana 2.
 
 ---
 
 ## 8. Qué falta · deuda conocida
 
-- Aplicar 0004 a Supabase real (nunca se corrió contra un Postgres de verdad). El paso que reemplaza el CHECK de `canal` ya busca su nombre real en `pg_constraint` en vez de asumirlo, pero la migración completa sigue sin probarse end-to-end.
+- **Validado localmente, falta contra Supabase real.** La cadena 0001→0004 se corrió de punta a punta contra Postgres 16 en Docker (con un `auth.users` de prueba simulando lo que Supabase ya provee) y quedó limpia, con los 3 sanity checks confirmados por evidencia real (constraint de canal, ausencia de políticas de aislamiento, grants de `app_api` probados con `SET ROLE` + INSERT/SELECT reales — `usuarios_dashboard` deniega el acceso a `app_api` a propósito, esa tabla la gestiona Supabase Auth). En el camino se encontró y arregló un bug real preexistente: 0002 insertaba usando `products.orden`, columna que 0003 recién crea — la cadena en orden estricto nunca se había probado antes. Falta correrla una vez contra el Supabase real del proyecto.
 - Combos sin CRUD ni datos de catálogo real.
 - Semáforo de catering sin función de cálculo.
 - RLS por sede comentada, sin activar.

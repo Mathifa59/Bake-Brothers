@@ -37,6 +37,13 @@ insert into categories (tenant_id, slug, nombre, tipo_producto, emoji, foto_url,
 values ((select id from tenants where slug = 'bake-brothers'), 'catering', 'Catering', 'Catering', '🎉', '/img/vitrina-pasteleria.jpg', '#FBE5D5', '#F2BA8C', 'Mesas dulces y eventos', 5)
 on conflict (tenant_id, slug) do update set nombre = excluded.nombre, tipo_producto = excluded.tipo_producto, emoji = excluded.emoji, foto_url = excluded.foto_url, gradiente_desde = excluded.gradiente_desde, gradiente_hasta = excluded.gradiente_hasta, descripcion = excluded.descripcion, orden = excluded.orden;
 
+-- products.orden se agrega recién en 0003_products_orden.sql, pero este
+-- INSERT ya la necesita: se adelanta aquí (idempotente) para que la cadena
+-- de migraciones aplique en orden estricto 0001→0002→0003→0004 sin fallar.
+-- 0003 vuelve a intentar agregarla con `if not exists`, así que no rompe
+-- si ya existe.
+alter table products add column if not exists orden int not null default 0;
+
 -- Productos (26)
 insert into products (tenant_id, slug, category_id, nombre, categoria_negocio, tipo, precio_base, precio_anterior, emoji, foto_url, gradiente_desde, gradiente_hasta, descripcion, porciones, anticipacion_horas, anticipacion_texto, corte_mismo_dia, conservacion, popular, mas_vendido, disponible, orden)
 values ((select id from tenants where slug = 'bake-brothers'), 'torta-chocolate', (select id from categories where tenant_id = (select id from tenants where slug = 'bake-brothers') and tipo_producto = 'Tortas' limit 1), 'Torta de chocolate artesanal', 'dulces', 'Tortas', 76, 95, '🍫', '/img/torta-chocolate.jpg', '#F3DFC9', '#E4BE97', 'Bizcocho húmedo de cacao al 70%, relleno de fudge casero y cubierto con ganache brillante. Nuestra torta más pedida, hecha artesanalmente para compartir.', '12 – 15 porciones', 48, '48 horas de anticipación', null, 'Mantener refrigerada. Consumir dentro de 3 días.', true, true, true, 0)
