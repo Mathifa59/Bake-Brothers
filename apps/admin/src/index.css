@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+@theme {
+  --color-crema: #F4F1F1;
+  --color-hueso: #FBF9F7;
+  --color-tinta: #16110D;
+  --color-acento: #F28C18;
+  --color-acento-oscuro: #D9750B;
+  --color-acento-suave: #FDEFDD;
+  --color-borde: #E7E0DA;
+  --color-gris: #6F675F;
+  --font-sans: "Albert Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  background-color: var(--color-crema);
+  color: var(--color-tinta);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
