@@ -28,11 +28,11 @@ const frasesTicker = [
 
 export default function Home() {
   const { productos, ofertas, categorias, destacados } = useCatalogo()
-  // Productos con fotografía para la composición del hero
+  // Productos con fotografía para la composición del hero (slugs del catálogo real)
   const heroDestacados = [
-    productos.find((p) => p.id === 'torta-chocolate'),
-    productos.find((p) => p.id === 'cheesecake-frutos-rojos'),
-    productos.find((p) => p.id === 'petipanes'),
+    productos.find((p) => p.id === 'torta-chocolate-manjar'),
+    productos.find((p) => p.id === 'cheesecake-fresa'),
+    productos.find((p) => p.id === 'torta-red-velvet'),
   ]
 
   return (
