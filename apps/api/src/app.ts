@@ -15,10 +15,20 @@ declare module 'fastify' {
   }
 }
 
+// Orígenes con permiso para llamar a la API. `origin: true` (reflejar
+// cualquier origen) era razonable mientras nada estaba desplegado; ahora que
+// apps/web sí lo está, se restringe a una lista explícita: la landing real
+// en Vercel (con su alias de rama) + localhost para desarrollo.
+const ORIGENES_PERMITIDOS = [
+  'https://bake-brothers.vercel.app',
+  'https://bake-brothers-git-main-mathias-projects-eaced134.vercel.app',
+  'http://localhost:5173',
+]
+
 export async function buildApp() {
   const app = Fastify({ logger: true })
 
-  await app.register(cors, { origin: true })
+  await app.register(cors, { origin: ORIGENES_PERMITIDOS })
 
   app.decorateRequest('tenantId', '')
   app.decorateRequest('tenantSlug', '')
