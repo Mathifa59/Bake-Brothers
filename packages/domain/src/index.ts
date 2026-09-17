@@ -23,3 +23,12 @@ export {
   type EstadoPedido,
   type TipoEntrega,
 } from './orderStatus.js'
+
+export {
+  ESTADOS_CONVERSACION,
+  TRANSICIONES_VALIDAS_CONVERSACION,
+  esEstadoConversacion,
+  puedeTransicionarConversacion,
+  estadoConversacionLegible,
+  type EstadoConversacion,
+} from './conversationStatus.js'

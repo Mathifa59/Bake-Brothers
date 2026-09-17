@@ -7,6 +7,7 @@ import { productsRoutes } from './routes/products.js'
 import { categoriesRoutes } from './routes/categories.js'
 import { availabilityRoutes } from './routes/availability.js'
 import { ordersRoutes } from './routes/orders.js'
+import { webhookRoutes } from './routes/webhook.js'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -63,6 +64,7 @@ export async function buildApp() {
   categoriesRoutes(app)
   availabilityRoutes(app)
   ordersRoutes(app)
+  webhookRoutes(app)
 
   return app
 }
