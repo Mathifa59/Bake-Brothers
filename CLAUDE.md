@@ -75,10 +75,13 @@ packages/
 local — no necesita la API) · `pnpm dev:api` (API :3001, necesita `apps/api/.env` con
 `DATABASE_URL`; no hay `.env` local en este entorno) · `pnpm test`.
 
-**Supabase:** proyecto `bake-brothers` (id `kxqadxazziybqzqzodrx`, us-east-1, plan free).
-**El conector de Supabase de esta sesión está invalidado — sin acceso a la BD real.** La
-migración 0004 se escribió pero NO se aplicó a ningún Postgres real; hay que revisarla
-contra la BD real antes de Semana 2.
+**Supabase:** proyecto `bake-brothers` (ref `umyaytrojtbdvdzbrily`, São Paulo, plan free)
+— **este es el proyecto real, de ahora en adelante.** Hubo un proyecto anterior en Oregon
+(`vkkjoxvgrmzbxagppjpv`) que también se migró completo, pero el cliente lo eliminó
+(2026-09-17); no queda nada ahí y no debe referenciarse más.
+**Las 8 migraciones (0001→0008) ya están aplicadas contra este Supabase real**, vía el
+conector MCP, con la misma evidencia (constraints, grants, conteos) que la validación
+local en Docker — ver §6. La app (`apps/api`) sigue sin desplegarse a internet.
 
 ## 3. Decisiones tomadas (no re-litigar)
 
@@ -110,29 +113,41 @@ Cambios de rutas respecto a antes:
 - ✅ `pnpm test`: tests de dominio ajustados (se quitaron los de cupón/delivery/totales; quedan tamaños, precio de línea, subtotal, anticipación, capacidad, máquina de estados).
 - ✅ `pnpm build`: los tres paquetes (`domain`, `api`, `web`) compilan sin errores tras los cambios de esquema/dominio.
 - ✅ Landing revisada página por página: sin referencias a carrito/checkout/cupón/login.
-- ✅ Cadena `0001→0008` corrida de punta a punta contra Postgres 16 real en Docker (local, no Supabase) — ver detalle y evidencia en §6.
-- ⚠️ Sigue pendiente correrla contra el Supabase real del proyecto antes de Semana 2.
+- ✅ Cadena `0001→0008` corrida de punta a punta contra Postgres 16 real en Docker (local) — ver detalle en §6.
+- ✅ Cadena `0001→0008` aplicada contra el Supabase real del proyecto (`umyaytrojtbdvdzbrily`, São Paulo) — ver evidencia en §6.
 
 ## 6. Qué falta — deuda conocida
 
-- **Cadena 0001→0004 validada localmente (Postgres 16 en Docker), falta contra Supabase real.**
-  Se corrió limpia de punta a punta contra un contenedor Postgres 16 vanilla (no Supabase),
-  con un `auth.users` mínimo creado a mano como fixture de prueba (Supabase ya lo provee de
-  fábrica; Postgres vanilla no). Verificado con evidencia real, no solo revisando el
-  catálogo: `orders_canal_check` acepta `facebook`/`instagram` (insert real), no quedan
-  políticas `tenant_isolation` en `pg_policies` (solo sigue `tenants_read`), y los `grant`
-  a `app_api` funcionan de verdad (`SET ROLE app_api` + INSERT/SELECT real) en `sedes`,
-  `stock`, `combos`, `combo_items` y `reglas_catering`. **`usuarios_dashboard` deniega el
-  acceso a `app_api`** (`permission denied`) — es lo esperado, esa tabla la gestiona
-  Supabase Auth/el dashboard, no la API; no tiene grant a propósito.
+- **Cadena 0001→0004 validada localmente (Postgres 16 en Docker) y luego contra Supabase
+  real.** Primero se corrió limpia de punta a punta contra un contenedor Postgres 16
+  vanilla (no Supabase), con un `auth.users` mínimo creado a mano como fixture de prueba
+  (Supabase ya lo provee de fábrica; Postgres vanilla no). Verificado con evidencia real,
+  no solo revisando el catálogo: `orders_canal_check` acepta `facebook`/`instagram`
+  (insert real), no quedan políticas `tenant_isolation` en `pg_policies` (solo sigue
+  `tenants_read`), y los `grant` a `app_api` funcionan de verdad (`SET ROLE app_api` +
+  INSERT/SELECT real) en `sedes`, `stock`, `combos`, `combo_items` y `reglas_catering`.
+  **`usuarios_dashboard` deniega el acceso a `app_api`** (`permission denied`) — es lo
+  esperado, esa tabla la gestiona Supabase Auth/el dashboard, no la API; no tiene grant a
+  propósito.
   Al validar se encontró y arregló un bug real preexistente (no introducido en esta
   sesión): `0002_seed_bake_brothers.sql` insertaba usando `products.orden`, columna que
   recién se crea en `0003_products_orden.sql` — la cadena 0001→0002→0003 nunca se había
   corrido en orden estricto contra una BD limpia antes de esta prueba. Se corrigió
   adelantando `alter table products add column if not exists orden...` a 0002 y volviendo
   idempotente el mismo ALTER en 0003.
-  **Pendiente real:** correr esto una vez contra el Supabase del proyecto (con su
-  `auth.users` genuino, no el stub de prueba) antes de darlo por definitivamente bueno.
+- **La cadena completa 0001→0008 ya está aplicada contra el Supabase real**
+  (`umyaytrojtbdvdzbrily`, São Paulo) — vía el conector MCP, migración por migración, con
+  la misma evidencia que en Docker: `orders_canal_check` con los 4 canales, 0 políticas
+  `tenant_isolation`, grants de `app_api` confirmados por `information_schema.role_table_grants`
+  (el `SET ROLE` directo no tiene permiso desde la conexión del MCP — verificado por
+  catálogo en su lugar), y los conteos de catálogo/combos/catering_items idénticos a la
+  validación local (58 productos, 13 combos, 25 combo_items, 49 tamaños, 14
+  catering_items, 14 reglas_catering, 31 productos con foto, 7 combos con foto).
+  El proyecto de branching de Supabase quedó descartado en el camino: el plan free no
+  soporta "development branches", así que las migraciones se aplicaron directo contra la
+  base principal — viable porque el proyecto estaba vacío (sin datos reales en juego).
+  Hubo un proyecto intermedio en Oregon (`vkkjoxvgrmzbxagppjpv`) migrado con el mismo
+  procedimiento y luego eliminado por el cliente — ya no existe, no es el real.
 - **0005_retira_delivery_zones.sql** también validada de punta a punta (`0001→0005` contra
   contenedor limpio, misma metodología que 0004). `delivery_zones` estaba huérfana: nada
   en `packages/domain` ni en `apps/api` la consultaba ya (el cálculo automático de delivery
@@ -173,8 +188,8 @@ Cambios de rutas respecto a antes:
 
 ## 7. Roadmap (4 semanas — reemplaza el roadmap de fases de `plan bb.md`)
 
-- ✅ **Semana 1 — Diagnóstico + poda + esquema**: landing sin carrito/checkout/auth, migración 0004 (sedes, stock, combos, reglas_catering, usuarios_dashboard, fin del multi-tenant), 0005 (retira delivery_zones), 0006 (catálogo real: 58 productos, 13 combos), 0007 (catering_items), 0008 (fotos reales), `packages/domain` sin cupón/delivery.
-- **Semana 2 — Webhook de Meta + RAG**: webhook único (WhatsApp/Messenger/Instagram vía Meta), RAG sobre catálogo/promos/FAQs. Aplicar 0004 a Supabase real.
+- ✅ **Semana 1 — Diagnóstico + poda + esquema**: landing sin carrito/checkout/auth, migración 0004 (sedes, stock, combos, reglas_catering, usuarios_dashboard, fin del multi-tenant), 0005 (retira delivery_zones), 0006 (catálogo real: 58 productos, 13 combos), 0007 (catering_items), 0008 (fotos reales), `packages/domain` sin cupón/delivery. Las 8 migraciones ya están aplicadas contra el Supabase real (`umyaytrojtbdvdzbrily`, São Paulo). `apps/api/Dockerfile` listo para desplegar en Coolify (sin correr migraciones al iniciar).
+- **Semana 2 — Webhook de Meta + RAG**: webhook único (WhatsApp/Messenger/Instagram vía Meta), RAG sobre catálogo/promos/FAQs.
 - **Semana 3 — Toma de pedidos por el bot + dashboard v1**: pedidos estructurados por el bot (mismo flujo de `POST /api/orders`), `apps/admin` con Kanban de pedidos y gestión de inventario, login real + RLS por sede, combos con CRUD, semáforo de catering calculado.
 - **Semana 4 — Inventario + atribución + cierre**: `stock` conectado al flujo real, atribución de marketing (`campana`/`ctwa_clid`), cierre y entrega.
 

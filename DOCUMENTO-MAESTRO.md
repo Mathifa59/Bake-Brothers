@@ -63,7 +63,7 @@ esta arquitectura, no porque el alcance de negocio siguiera siendo el mismo.
 | **Landing** | React 18 · Vite 6 · Tailwind v4 · JSX (sin TS) · React Router (HashRouter) · Context API | Vitrina informativa; todo CTA de pedido va a WhatsApp. |
 | **Dominio** | TypeScript · Vitest · sin I/O | `@bakebrothers/domain`: precios, anticipación, capacidad, estados. Sin cupón/delivery automático. |
 | **API** | Node · Fastify 5 · TypeScript · zod · pg (sin ORM) · ESM | Puerto 3001. Sin desplegar a internet. |
-| **Base de datos** | PostgreSQL · Supabase | Proyecto `bake-brothers` (us-east-1, plan free). Ya no tiene RLS de aislamiento multi-tenant (solo hay un negocio). |
+| **Base de datos** | PostgreSQL · Supabase | Proyecto `bake-brothers` (ref `umyaytrojtbdvdzbrily`, São Paulo, plan free) — el real, de ahora en adelante. Un proyecto anterior en Oregon (`vkkjoxvgrmzbxagppjpv`) fue migrado igual y luego eliminado por el cliente; ya no existe. Ya no tiene RLS de aislamiento multi-tenant (solo hay un negocio). |
 | **Monorepo** | pnpm workspaces | `apps/web`, `apps/api`, `packages/domain`. `apps/admin` (dashboard) todavía no existe — llega en Semana 3. |
 
 ---
@@ -159,13 +159,14 @@ draft → confirmed → payment_pending → paid → in_production → out_for_d
 - ✅ `0007_catering_items.sql`: tabla `catering_items` propia (decisión del cliente, 2026-09-17, entre 2 alternativas presentadas) y `reglas_catering` recreada apuntando ahí, con los 14 ítems reales cargados y `necesita_ticket`.
 - ✅ `0008_fotos_catalogo_real.sql`: 31 `products.foto_url` + 7 `combos.foto_url` con fotos reales — solo el mapeo de confianza alta; el logo real también se wireó en `Logo.jsx`. `imagenes/` (fuente) quedó trackeada en git.
 - ✅ Cadena `0001→0008` revalidada de punta a punta contra contenedor limpio — aplicó sin errores.
-- ⚠️ Sigue pendiente correrla contra el Supabase real del proyecto (con su `auth.users` genuino) antes de Semana 2.
+- ✅ Cadena `0001→0008` aplicada contra el Supabase real del proyecto (`umyaytrojtbdvdzbrily`, São Paulo), vía el conector MCP, con la misma evidencia que en Docker.
+- ✅ `apps/api/Dockerfile` construido y probado (build + run reales) para desplegar en Coolify — resuelve la dependencia interna del monorepo (`packages/domain`), no corre migraciones al iniciar.
 
 ---
 
 ## 8. Qué falta · deuda conocida
 
-- **Validado localmente, falta contra Supabase real.** La cadena 0001→0008 se corrió de punta a punta contra Postgres 16 en Docker (con un `auth.users` de prueba simulando lo que Supabase ya provee) y quedó limpia, con los 3 sanity checks de 0004 confirmados por evidencia real (constraint de canal, ausencia de políticas de aislamiento, grants de `app_api` probados con `SET ROLE` + INSERT/SELECT reales — `usuarios_dashboard` deniega el acceso a `app_api` a propósito, esa tabla la gestiona Supabase Auth). En el camino se encontró y arregló un bug real preexistente: 0002 insertaba usando `products.orden`, columna que 0003 recién crea — la cadena en orden estricto nunca se había probado antes. `delivery_zones` resultó huérfana tras 0004 y se retiró en 0005. Falta correrla una vez contra el Supabase real del proyecto.
+- **Validado localmente y contra Supabase real.** La cadena 0001→0008 se corrió de punta a punta contra Postgres 16 en Docker (con un `auth.users` de prueba simulando lo que Supabase ya provee) y quedó limpia, con los 3 sanity checks de 0004 confirmados por evidencia real (constraint de canal, ausencia de políticas de aislamiento, grants de `app_api` probados con `SET ROLE` + INSERT/SELECT reales — `usuarios_dashboard` deniega el acceso a `app_api` a propósito, esa tabla la gestiona Supabase Auth). En el camino se encontró y arregló un bug real preexistente: 0002 insertaba usando `products.orden`, columna que 0003 recién crea — la cadena en orden estricto nunca se había probado antes. `delivery_zones` resultó huérfana tras 0004 y se retiró en 0005. Después se aplicó la misma cadena contra el Supabase real (`umyaytrojtbdvdzbrily`, São Paulo) — el plan free no soporta development branches, así que se aplicó directo a la base principal (viable porque estaba vacía, sin datos reales en juego); los grants de `app_api` se verificaron por `information_schema.role_table_grants` en vez de `SET ROLE` (la conexión del MCP no tiene permiso para cambiar de rol). Conteos idénticos a Docker.
 - Combos con datos reales (0006) pero sin CRUD desde dashboard.
 - Semáforo de catering: `catering_items`/`reglas_catering` con los 14 ítems reales (0007), falta la función de cálculo.
 - `necesita_ticket` de `reglas_catering` quedó NULL en 4 de los 14 ítems (la fuente no da ese dato con la misma granularidad para todos — ver comentario en `0007_catering_items.sql`).
@@ -181,8 +182,8 @@ draft → confirmed → payment_pending → paid → in_production → out_for_d
 
 | Semana | Nombre | Estado | Qué incluye |
 |---|---|---|---|
-| **1** | Diagnóstico + poda + esquema | ✅ Completada | Landing sin carrito/checkout/auth, migración 0004, dominio sin cupón/delivery. |
-| **2** | Webhook de Meta + RAG | ▶ Siguiente | Webhook único (WhatsApp/Messenger/Instagram), RAG sobre catálogo/promos/FAQs. Aplicar 0004 a Supabase real. |
+| **1** | Diagnóstico + poda + esquema | ✅ Completada | Landing sin carrito/checkout/auth, migraciones 0004-0008 (esquema + catálogo real + catering_items + fotos), ya aplicadas al Supabase real. `apps/api/Dockerfile` listo para Coolify. |
+| **2** | Webhook de Meta + RAG | ▶ Siguiente | Webhook único (WhatsApp/Messenger/Instagram), RAG sobre catálogo/promos/FAQs. |
 | **3** | Toma de pedidos por el bot + dashboard v1 | Futuro | Pedidos estructurados por el bot, `apps/admin` (Kanban + inventario), login real + RLS por sede, combos con CRUD, semáforo de catering calculado. |
 | **4** | Inventario + atribución + cierre | Futuro | `stock` conectado al flujo real, atribución de marketing (`campana`/`ctwa_clid`), cierre. |
 
