@@ -5,9 +5,9 @@ import SectionTitle from '../components/SectionTitle'
 import Button from '../components/Button'
 import Input from '../components/Input'
 
-// Redes sociales: URLs reales pendientes (Semana 2).
-const INSTAGRAM_URL = import.meta.env.VITE_INSTAGRAM_URL || '#'
-const FACEBOOK_URL = import.meta.env.VITE_FACEBOOK_URL || '#'
+// Redes sociales: cuenta única de marca (Bakebrothers.pe), no por sede.
+const INSTAGRAM_URL = import.meta.env.VITE_INSTAGRAM_URL || 'https://www.instagram.com/Bakebrothers.pe'
+const FACEBOOK_URL = import.meta.env.VITE_FACEBOOK_URL || 'https://www.facebook.com/Bakebrothers.pe'
 
 export default function Contacto() {
   const [enviado, setEnviado] = useState(false)

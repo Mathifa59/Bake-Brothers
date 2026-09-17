@@ -3,10 +3,9 @@ import { Clock, Instagram, Facebook, MapPin, Phone } from 'lucide-react'
 import { whatsappUrl, whatsappNumeroFormateado } from '../utils/whatsapp'
 import Logo from './Logo'
 
-// Redes sociales: URLs reales pendientes (Semana 2). Mientras no se
-// configuren, los íconos quedan inactivos en vez de apuntar a un placeholder.
-const INSTAGRAM_URL = import.meta.env.VITE_INSTAGRAM_URL || '#'
-const FACEBOOK_URL = import.meta.env.VITE_FACEBOOK_URL || '#'
+// Redes sociales: cuenta única de marca (Bakebrothers.pe), no por sede.
+const INSTAGRAM_URL = import.meta.env.VITE_INSTAGRAM_URL || 'https://www.instagram.com/Bakebrothers.pe'
+const FACEBOOK_URL = import.meta.env.VITE_FACEBOOK_URL || 'https://www.facebook.com/Bakebrothers.pe'
 
 const pagos = [
   { nombre: 'Yape', clase: 'bg-[#742284] text-white' },
