@@ -100,13 +100,15 @@ local en Docker — ver §6. La app (`apps/api`) sigue sin desplegarse a interne
 | Front | JSX sin TypeScript, NO migrar. Vitrina informativa — todo CTA de pedido apunta a WhatsApp (`utils/whatsapp.js`), no hay carrito. |
 | Precios | El cliente HTTP jamás manda precios. `POST /api/orders` sigue recalculando con `packages/domain`, pero ya no aplica cupón ni delivery automático — esos campos quedan en 0 hasta que el operador los ajuste. |
 | Imágenes reales | `imagenes/` (raíz del repo) es el material fuente, trackeado en git. Se wireó el mapeo de **confianza alta** solamente: 31 `products.foto_url` + 7 `combos.foto_url` (0008) + el logo real en `Logo.jsx`. 5 archivos quedaron explícitamente sin asignar (nombres sin señal, o ambigüedad de producto/sabor no resuelta — ver `0008_fotos_catalogo_real.sql`). Productos con 2 fotos candidatas (ej. tamaños/variantes distintos) solo tienen una wireada — `products.foto_url` es un único campo, sin galería. |
+| Contacto real | WhatsApp `912944096`, Instagram/Facebook `Bakebrothers.pe` (cuenta única de marca, no por sede) — son los defaults reales en `utils/whatsapp.js` y en `Footer.jsx`/`Contacto.jsx` (antes placeholders), overrideables por `VITE_WHATSAPP_NUMBER`/`VITE_INSTAGRAM_URL`/`VITE_FACEBOOK_URL`. |
 
-## 4. API (puerto 3001) — sin desplegar
+## 4. API (puerto 3001) — desplegada en Coolify (ver §9)
 
 Cambios de rutas respecto a antes:
 - `POST /api/orders`: ya no acepta `cuponCodigo`; `canal` admite `'web' | 'whatsapp' | 'facebook' | 'instagram'`; la respuesta trae `descuentoCupon: 0, delivery: 0` (se completan manualmente después).
 - **`GET /api/delivery-zones` eliminada** (0005) — nada la consumía, ni el front ni el resto de la API.
-- El resto (`GET /api/products`, `/api/categories`, `/api/availability`, `GET/PATCH /api/orders`) sigue igual — esta API sigue sin desplegarse a internet ni siendo consumida por nada en producción.
+- El resto (`GET /api/products`, `/api/categories`, `/api/availability`, `GET/PATCH /api/orders`) sigue igual.
+- **CORS restringido** (ya no `origin: true`): solo `https://bake-brothers.vercel.app` (+ alias de rama `main`) y `http://localhost:5173`. Verificado con evidencia real: un origen permitido recibe `Access-Control-Allow-Origin`, uno arbitrario no.
 
 ## 5. Verificado en Semana 1
 
@@ -206,3 +208,23 @@ Cambios de rutas respecto a antes:
   edita a mano. 0002 sigue insertando en tablas que 0004 no toca (productos, categorías,
   tamaños, extras, zonas de delivery) — el generador ya no emite el insert de cupones.
 - Al terminar una semana, actualizar este archivo.
+
+## 9. Despliegue — estado real
+
+- **`apps/api`**: en Coolify, servidor Hetzner (`2.28.233.230`), HTTPS con Let's Encrypt —
+  `https://02dnxpcluu0mo2jlminx9lhu.2.28.233.230.sslip.io`. Healthcheck activo contra
+  `/health`. `DATABASE_URL` usa el rol `app_api` (no `postgres`) contra el Supabase de
+  São Paulo (`umyaytrojtbdvdzbrily`). CORS restringido a `bake-brothers.vercel.app` +
+  localhost. Redeploy: `POST /api/v1/deploy?uuid=02dnxpcluu0mo2jlminx9lhu` vía la API de
+  Coolify (token guardado fuera del repo, no en este archivo).
+- **`apps/web`**: en Vercel, proyecto `bake-brothers` (team `mathias-projects-eaced134`),
+  dominio real `bake-brothers.vercel.app` — auto-deploy en cada push a `main` (integración
+  de GitHub, sin acción manual). **Sigue en modo demo** (catálogo mock genérico de
+  `data/mock.js`, no el real de Supabase) — falta configurar
+  `VITE_API_URL=https://02dnxpcluu0mo2jlminx9lhu.2.28.233.230.sslip.io` a mano en el
+  dashboard de Vercel (Project `bake-brothers` → Settings → Environment Variables) y
+  volver a desplegar: las vars `VITE_*` se inlinean en build time, un cambio de env var
+  sin un build nuevo después no alcanza.
+- Datos de contacto reales (WhatsApp `912944096`, Instagram/Facebook `Bakebrothers.pe`) ya
+  están en producción — verificado cargando `bake-brothers.vercel.app` de verdad, no solo
+  revisando el código.
