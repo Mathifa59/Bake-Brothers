@@ -192,7 +192,7 @@ Cambios de rutas respecto a antes:
 
 - ✅ **Semana 1 — Diagnóstico + poda + esquema**: landing sin carrito/checkout/auth, migración 0004 (sedes, stock, combos, reglas_catering, usuarios_dashboard, fin del multi-tenant), 0005 (retira delivery_zones), 0006 (catálogo real: 58 productos, 13 combos), 0007 (catering_items), 0008 (fotos reales), `packages/domain` sin cupón/delivery. Las 8 migraciones ya están aplicadas contra el Supabase real (`umyaytrojtbdvdzbrily`, São Paulo). `apps/api/Dockerfile` listo para desplegar en Coolify (sin correr migraciones al iniciar). `apps/web` ya salió del modo demo en producción (ver §9).
 - 🚧 **Semana 2 — Webhook de Meta + RAG**: base sentada, sin credenciales reales de Meta todavía (ver §9). Hecho: 0009 (`conversaciones` — persiste cada chat con una máquina de estados propia, extensión de `orderStatus.ts`), 0010 (pgvector habilitado + `contenido_rag`, columna `embedding vector(1536)` sin generar embeddings todavía), `apps/api/src/bot/tools.ts` (4 funciones de solo lectura — precio/disponibilidad/combo/reglas de catering — para que el LLM las use como tools, probadas contra el catálogo real), `GET/POST /webhook` (verificación de Meta + log crudo, sin lógica de respuesta). Ambas migraciones ya aplicadas contra el Supabase real. Pendiente: credenciales reales de Meta (app + token permanente), lógica de respuesta del bot, generación de embeddings, semáforo de catering.
-- **Semana 3 — Toma de pedidos por el bot + dashboard v1**: pedidos estructurados por el bot (mismo flujo de `POST /api/orders`), `apps/admin` con Kanban de pedidos y gestión de inventario, login real + RLS por sede, combos con CRUD, semáforo de catering calculado.
+- 🚧 **Semana 3 — Dashboard v1**: `apps/admin` (React+Vite+Tailwind, mismo patrón que `apps/web`) scaffoldeado y probado contra el Supabase real — login con Supabase Auth, lista de pedidos con cambio de estado, stock por sede con toggle disponible/agotado + cantidad opcional. 0011 activó las políticas RLS de `orders`/`stock` por sede (comentadas desde 0004) + un trigger que valida toda transición de `orders.estado` contra `packages/domain/orderStatus.ts`, sin importar si escribe `app_api` o un usuario del dashboard — ambos verificados con un JWT real contra la API REST real (no simulado). 0012 corrigió un hallazgo real (ver §9). Pendiente: pedidos estructurados por el bot (todavía sin credenciales de Meta), Kanban en tiempo real (Realtime), despliegue a Vercel, combos con CRUD, semáforo de catering calculado.
 - **Semana 4 — Inventario + atribución + cierre**: `stock` conectado al flujo real, atribución de marketing (`campana`/`ctwa_clid`), cierre y entrega.
 
 ## 8. Reglas de trabajo
@@ -233,3 +233,23 @@ Cambios de rutas respecto a antes:
   que exista una app de Meta real). `META_VERIFY_TOKEN` se generó (aleatorio, guardado
   fuera del repo) pero tampoco está configurado en Coolify aún — se hace junto con el
   redeploy, cuando haya una app de Meta real para probar el webhook de punta a punta.
+- **`apps/admin` (Semana 3)**: corre local (`pnpm dev:admin`, puerto 5174) — **sin
+  desplegar a Vercel todavía** (fuera de alcance de esta vuelta). Habla directo contra
+  Supabase (`supabase-js`, anon key pública — la seguridad la hace RLS/grants, no la key)
+  en vez de pasar por `apps/api`: es lo que permite que las políticas RLS de 0011 filtren
+  solo, sin reimplementar el filtro por sede en la app. Cuenta de prueba para desarrollo:
+  `mathiwen519+bbdashboard@gmail.com` (creada vía el signup real de Supabase Auth, no una
+  fila fabricada a mano), guardada como `admin` en `usuarios_dashboard` — password fuera
+  del repo. **No crear cuentas para personal real todavía**, eso se hace cuando el
+  dashboard esté listo para uso real.
+- **Hallazgo de seguridad real, no buscado (0012)**: al verificar los grants de 0011,
+  `anon` y `authenticated` tenían privilegios totales (`SELECT/INSERT/UPDATE/DELETE`)
+  sobre TODAS las tablas de `public` — incluida `customers` (PII) — desde 0001/0004/etc.,
+  sin ningún RLS que lo frenara. No era explotable en la práctica porque la anon key nunca
+  había viajado a ningún cliente público (`apps/web` nunca tocó Supabase directo). Dejó de
+  ser un riesgo latente en cuanto `apps/admin` empezó a embeber esa misma key en su bundle.
+  0012 revocó todo y volvió a otorgar solo lo mínimo que el dashboard necesita — `anon` ya
+  no tiene ningún acceso directo a datos. Pendiente, menor: la Data API del proyecto
+  también estaba deshabilitada a nivel de Project Settings (ajeno a las migraciones, nadie
+  lo había notado porque nada la usaba hasta `apps/admin`) — ya se reactivó a mano desde el
+  dashboard de Supabase.
