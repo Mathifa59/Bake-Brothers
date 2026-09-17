@@ -242,14 +242,27 @@ Cambios de rutas respecto a antes:
   fila fabricada a mano), guardada como `admin` en `usuarios_dashboard` — password fuera
   del repo. **No crear cuentas para personal real todavía**, eso se hace cuando el
   dashboard esté listo para uso real.
-- **Hallazgo de seguridad real, no buscado (0012)**: al verificar los grants de 0011,
-  `anon` y `authenticated` tenían privilegios totales (`SELECT/INSERT/UPDATE/DELETE`)
+- **Hallazgo de seguridad real, no buscado (0012 + 0013)**: al verificar los grants de
+  0011, `anon` y `authenticated` tenían privilegios totales (`SELECT/INSERT/UPDATE/DELETE`)
   sobre TODAS las tablas de `public` — incluida `customers` (PII) — desde 0001/0004/etc.,
   sin ningún RLS que lo frenara. No era explotable en la práctica porque la anon key nunca
-  había viajado a ningún cliente público (`apps/web` nunca tocó Supabase directo). Dejó de
-  ser un riesgo latente en cuanto `apps/admin` empezó a embeber esa misma key en su bundle.
-  0012 revocó todo y volvió a otorgar solo lo mínimo que el dashboard necesita — `anon` ya
-  no tiene ningún acceso directo a datos. Pendiente, menor: la Data API del proyecto
-  también estaba deshabilitada a nivel de Project Settings (ajeno a las migraciones, nadie
-  lo había notado porque nada la usaba hasta `apps/admin`) — ya se reactivó a mano desde el
-  dashboard de Supabase.
+  había viajado a ningún cliente público (`apps/web` nunca tocó Supabase directo) — dejó de
+  ser un riesgo latente recién cuando `apps/admin` empezó a embeber esa misma key en su
+  bundle, y el dev server de `apps/admin` no llegó a correr (ni siquiera en localhost) hasta
+  después de que 0012 ya estaba aplicado — nunca hubo ventana de exposición real, ni
+  siquiera local (sin túnel, sin IP pública, nunca desplegado).
+  0012 revocó los grants existentes, pero **no** la causa raíz: confirmado vía
+  `pg_default_acl` que el proyecto tenía `ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN
+  SCHEMA public` otorgando todo (tablas, secuencias, funciones) a anon/authenticated en
+  cada objeto nuevo — y `postgres` es el rol con el que corren todas las migraciones de
+  este proyecto. Sin tocar esa regla, cualquier `create table` futuro iba a reabrir el
+  mismo hueco en silencio (es justo lo que ya le había pasado, sin que nadie lo notara, a
+  `conversaciones`/`contenido_rag` de 0009/0010 hasta que 0012 las alcanzó por estar
+  dentro del "all tables" de ese momento). **0013 revoca esa regla por defecto** —
+  probado de verdad: una tabla creada después de 0013 nace sin ningún grant para
+  anon/authenticated (confirmado por SQL y por la API REST real). De acá en adelante,
+  toda tabla nueva que el dashboard necesite requiere su propio `grant` explícito en la
+  migración que la crea, igual que ya hace 0011 — nada queda abierto por defecto.
+  Pendiente, menor: la Data API del proyecto también estaba deshabilitada a nivel de
+  Project Settings (ajeno a las migraciones, nadie lo había notado porque nada la usaba
+  hasta `apps/admin`) — ya se reactivó a mano desde el dashboard de Supabase.
