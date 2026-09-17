@@ -58,6 +58,10 @@ RUN pnpm --filter @bakebrothers/api deploy --prod /repo/deploy
 # -------------------------------------------------------------- runtime ---
 FROM base AS runtime
 ENV NODE_ENV=production
+# node:22-alpine no trae curl ni un wget que le funcione al healthcheck de
+# Coolify (falla con "curl: not found" / "wget: ...Connection refused") —
+# lo necesita para poder healthcheckear /health desde dentro del contenedor.
+RUN apk add --no-cache curl
 WORKDIR /app
 COPY --from=build /repo/deploy .
 EXPOSE 3001
