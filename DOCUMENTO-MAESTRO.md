@@ -81,8 +81,12 @@ bake-brothers/
 │   │       └── data/mock.js             catálogo + input del seed de la API
 │   └── api/                        Fastify + zod + pg — sin desplegar
 │       ├── migrations/                  0001-0003 (heredadas) · 0004 rediseño de alcance ·
-│       │                               0005 retira delivery_zones (huérfana)
-│       ├── scripts/seed-from-mock.mjs   regenera el seed desde mock.js
+│       │                               0005 retira delivery_zones (huérfana) ·
+│       │                               0006 catálogo real (58 productos, 13 combos) ·
+│       │                               0007 catering_items (tabla propia) ·
+│       │                               0008 fotos reales (31 productos, 7 combos)
+│       ├── scripts/seed-from-mock.mjs   regenera 0002 desde mock.js (histórico — 0006 ya
+│       │                               reemplazó su contenido de catálogo)
 │       └── src/                         env · db · repositories · routes
 └── packages/
     └── domain/                     precios (sin cupón/delivery) · anticipación · estados
@@ -92,20 +96,24 @@ bake-brothers/
 
 ---
 
-## 5. Modelo de datos (tras 0004_rediseno_alcance.sql y 0005_retira_delivery_zones.sql)
+## 5. Modelo de datos (tras 0004→0008)
 
 | Tabla | Qué guarda | Estado |
 |---|---|---|
 | `tenants` | Bake Brothers, fila única. Sin RLS de aislamiento (ya no hay nada que aislar). | Heredada, sin cambios de forma |
-| `categories` / `products` / `product_sizes` / `extras` / `customers` | Catálogo, tamaños, extras, clientes. | Heredadas, sin cambios de forma |
+| `categories` | 8 categorías reales (Tortas y Kekes, Postres, Postres en Caja, Alfajores, Empanadas, Sándwiches, Cajitas Dulces, Bebidas) — reemplazaron a las 6 genéricas del mock en 0006. | Recargada (0006) |
+| `products` | 58 productos reales (0006), con `ingredientes`/`alergenos`/`respuesta_rapida` (insumo del RAG) y `foto_url` real en 31 (0008). `categoria_negocio` admite `'bebidas'`. `anticipacion_horas`/`texto` nullable (la fuente no da ese dato por producto de tienda). | Recargada + ampliada |
+| `product_sizes` | Tamaños reales con `precio` absoluto (no factor) — el catálogo real no tiene una relación de factor consistente entre tamaños, y usa etiquetas heterogéneas (cm, peso, "caja x_"), por eso `tamano` dejó de ser un enum fijo. `factor` queda nullable, sin usarse en datos nuevos. | Recargada + ampliada |
+| `extras` / `customers` | Extras (ajustados en 0006: "Dedicatoria" desactivada — es gratis según la fuente real; se agregó el topper y el jugo con leche) y clientes. | Heredada/ajustada |
 | `production_capacity` | Cupo de producción por día/categoría. | Heredada, sin cambios |
 | `order_sequences` / `orders` / `order_items` | Numeración, pedidos, ítems con precio congelado. `orders` ganó `sede_id`, `campana`, `ctwa_clid`, `estado_catering`; `canal` admite `facebook`/`instagram`. | Ampliadas |
 | ~~`coupons`~~ | Eliminada — reemplazada por `combos`. | Retirada |
 | ~~`delivery_zones`~~ | Eliminada — nada la consultaba tras retirar el cálculo automático de delivery. Si hace falta cobertura por zona en Semana 3+, se diseña con `sede_id`, no se resucita. | Retirada |
-| `sedes` | Los 2+ locales, con `whatsapp_phone_number_id` para enrutar mensajes de Meta a la sede correcta. | Nueva |
-| `stock` | Disponibilidad + cantidad opcional por sede y por SKU (producto, o producto+tamaño). | Nueva |
-| `combos` / `combo_items` | Paquetes de precio fijo con canal permitido, si acepta cambios y condición en texto libre. Sin datos todavía. | Nueva |
-| `reglas_catering` | Insumo del semáforo verde/amarillo/rojo por producto. La función que lo calcula llega en Semana 3. | Nueva |
+| `sedes` | Los 2 locales reales (Cedros, Santa Marina) con dirección — cargados en 0006. `whatsapp_phone_number_id` sigue vacío (pendiente de Meta, Semana 2). | Nueva, con datos reales |
+| `stock` | Disponibilidad + cantidad opcional por sede y por SKU (producto, o producto+tamaño). Sin datos todavía. | Nueva |
+| `combos` / `combo_items` | 13 combos reales con precio normal/promo, canal y condición (0006), + `foto_url` en 7 (0008). `combo_items` gana `product_size_id` opcional (0006) — solo se pobló para composiciones fijas o con default nombrado; 3 combos "sabor sujeto a stock sin default" quedan sin `combo_items`. | Nueva, con datos reales |
+| `catering_items` | Los 14 ítems de catering de la fuente real (sección 10), desacoplados de `products` — decisión del cliente (2026-09-17): casi ningún ítem de catering corresponde 1 a 1 con un producto de tienda. | Nueva (0007) |
+| `reglas_catering` | Repuntada a `catering_item_id` (antes a `product_id`, nunca se pobló por el mismo bloqueo). Ya tiene los 14 ítems reales, con `necesita_ticket` (nullable). La función que calcula el semáforo llega en Semana 3. | Recreada con datos reales (0007) |
 | `usuarios_dashboard` | Rol (admin/operador) y sede por usuario de Supabase Auth. RLS por sede redactada pero comentada — se activa en Semana 3. | Nueva |
 
 ---
@@ -147,15 +155,22 @@ draft → confirmed → payment_pending → paid → in_production → out_for_d
 - ✅ `pnpm build` y `pnpm test` verificados en verde.
 - ✅ Cadena `0001→0004` validada de punta a punta contra Postgres 16 real en Docker (local) — ver §8 para el detalle y la evidencia de los 3 sanity checks.
 - ✅ `delivery_zones` confirmada huérfana (nada en `packages/domain` ni en `apps/api` la consultaba) y eliminada en `0005_retira_delivery_zones.sql`, junto con `deliveryZonesRepo.ts`, `routes/deliveryZones.ts` y `distritos` en `mock.js`. Cadena `0001→0005` revalidada contra contenedor limpio.
+- ✅ `0006_catalogo_real.sql`: 58 productos reales, 13 combos, categorías reales — sin inventar ningún precio/ingrediente/alérgeno pendiente en la fuente. Forzó ajustes de esquema (ver §5): `product_sizes.precio` absoluto, `categoria_negocio` con `'bebidas'`, anticipación nullable, columnas de RAG en `products`, `product_size_id` en `combo_items`.
+- ✅ `0007_catering_items.sql`: tabla `catering_items` propia (decisión del cliente, 2026-09-17, entre 2 alternativas presentadas) y `reglas_catering` recreada apuntando ahí, con los 14 ítems reales cargados y `necesita_ticket`.
+- ✅ `0008_fotos_catalogo_real.sql`: 31 `products.foto_url` + 7 `combos.foto_url` con fotos reales — solo el mapeo de confianza alta; el logo real también se wireó en `Logo.jsx`. `imagenes/` (fuente) quedó trackeada en git.
+- ✅ Cadena `0001→0008` revalidada de punta a punta contra contenedor limpio — aplicó sin errores.
 - ⚠️ Sigue pendiente correrla contra el Supabase real del proyecto (con su `auth.users` genuino) antes de Semana 2.
 
 ---
 
 ## 8. Qué falta · deuda conocida
 
-- **Validado localmente, falta contra Supabase real.** La cadena 0001→0005 se corrió de punta a punta contra Postgres 16 en Docker (con un `auth.users` de prueba simulando lo que Supabase ya provee) y quedó limpia, con los 3 sanity checks de 0004 confirmados por evidencia real (constraint de canal, ausencia de políticas de aislamiento, grants de `app_api` probados con `SET ROLE` + INSERT/SELECT reales — `usuarios_dashboard` deniega el acceso a `app_api` a propósito, esa tabla la gestiona Supabase Auth). En el camino se encontró y arregló un bug real preexistente: 0002 insertaba usando `products.orden`, columna que 0003 recién crea — la cadena en orden estricto nunca se había probado antes. `delivery_zones` resultó huérfana tras 0004 y se retiró en 0005. Falta correrla una vez contra el Supabase real del proyecto.
-- Combos sin CRUD ni datos de catálogo real.
-- Semáforo de catering sin función de cálculo.
+- **Validado localmente, falta contra Supabase real.** La cadena 0001→0008 se corrió de punta a punta contra Postgres 16 en Docker (con un `auth.users` de prueba simulando lo que Supabase ya provee) y quedó limpia, con los 3 sanity checks de 0004 confirmados por evidencia real (constraint de canal, ausencia de políticas de aislamiento, grants de `app_api` probados con `SET ROLE` + INSERT/SELECT reales — `usuarios_dashboard` deniega el acceso a `app_api` a propósito, esa tabla la gestiona Supabase Auth). En el camino se encontró y arregló un bug real preexistente: 0002 insertaba usando `products.orden`, columna que 0003 recién crea — la cadena en orden estricto nunca se había probado antes. `delivery_zones` resultó huérfana tras 0004 y se retiró en 0005. Falta correrla una vez contra el Supabase real del proyecto.
+- Combos con datos reales (0006) pero sin CRUD desde dashboard.
+- Semáforo de catering: `catering_items`/`reglas_catering` con los 14 ítems reales (0007), falta la función de cálculo.
+- `necesita_ticket` de `reglas_catering` quedó NULL en 4 de los 14 ítems (la fuente no da ese dato con la misma granularidad para todos — ver comentario en `0007_catering_items.sql`).
+- 5 imágenes de `imagenes/` quedaron sin asignar a ningún producto/combo (nombres sin señal o ambigüedad no resuelta) — ver `0008_fotos_catalogo_real.sql`.
+- `apps/web/src/data/mock.js` (modo demo del landing) sigue con el catálogo genérico anterior, no sincronizado con los datos reales de 0006-0008.
 - RLS por sede comentada, sin activar.
 - `apps/api/.env` no existe en este entorno.
 - Deuda heredada: autenticación real, `corte_mismo_dia` sin validar.
