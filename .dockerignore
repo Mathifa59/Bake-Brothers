@@ -1,0 +1,10 @@
+node_modules
+**/node_modules
+**/dist
+.git
+imagenes
+apps/web/src
+apps/web/public
+apps/web/dist
+.env
+**/.env
