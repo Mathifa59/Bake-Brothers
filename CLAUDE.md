@@ -190,8 +190,8 @@ Cambios de rutas respecto a antes:
 
 ## 7. Roadmap (4 semanas — reemplaza el roadmap de fases de `plan bb.md`)
 
-- ✅ **Semana 1 — Diagnóstico + poda + esquema**: landing sin carrito/checkout/auth, migración 0004 (sedes, stock, combos, reglas_catering, usuarios_dashboard, fin del multi-tenant), 0005 (retira delivery_zones), 0006 (catálogo real: 58 productos, 13 combos), 0007 (catering_items), 0008 (fotos reales), `packages/domain` sin cupón/delivery. Las 8 migraciones ya están aplicadas contra el Supabase real (`umyaytrojtbdvdzbrily`, São Paulo). `apps/api/Dockerfile` listo para desplegar en Coolify (sin correr migraciones al iniciar).
-- **Semana 2 — Webhook de Meta + RAG**: webhook único (WhatsApp/Messenger/Instagram vía Meta), RAG sobre catálogo/promos/FAQs.
+- ✅ **Semana 1 — Diagnóstico + poda + esquema**: landing sin carrito/checkout/auth, migración 0004 (sedes, stock, combos, reglas_catering, usuarios_dashboard, fin del multi-tenant), 0005 (retira delivery_zones), 0006 (catálogo real: 58 productos, 13 combos), 0007 (catering_items), 0008 (fotos reales), `packages/domain` sin cupón/delivery. Las 8 migraciones ya están aplicadas contra el Supabase real (`umyaytrojtbdvdzbrily`, São Paulo). `apps/api/Dockerfile` listo para desplegar en Coolify (sin correr migraciones al iniciar). `apps/web` ya salió del modo demo en producción (ver §9).
+- 🚧 **Semana 2 — Webhook de Meta + RAG**: base sentada, sin credenciales reales de Meta todavía (ver §9). Hecho: 0009 (`conversaciones` — persiste cada chat con una máquina de estados propia, extensión de `orderStatus.ts`), 0010 (pgvector habilitado + `contenido_rag`, columna `embedding vector(1536)` sin generar embeddings todavía), `apps/api/src/bot/tools.ts` (4 funciones de solo lectura — precio/disponibilidad/combo/reglas de catering — para que el LLM las use como tools, probadas contra el catálogo real), `GET/POST /webhook` (verificación de Meta + log crudo, sin lógica de respuesta). Ambas migraciones ya aplicadas contra el Supabase real. Pendiente: credenciales reales de Meta (app + token permanente), lógica de respuesta del bot, generación de embeddings, semáforo de catering.
 - **Semana 3 — Toma de pedidos por el bot + dashboard v1**: pedidos estructurados por el bot (mismo flujo de `POST /api/orders`), `apps/admin` con Kanban de pedidos y gestión de inventario, login real + RLS por sede, combos con CRUD, semáforo de catering calculado.
 - **Semana 4 — Inventario + atribución + cierre**: `stock` conectado al flujo real, atribución de marketing (`campana`/`ctwa_clid`), cierre y entrega.
 
@@ -219,12 +219,17 @@ Cambios de rutas respecto a antes:
   Coolify (token guardado fuera del repo, no en este archivo).
 - **`apps/web`**: en Vercel, proyecto `bake-brothers` (team `mathias-projects-eaced134`),
   dominio real `bake-brothers.vercel.app` — auto-deploy en cada push a `main` (integración
-  de GitHub, sin acción manual). **Sigue en modo demo** (catálogo mock genérico de
-  `data/mock.js`, no el real de Supabase) — falta configurar
-  `VITE_API_URL=https://02dnxpcluu0mo2jlminx9lhu.2.28.233.230.sslip.io` a mano en el
-  dashboard de Vercel (Project `bake-brothers` → Settings → Environment Variables) y
-  volver a desplegar: las vars `VITE_*` se inlinean en build time, un cambio de env var
-  sin un build nuevo después no alcanza.
+  de GitHub, sin acción manual). `VITE_API_URL` ya está configurada en el dashboard de
+  Vercel — **fuera de modo demo**, catálogo real (Carrot Cake, Red Velvet, etc.) servido
+  desde el Supabase real. Un slug hardcodeado en `Home.jsx` (remanente del mock viejo)
+  rompía el render al conectar la API real; corregido y verificado en vivo.
 - Datos de contacto reales (WhatsApp `912944096`, Instagram/Facebook `Bakebrothers.pe`) ya
   están en producción — verificado cargando `bake-brothers.vercel.app` de verdad, no solo
   revisando el código.
+- **Base del bot (Semana 2, sin credenciales de Meta todavía)**: `conversaciones` y
+  `contenido_rag` (0009/0010) ya están en el Supabase real, con pgvector habilitado. El
+  código de `GET/POST /webhook` y `apps/api/src/bot/tools.ts` está en `main` pero **no se
+  redesplegó en Coolify todavía** (no había motivo — nada en producción lo necesita hasta
+  que exista una app de Meta real). `META_VERIFY_TOKEN` se generó (aleatorio, guardado
+  fuera del repo) pero tampoco está configurado en Coolify aún — se hace junto con el
+  redeploy, cuando haya una app de Meta real para probar el webhook de punta a punta.
