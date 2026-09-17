@@ -1,26 +1,17 @@
 import { Link } from 'react-router-dom'
 
+// El logo real ya trae el wordmark "Bake Brothers · Pastelería Artesanal"
+// dibujado en la imagen, sobre fondo claro — en el footer (fondo oscuro) se
+// envuelve en una tarjeta blanca para que no se vea cortado.
 export default function Logo({ claro = false, tamano = 'md' }) {
-  const alto = tamano === 'lg' ? 'h-12 w-12 text-2xl' : 'h-10 w-10 text-xl'
+  const alto = tamano === 'lg' ? 'h-14' : 'h-11'
   return (
-    <Link to="/" className="group flex items-center gap-2.5" aria-label="Bake Brothers — Inicio">
-      <span
-        className={`${alto} grid place-items-center rounded-full bg-acento font-display font-bold text-white shadow-md shadow-acento/30 transition-transform group-hover:rotate-6`}
-      >
-        B
-      </span>
-      <span className="leading-none">
-        <span
-          className={`block font-display text-lg font-semibold tracking-tight ${claro ? 'text-white' : 'text-tinta'}`}
-        >
-          Bake Brothers
-        </span>
-        <span
-          className={`block text-[10px] font-bold tracking-[0.28em] uppercase ${claro ? 'text-white/60' : 'text-gris'}`}
-        >
-          Pastelería Artesanal
-        </span>
-      </span>
+    <Link to="/" className="group flex items-center" aria-label="Bake Brothers — Inicio">
+      <img
+        src="/img/logo-bakebrothers.jpg"
+        alt="Bake Brothers — Pastelería Artesanal"
+        className={`${alto} w-auto rounded-lg transition-transform group-hover:rotate-1 ${claro ? 'bg-white p-1.5' : ''}`}
+      />
     </Link>
   )
 }
