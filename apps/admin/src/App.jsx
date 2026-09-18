@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import Login from './pages/Login'
 import Pedidos from './pages/Pedidos'
 import Stock from './pages/Stock'
+import Clientes from './pages/Clientes'
+import Atribucion from './pages/Atribucion'
 
 function Layout({ children }) {
   const { perfil, logout } = useAuth()
@@ -24,6 +26,8 @@ function Layout({ children }) {
           <span className="font-bold">Bake Brothers</span>
           {enlace('/pedidos', 'Pedidos')}
           {enlace('/stock', 'Stock')}
+          {enlace('/clientes', 'Clientes')}
+          {enlace('/atribucion', 'Atribución')}
         </div>
         <div className="flex items-center gap-3 text-sm text-gris">
           <span className="capitalize">{perfil?.rol}</span>
@@ -74,6 +78,8 @@ export default function App() {
           <Route path="/login" element={<RutaLogin />} />
           <Route path="/pedidos" element={<ConGuardia><Pedidos /></ConGuardia>} />
           <Route path="/stock" element={<ConGuardia><Stock /></ConGuardia>} />
+          <Route path="/clientes" element={<ConGuardia><Clientes /></ConGuardia>} />
+          <Route path="/atribucion" element={<ConGuardia><Atribucion /></ConGuardia>} />
           <Route path="*" element={<Navigate to="/pedidos" replace />} />
         </Routes>
       </HashRouter>
