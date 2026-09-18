@@ -5,6 +5,7 @@ import Pedidos from './pages/Pedidos'
 import Stock from './pages/Stock'
 import Clientes from './pages/Clientes'
 import Atribucion from './pages/Atribucion'
+import Conversaciones from './pages/Conversaciones'
 
 function Layout({ children }) {
   const { perfil, logout } = useAuth()
@@ -28,6 +29,7 @@ function Layout({ children }) {
           {enlace('/stock', 'Stock')}
           {enlace('/clientes', 'Clientes')}
           {enlace('/atribucion', 'Atribución')}
+          {enlace('/conversaciones', 'Conversaciones')}
         </div>
         <div className="flex items-center gap-3 text-sm text-gris">
           <span className="capitalize">{perfil?.rol}</span>
@@ -80,6 +82,7 @@ export default function App() {
           <Route path="/stock" element={<ConGuardia><Stock /></ConGuardia>} />
           <Route path="/clientes" element={<ConGuardia><Clientes /></ConGuardia>} />
           <Route path="/atribucion" element={<ConGuardia><Atribucion /></ConGuardia>} />
+          <Route path="/conversaciones" element={<ConGuardia><Conversaciones /></ConGuardia>} />
           <Route path="*" element={<Navigate to="/pedidos" replace />} />
         </Routes>
       </HashRouter>
