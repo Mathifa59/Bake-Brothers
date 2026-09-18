@@ -23,6 +23,21 @@ export function usePedidos({ customerId } = {}) {
 
   useEffect(cargar, [customerId])
 
+  // Tiempo real: cuando cualquier pedido cambia (el propio usuario en otra
+  // pestaña, un operador de otra sede si sos admin, etc.) se vuelve a
+  // cargar. Realtime respeta la RLS de 0011 — solo llegan eventos de filas
+  // que igual podrías leer. Re-fetch simple en vez de parchear el estado a
+  // mano: más robusto ante inserts/deletes/cambios de sede que afectan qué
+  // filas son visibles.
+  useEffect(() => {
+    const canal = supabase
+      .channel('orders-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, cargar)
+      .subscribe()
+    return () => supabase.removeChannel(canal)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customerId])
+
   const cambiarEstado = async (numero, estadoActual, nuevoEstado) => {
     if (nuevoEstado === estadoActual) return
     setGuardando(numero)
