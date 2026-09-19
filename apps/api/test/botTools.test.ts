@@ -10,6 +10,7 @@ import {
   consultarDisponibilidad,
   consultarCombo,
   consultarReglasCatering,
+  evaluarSemaforoCateringPedido,
 } from '../src/bot/tools.js'
 import { DATABASE_URL_PLACEHOLDER } from './testEnv.js'
 
@@ -134,7 +135,7 @@ describe.skipIf(!hayBaseDeDatosReal)('bot tools (contra el catálogo real migrad
   describe('consultarReglasCatering', () => {
     it('devuelve la regla real de un ítem de catering conocido', async () => {
       const real = await client.query(
-        `select ci.nombre, r.unidades_minimas, r.necesita_ticket
+        `select ci.nombre, r.unidades_minimas, r.necesita_ticket, r.admite_corte_noche_anterior
          from catering_items ci join reglas_catering r on r.catering_item_id = ci.id
          where ci.nombre ilike '%tequeños%'`
       )
@@ -143,10 +144,61 @@ describe.skipIf(!hayBaseDeDatosReal)('bot tools (contra el catálogo real migrad
       expect(resultado?.itemNombre).toBe(real.rows[0].nombre)
       expect(resultado?.unidadesMinimas).toBe(Number(real.rows[0].unidades_minimas))
       expect(resultado?.necesitaTicket).toBe(real.rows[0].necesita_ticket)
+      expect(resultado?.admiteCorteNocheAnterior).toBe(real.rows[0].admite_corte_noche_anterior)
     })
 
     it('devuelve null para un ítem de catering que no existe', async () => {
       const resultado = await consultarReglasCatering(client, 'ítem-que-no-existe-xyz')
+      expect(resultado).toBeNull()
+    })
+  })
+
+  describe('evaluarSemaforoCateringPedido (semáforo real, DB + packages/domain)', () => {
+    // Fechas calculadas en tiempo de ejecución (no literales) — el test
+    // corre en cualquier momento, no solo hoy. Tequeños: mínimo real 25
+    // unidades (confirmado en el describe de arriba).
+    const fechaFuturaNoDomingo = (diasMinimos: number): string => {
+      let d = new Date()
+      d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + diasMinimos)
+      while (d.getDay() === 0) d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    }
+    const proximoDomingoDesde = (diasMinimos: number): string => {
+      let d = new Date()
+      d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + diasMinimos)
+      while (d.getDay() !== 0) d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    }
+
+    it('verde: cantidad de sobra + fecha lejana (ni domingo ni hoy) contra el ítem real', async () => {
+      const resultado = await evaluarSemaforoCateringPedido(client, 'tequeños', {
+        cantidadSolicitada: 100,
+        fechaEntregaISO: fechaFuturaNoDomingo(30),
+      })
+      expect(resultado).toBe('verde')
+    })
+
+    it('rojo: por debajo del mínimo real del ítem (25), aunque la fecha sea perfecta', async () => {
+      const resultado = await evaluarSemaforoCateringPedido(client, 'tequeños', {
+        cantidadSolicitada: 5,
+        fechaEntregaISO: fechaFuturaNoDomingo(30),
+      })
+      expect(resultado).toBe('rojo')
+    })
+
+    it('amarillo: domingo manda, sin importar que la cantidad sea de sobra', async () => {
+      const resultado = await evaluarSemaforoCateringPedido(client, 'tequeños', {
+        cantidadSolicitada: 100,
+        fechaEntregaISO: proximoDomingoDesde(7),
+      })
+      expect(resultado).toBe('amarillo')
+    })
+
+    it('devuelve null para un ítem que no existe — nunca inventa un semáforo', async () => {
+      const resultado = await evaluarSemaforoCateringPedido(client, 'ítem-que-no-existe-xyz', {
+        cantidadSolicitada: 100,
+        fechaEntregaISO: fechaFuturaNoDomingo(30),
+      })
       expect(resultado).toBeNull()
     })
   })

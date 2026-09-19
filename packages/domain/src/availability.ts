@@ -31,6 +31,12 @@ export function cumpleAnticipacionMinima(params: {
   return horas >= anticipacionHorasMinima
 }
 
+/** true si `fechaISO` (parseada como fecha local, no UTC) cae en domingo. */
+export function esDomingo(fechaISO: string): boolean {
+  const fecha = parseISODate(fechaISO)
+  return fecha !== null && fecha.getDay() === 0
+}
+
 /**
  * Cupo de producción de un día. `cupoMaximo === null` significa "sin límite
  * configurado" (no bloquea). Un día bloqueado se modela como cupo 0.

@@ -1,4 +1,5 @@
 import type pg from 'pg'
+import { evaluarSemaforoCatering, type SemaforoCatering } from '@bakebrothers/domain'
 
 /**
  * Funciones de solo lectura contra el catálogo real — pensadas para que un
@@ -185,6 +186,7 @@ export interface ReglaCatering {
   consultarDomingo: boolean
   // null = la fuente no confirma el dato para este ítem (ver 0007_catering_items.sql) — no se asume ni true ni false.
   necesitaTicket: boolean | null
+  admiteCorteNocheAnterior: boolean
 }
 
 // catering_items/reglas_catering no llevan tenant_id (0007) — Bake Brothers
@@ -196,7 +198,7 @@ export async function consultarReglasCatering(
   const { rows } = await client.query(
     `select ci.nombre, ci.categoria, r.unidades_minimas, r.sale_mismo_dia,
             r.anticipacion_horas, r.requiere_auto_obligatorio, r.consultar_domingo,
-            r.necesita_ticket
+            r.necesita_ticket, r.admite_corte_noche_anterior
      from catering_items ci
      join reglas_catering r on r.catering_item_id = ci.id
      where ci.activo and ci.nombre ilike $1
@@ -216,5 +218,41 @@ export async function consultarReglasCatering(
     requiereAutoObligatorio: regla.requiere_auto_obligatorio,
     consultarDomingo: regla.consultar_domingo,
     necesitaTicket: regla.necesita_ticket,
+    admiteCorteNocheAnterior: regla.admite_corte_noche_anterior,
   }
+}
+
+export interface PedidoCateringConsulta {
+  cantidadSolicitada: number
+  /** YYYY-MM-DD — el día en que el cliente quiere la entrega. */
+  fechaEntregaISO: string
+}
+
+/**
+ * Semáforo de catering para un pedido real — junta el dato real de
+ * reglas_catering (nunca inventado; null si el ítem no existe) con la
+ * función pura `evaluarSemaforoCatering` de packages/domain (la lógica de
+ * negocio vive ahí, esto solo la alimenta con datos reales).
+ *
+ * Todavía no la usa nada — es una herramienta más para cuando se conecte
+ * el cerebro del bot (ver la instrucción original: "no la conectes a nada
+ * todavía, solo constrúyela y pruébala aislada").
+ */
+export async function evaluarSemaforoCateringPedido(
+  client: pg.PoolClient,
+  busquedaItem: string,
+  pedido: PedidoCateringConsulta
+): Promise<SemaforoCatering | null> {
+  const regla = await consultarReglasCatering(client, busquedaItem)
+  if (!regla) return null
+
+  return evaluarSemaforoCatering(
+    {
+      unidadesMinimas: regla.unidadesMinimas,
+      saleMismoDia: regla.saleMismoDia,
+      anticipacionHoras: regla.anticipacionHoras,
+      admiteCorteNocheAnterior: regla.admiteCorteNocheAnterior,
+    },
+    pedido
+  )
 }

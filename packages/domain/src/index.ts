@@ -10,9 +10,17 @@ export {
 export {
   horasDeAnticipacion,
   cumpleAnticipacionMinima,
+  esDomingo,
   hayCupoDisponible,
   cupoRestante,
 } from './availability.js'
+
+export {
+  evaluarSemaforoCatering,
+  type SemaforoCatering,
+  type ReglaCateringInput,
+  type PedidoCateringInput,
+} from './cateringSemaforo.js'
 
 export {
   ESTADOS_PEDIDO,
