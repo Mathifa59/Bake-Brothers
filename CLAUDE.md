@@ -192,7 +192,7 @@ Cambios de rutas respecto a antes:
 
 - ✅ **Semana 1 — Diagnóstico + poda + esquema**: landing sin carrito/checkout/auth, migración 0004 (sedes, stock, combos, reglas_catering, usuarios_dashboard, fin del multi-tenant), 0005 (retira delivery_zones), 0006 (catálogo real: 58 productos, 13 combos), 0007 (catering_items), 0008 (fotos reales), `packages/domain` sin cupón/delivery. Las 8 migraciones ya están aplicadas contra el Supabase real (`umyaytrojtbdvdzbrily`, São Paulo). `apps/api/Dockerfile` listo para desplegar en Coolify (sin correr migraciones al iniciar). `apps/web` ya salió del modo demo en producción (ver §9).
 - 🚧 **Semana 2 — Webhook de Meta + RAG**: base sentada, sin credenciales reales de Meta todavía (ver §9). Hecho: 0009 (`conversaciones`), 0010 (pgvector + `contenido_rag`), `apps/api/src/bot/tools.ts` (4 funciones de solo lectura — precio/disponibilidad/combo/reglas de catering), `GET/POST /webhook` (verificación + log crudo, sin lógica de respuesta). **RAG con embeddings reales ya hecho**: `contenido_rag` poblada con las 29 filas reales de `products.ingredientes/alergenos/respuesta_rapida` (0015 corrigió la columna a `vector(1024)` — Voyage `voyage-3.5`, confirmado contra su API real, no 1536 como se había asumido en 0010), embeddings generados con Voyage, búsqueda semántica en `apps/api/src/bot/rag.ts` (pgvector `<=>`), probada contra datos reales. Pendiente: credenciales reales de Meta, lógica de respuesta del bot, semáforo de catering.
-- 🚧 **Semana 3 — Dashboard v1**: `apps/admin` scaffoldeado y probado contra el Supabase real — login, pedidos (lista + cambio de estado + **tiempo real**, 0016: la lista se actualiza sola vía Supabase Realtime, verificado cambiando un estado desde afuera del navegador), stock por sede, **clientes (CRM básico)** con historial de pedidos por cliente (reusa `usePedidos`/`TablaPedidos`, sin duplicar lógica), **atribución por canal** con filtro de fecha, **bandeja de conversaciones** (`/conversaciones` — lista las escaladas por el bot, historial + responder; enviar transiciona `escalada → atendida_por_operador` con el mismo trigger de máquina de estados que orders, 0017; el envío real a Meta es un stub en `apps/api/src/bot/meta.ts`, sin token permanente todavía, no lo llama nada). RLS activa en `orders`/`stock` (0011), `customers` (0014) y `conversaciones` (0017) — todo verificado con JWT real contra la API REST real, incluidos los triggers de transición de estado (orders y conversaciones). 0012/0013 corrigieron un hallazgo real de seguridad (ver §9). **Pendiente**: despliegue a Vercel (bloqueado, ver §9), Kanban por columnas (solo se hizo la parte de tiempo real, no el rediseño a columnas — a propósito), pedidos estructurados por el bot, combos con CRUD, semáforo de catering, envío real de mensajes a Meta.
+- 🚧 **Semana 3 — Dashboard v1**: `apps/admin` scaffoldeado y probado contra el Supabase real — login, pedidos (lista + cambio de estado + **tiempo real**, 0016: la lista se actualiza sola vía Supabase Realtime, verificado cambiando un estado desde afuera del navegador), stock por sede, **clientes (CRM básico)** con historial de pedidos por cliente (reusa `usePedidos`/`TablaPedidos`, sin duplicar lógica), **atribución por canal** con filtro de fecha, **bandeja de conversaciones** (`/conversaciones` — lista las escaladas por el bot, historial + responder; enviar transiciona `escalada → atendida_por_operador` con el mismo trigger de máquina de estados que orders, 0017; el envío real a Meta es un stub en `apps/api/src/bot/meta.ts`, sin token permanente todavía, no lo llama nada). RLS activa en `orders`/`stock` (0011), `customers` (0014) y `conversaciones` (0017) — todo verificado con JWT real contra la API REST real, incluidos los triggers de transición de estado (orders y conversaciones). 0012/0013 corrigieron un hallazgo real de seguridad (ver §9). Desplegado en Vercel (`bake-brothers-admin.vercel.app`, ver §9). **Semáforo de catering: hecho** (`evaluarSemaforoCatering` en `packages/domain`, `evaluarSemaforoCateringPedido` como tool del bot en `apps/api/src/bot/tools.ts`) — 0018 agrega `reglas_catering.admite_corte_noche_anterior` (decisión tomada junto con el cliente, no en silencio: `anticipacion_horas` plano no alcanzaba para el corte de las 8:30pm, que no es uniforme entre los 14 ítems). Verificado con datos reales dos veces (réplica local + Supabase real de producción). Sin conectar a nada todavía, a propósito. **Pendiente**: Kanban por columnas (solo se hizo la parte de tiempo real), pedidos estructurados por el bot, combos con CRUD, envío real de mensajes a Meta.
 - **Semana 4 — Inventario + atribución + cierre**: `stock` conectado al flujo real, atribución de marketing (`campana`/`ctwa_clid`), cierre y entrega.
 
 ## 8. Reglas de trabajo
@@ -241,16 +241,18 @@ Cambios de rutas respecto a antes:
   fila fabricada a mano), guardada como `admin` en `usuarios_dashboard` — password fuera
   del repo. **No crear cuentas para personal real todavía**, eso se hace cuando el
   dashboard esté listo para uso real.
-- **`apps/admin` en Vercel — bloqueado, no por falta de intento**: tanto
-  `create_git_project` como `deploy_to_vercel` (MCP de Vercel) devuelven
-  `403 forbidden — "You don't have permission to create the project"` contra el team
-  `mathias-projects-eaced134`. La lectura (list_projects, list_teams, get_project) sí
-  funciona — es específicamente el permiso de **crear** un proyecto nuevo el que falta en
-  el token conectado. El CLI de Vercel tampoco sirve acá (sigue sin login, ver despliegue
-  de `apps/web` más arriba). **Paso manual pendiente**: crear el proyecto desde el
-  dashboard de Vercel (Add New → Project → importar `Mathifa59/Bake-Brothers` → Root
-  Directory `apps/admin`) — una vez creado, el auto-deploy en cada push a `main` debería
-  funcionar solo, igual que `apps/web`.
+- **`apps/admin` en Vercel — desplegado**: proyecto `bake-brothers-admin` (mismo team),
+  creado a mano por el cliente desde el dashboard (el MCP de Vercel no tiene permiso para
+  crear proyectos nuevos vía API — solo lectura). Dominio real
+  `bake-brothers-admin.vercel.app`, auto-deploy en cada push a `main`. Causa real de un
+  primer deploy fallido (construía `apps/web` en vez de `apps/admin`): el `vercel.json` de
+  la raíz del repo tiene el build de `apps/web` hardcodeado y **no está scopeado a ningún
+  proyecto** — Vercel lo aplica a cualquier proyecto conectado al repo. Fix:
+  `apps/admin/vercel.json` propio (más específico, Vercel lo prefiere para ese proyecto);
+  el `vercel.json` raíz no se tocó — `apps/web` sigue dependiendo de él por completo.
+  Confirmado con el log real del segundo deploy: corrió `@bakebrothers/admin build`, quedó
+  `READY`, y la URL real sirve el login de `apps/admin` ("Bake Brothers · Panel"), no la
+  landing.
 - **Hallazgo de seguridad real, no buscado (0012 + 0013)**: al verificar los grants de
   0011, `anon` y `authenticated` tenían privilegios totales (`SELECT/INSERT/UPDATE/DELETE`)
   sobre TODAS las tablas de `public` — incluida `customers` (PII) — desde 0001/0004/etc.,
