@@ -217,8 +217,11 @@ Cambios de rutas respecto a antes:
   Let's Encrypt nuevo — verificado con curl real, sin `-k`, contra el dominio nuevo).
   Healthcheck activo contra `/health`. `DATABASE_URL` usa el rol `app_api` (no `postgres`)
   contra el Supabase de São Paulo (`umyaytrojtbdvdzbrily`). CORS restringido a
-  `bake-brothers.com` + `bake-brothers.vercel.app` + localhost — el dominio propio se
-  agregó sin retirar el de Vercel todavía (se limpia después de confirmar que todo
+  `bake-brothers.com` + `www.bake-brothers.com` + `bake-brothers.vercel.app` + localhost
+  — el `www` hizo falta aparte porque el dominio raíz redirige a la versión con "www" como
+  oficial en Vercel, y CORS no trata un dominio y su `www` como el mismo origen (encontrado
+  en producción, no en pruebas — el navegador manda `Origin: https://www.bake-brothers.com`).
+  Los dos dominios propios conviven con el de Vercel todavía (se limpia después de confirmar que todo
   funciona con el dominio nuevo). Redeploy: `POST /api/v1/deploy?uuid=02dnxpcluu0mo2jlminx9lhu`
   vía la API de Coolify (token guardado fuera del repo, no en este archivo).
 - **`apps/web`**: en Vercel, proyecto `bake-brothers` (team `mathias-projects-eaced134`),
