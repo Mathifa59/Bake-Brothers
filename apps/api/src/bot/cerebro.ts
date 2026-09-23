@@ -38,6 +38,15 @@ const REGEX_ALERGIA = /alergi|al[eé]rgic|intoleran|cel[ií]ac|libre de/i
 const RESPUESTA_ALERGIA_FIJA =
   '¡Gracias por contarnos! 🙏 Para temas de alergias, intolerancias o consultas "libre de" preferimos que te ayude directo alguien del equipo, así te confirmamos con total seguridad — en un toque te contactamos por acá.'
 
+// Cuando el código fuerza la escalada (ver decidirEscaladaForzadaPorTool) sin
+// que el modelo haya llamado a escalarAHumano por su cuenta, el texto final
+// que el modelo generó en esa misma vuelta puede ser una confirmación
+// indebida (lo escribió sin saber que se estaba forzando la escalada) — no
+// se le puede mandar tal cual al cliente. Se reemplaza por este mensaje fijo,
+// que nunca confirma nada, solo avisa que queda pendiente de revisión.
+export const RESPUESTA_ESCALADA_FORZADA_FIJA =
+  'Dame un toque — antes de confirmarte esto quiero que lo revise el equipo, así te aseguro bien los detalles 🙏 En un momento te escriben para cerrarlo.'
+
 const SYSTEM_PROMPT = `Sos el asistente de WhatsApp/redes de Bake Brothers, una pastelería de Chorrillos, Lima. Hablás con clientes reales — tono cercano, podés usar emojis y tutear. Nunca uses "oki", "oka" ni "porfis".
 
 REGLAS DURAS, sin excepción:
@@ -273,6 +282,11 @@ export async function evaluarTurno(
   const herramientasUsadas: string[] = []
   let debeEscalar = false
   let motivoEscalacion: string | undefined
+  // Distingue "el modelo mismo decidió escalar" de "el código forzó la
+  // escalada sin que el modelo se enterara" — solo en el segundo caso el
+  // texto final del modelo no es confiable (lo escribió sin saber que se
+  // estaba forzando la escalada) y hay que reemplazarlo.
+  let elModeloLlamoEscalarAHumano = false
 
   for (let vuelta = 0; vuelta < MAX_VUELTAS_TOOL_USE; vuelta++) {
     const respuesta = await anthropic.messages.create({
@@ -293,9 +307,14 @@ export async function evaluarTurno(
         .map((b) => b.text)
         .join('\n')
         .trim()
+
+      const escaladaForzadaSinAvisoDelModelo = debeEscalar && !elModeloLlamoEscalarAHumano
+      const textoRespuesta = escaladaForzadaSinAvisoDelModelo
+        ? RESPUESTA_ESCALADA_FORZADA_FIJA
+        : texto || 'Perdona, no supe cómo responder eso — ¿querés que te contacte alguien del equipo?'
+
       return {
-        textoRespuesta:
-          texto || 'Perdona, no supe cómo responder eso — ¿querés que te contacte alguien del equipo?',
+        textoRespuesta,
         nuevoEstado: debeEscalar ? escalarSiCorresponde(estadoActual) : estadoActual,
         herramientasUsadas,
         motivoEscalacion,
@@ -310,6 +329,7 @@ export async function evaluarTurno(
 
       if (bloque.name === 'escalarAHumano') {
         debeEscalar = true
+        elModeloLlamoEscalarAHumano = true
         motivoEscalacion = String((bloque.input as { motivo?: string } | undefined)?.motivo ?? 'Escalada solicitada por el bot.')
         resultadosTool.push({ type: 'tool_result', tool_use_id: bloque.id, content: 'Escalada registrada.' })
         continue

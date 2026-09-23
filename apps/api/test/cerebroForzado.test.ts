@@ -37,7 +37,8 @@ vi.mock('@anthropic-ai/sdk', () => ({
 
 // vi.mock se hoistea arriba de este import, así que cerebro.ts ya recibe el
 // SDK mockeado cuando se importa acá.
-const { evaluarTurno, decidirEscaladaForzadaPorTool, MAX_VUELTAS_TOOL_USE } = await import('../src/bot/cerebro.js')
+const { evaluarTurno, decidirEscaladaForzadaPorTool, MAX_VUELTAS_TOOL_USE, RESPUESTA_ESCALADA_FORZADA_FIJA } =
+  await import('../src/bot/cerebro.js')
 
 describe('decidirEscaladaForzadaPorTool (pura, sin I/O)', () => {
   it('fuerza escalada cuando el semáforo da amarillo', () => {
@@ -124,6 +125,45 @@ describe.skipIf(!hayBaseDeDatosReal)('evaluarTurno — garantías forzadas por c
     // El modelo confirmó como si nada — pero el código igual fuerza la escalada.
     expect(r.nuevoEstado).toBe('escalada')
     expect(r.motivoEscalacion).toMatch(/amarillo/)
+
+    // Lo que importa acá: el texto que queda registrado (y que eventualmente
+    // se le manda al cliente) NO puede ser la confirmación indebida que
+    // escribió el modelo — tiene que ser el mensaje fijo de "pendiente de
+    // revisión". No alcanza con que el estado diga 'escalada' si el texto
+    // real sigue diciendo "confirmado".
+    expect(r.textoRespuesta).toBe(RESPUESTA_ESCALADA_FORZADA_FIJA)
+    expect(r.textoRespuesta).not.toMatch(/confirmad/i)
+  })
+
+  it('regresión: si el modelo SÍ llama a escalarAHumano por su cuenta, su propio texto final NO se reemplaza', async () => {
+    // Vuelta 1: el modelo decide escalar por su cuenta (ej. un reclamo).
+    mockCreate.mockResolvedValueOnce({
+      content: [
+        {
+          type: 'tool_use',
+          id: 'toolu_02',
+          name: 'escalarAHumano',
+          input: { motivo: 'Reclamo por producto dañado' },
+        },
+      ],
+    })
+    // Vuelta 2: el modelo ya sabe que escaló — su texto es confiable, no hay
+    // que pisarlo con el mensaje fijo genérico.
+    mockCreate.mockResolvedValueOnce({
+      content: [
+        {
+          type: 'text',
+          text: 'Ya quedó registrado tu reclamo, en breve te escribe alguien del equipo para ayudarte 🙏',
+        },
+      ],
+    })
+
+    const r = await evaluarTurno(client, tenantId, [], 'Llegó todo roto, quiero un reembolso', 'activa')
+
+    expect(r.herramientasUsadas).toContain('escalarAHumano')
+    expect(r.nuevoEstado).toBe('escalada')
+    expect(r.textoRespuesta).toBe('Ya quedó registrado tu reclamo, en breve te escribe alguien del equipo para ayudarte 🙏')
+    expect(r.textoRespuesta).not.toBe(RESPUESTA_ESCALADA_FORZADA_FIJA)
   })
 
   it('corta el loop de tool-use en MAX_VUELTAS_TOOL_USE si el modelo nunca da una respuesta final', async () => {
