@@ -211,12 +211,16 @@ Cambios de rutas respecto a antes:
 
 ## 9. Despliegue — estado real
 
-- **`apps/api`**: en Coolify, servidor Hetzner (`2.28.233.230`), HTTPS con Let's Encrypt —
-  `https://02dnxpcluu0mo2jlminx9lhu.2.28.233.230.sslip.io`. Healthcheck activo contra
-  `/health`. `DATABASE_URL` usa el rol `app_api` (no `postgres`) contra el Supabase de
-  São Paulo (`umyaytrojtbdvdzbrily`). CORS restringido a `bake-brothers.vercel.app` +
-  localhost. Redeploy: `POST /api/v1/deploy?uuid=02dnxpcluu0mo2jlminx9lhu` vía la API de
-  Coolify (token guardado fuera del repo, no en este archivo).
+- **`apps/api`**: en Coolify, servidor Hetzner (`2.28.233.230`), dominio propio
+  `https://api.bake-brothers.com` (DNS ya apuntaba al servidor; se movió el `fqdn` de la
+  app desde el sslip.io temporal y se redesplegó para que Coolify emitiera el certificado
+  Let's Encrypt nuevo — verificado con curl real, sin `-k`, contra el dominio nuevo).
+  Healthcheck activo contra `/health`. `DATABASE_URL` usa el rol `app_api` (no `postgres`)
+  contra el Supabase de São Paulo (`umyaytrojtbdvdzbrily`). CORS restringido a
+  `bake-brothers.com` + `bake-brothers.vercel.app` + localhost — el dominio propio se
+  agregó sin retirar el de Vercel todavía (se limpia después de confirmar que todo
+  funciona con el dominio nuevo). Redeploy: `POST /api/v1/deploy?uuid=02dnxpcluu0mo2jlminx9lhu`
+  vía la API de Coolify (token guardado fuera del repo, no en este archivo).
 - **`apps/web`**: en Vercel, proyecto `bake-brothers` (team `mathias-projects-eaced134`),
   dominio real `bake-brothers.vercel.app` — auto-deploy en cada push a `main` (integración
   de GitHub, sin acción manual). `VITE_API_URL` ya está configurada en el dashboard de
