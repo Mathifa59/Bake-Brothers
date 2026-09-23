@@ -26,7 +26,7 @@ const MODELO = 'claude-sonnet-5'
 // indefinido (y quemar plata real en cada vuelta). Si se llega al límite sin
 // una respuesta final, se fuerza un mensaje de espera y se escala — nunca se
 // deja a un cliente real sin respuesta.
-const MAX_VUELTAS_TOOL_USE = 6
+export const MAX_VUELTAS_TOOL_USE = 6
 
 // Filtro determinístico, corre ANTES de llamar al modelo — nunca depende del
 // LLM ni de lo que devuelva el RAG (ver la instrucción original: "siempre,
@@ -218,6 +218,23 @@ function esNombreToolDeDatos(nombre: string): nombre is NombreToolDeDatos {
 }
 
 /**
+ * La garantía que NO depende del modelo: si el resultado real de
+ * evaluarSemaforoCateringPedido es amarillo/rojo, la conversación escala
+ * aunque el modelo no llame a escalarAHumano por su cuenta. Extraída aparte
+ * (sin I/O) para poder probarla de forma aislada, sin depender de que el LLM
+ * real se comporte de cierta manera — ver apps/api/test/cerebroForzado.test.ts.
+ */
+export function decidirEscaladaForzadaPorTool(
+  nombreTool: string,
+  resultadoTool: unknown
+): { forzar: boolean; motivo?: string } {
+  if (nombreTool === 'evaluarSemaforoCateringPedido' && (resultadoTool === 'amarillo' || resultadoTool === 'rojo')) {
+    return { forzar: true, motivo: `Semáforo de catering en ${resultadoTool} — no se confirma sin operador.` }
+  }
+  return { forzar: false }
+}
+
+/**
  * Decide qué responder a un mensaje entrante y si la conversación debe
  * escalar — sin tocar `conversaciones` (eso lo hace `procesarMensajeEntrante`).
  * `estadoActual` se asume ya normalizado a un estado donde el bot puede
@@ -310,9 +327,10 @@ export async function evaluarTurno(
 
       try {
         const resultado = await ejecutarToolDeDatos(client, tenantId, sedeId, bloque.name, bloque.input)
-        if (bloque.name === 'evaluarSemaforoCateringPedido' && (resultado === 'amarillo' || resultado === 'rojo')) {
+        const decision = decidirEscaladaForzadaPorTool(bloque.name, resultado)
+        if (decision.forzar) {
           debeEscalar = true
-          motivoEscalacion = `Semáforo de catering en ${resultado} — no se confirma sin operador.`
+          motivoEscalacion = decision.motivo
         }
         resultadosTool.push({ type: 'tool_result', tool_use_id: bloque.id, content: JSON.stringify(resultado) })
       } catch (err) {
