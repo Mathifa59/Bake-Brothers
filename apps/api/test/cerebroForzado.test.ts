@@ -116,7 +116,8 @@ describe.skipIf(!hayBaseDeDatosReal)('evaluarTurno — garantías forzadas por c
       tenantId,
       [],
       `Quiero 30 tequeños para el domingo ${fechaDomingo}`,
-      'activa'
+      'activa',
+      'whatsapp'
     )
 
     expect(mockCreate).toHaveBeenCalledTimes(2)
@@ -158,12 +159,67 @@ describe.skipIf(!hayBaseDeDatosReal)('evaluarTurno — garantías forzadas por c
       ],
     })
 
-    const r = await evaluarTurno(client, tenantId, [], 'Llegó todo roto, quiero un reembolso', 'activa')
+    const r = await evaluarTurno(client, tenantId, [], 'Llegó todo roto, quiero un reembolso', 'activa', 'whatsapp')
 
     expect(r.herramientasUsadas).toContain('escalarAHumano')
     expect(r.nuevoEstado).toBe('escalada')
     expect(r.textoRespuesta).toBe('Ya quedó registrado tu reclamo, en breve te escribe alguien del equipo para ayudarte 🙏')
     expect(r.textoRespuesta).not.toBe(RESPUESTA_ESCALADA_FORZADA_FIJA)
+  })
+
+  it('crearPedido rechaza y fuerza escalada si el modelo salta directo a crear un pedido de catering que NO es verde (sin llamar antes al semáforo)', async () => {
+    // Único paso mockeado: el modelo llama a crearPedido directo, con una
+    // cantidad de tequeños por debajo del mínimo real (25) — nunca llamó a
+    // evaluarSemaforoCateringPedido antes. Esto es justo lo que la regla 1
+    // del system prompt pide que el modelo NUNCA haga — se prueba que el
+    // código no confía en que el modelo la respete.
+    const fecha = (() => {
+      let d = new Date()
+      d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 20)
+      while (d.getDay() === 0) d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    })()
+
+    mockCreate.mockResolvedValueOnce({
+      content: [
+        {
+          type: 'tool_use',
+          id: 'toolu_pedido_malo',
+          name: 'crearPedido',
+          input: {
+            clienteNombre: 'Cliente Mock',
+            clienteTelefono: '999000099',
+            tipoEntrega: 'tienda',
+            fechaEntregaISO: fecha,
+            horario: '10am',
+            items: [{ tipo: 'catering', busqueda: 'tequeños', cantidad: 5 }], // 5 < mínimo real (25)
+            metodoPago: 'yape',
+            pagoPorAdelantado: false,
+          },
+        },
+      ],
+    })
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: 'text', text: '¡Listo! Tu pedido quedó registrado 😊' }],
+    })
+
+    const numeroAntes = await client.query(
+      `select count(*)::int as n from orders where customer_id in (select id from customers where telefono = '999000099')`
+    )
+    expect(numeroAntes.rows[0].n).toBe(0)
+
+    const r = await evaluarTurno(client, tenantId, [], 'Quiero 5 tequeños para el ' + fecha, 'activa', 'whatsapp')
+
+    expect(r.herramientasUsadas).toEqual(['crearPedido'])
+    expect(r.nuevoEstado).toBe('escalada')
+    expect(r.textoRespuesta).toBe(RESPUESTA_ESCALADA_FORZADA_FIJA)
+    expect(r.motivoEscalacion).toMatch(/catering.*no está en verde/i)
+
+    // Ningún pedido real se creó — se rechazó del todo, no algo parcial.
+    const numeroDespues = await client.query(
+      `select count(*)::int as n from orders where customer_id in (select id from customers where telefono = '999000099')`
+    )
+    expect(numeroDespues.rows[0].n).toBe(0)
   })
 
   it('corta el loop de tool-use en MAX_VUELTAS_TOOL_USE si el modelo nunca da una respuesta final', async () => {
@@ -181,7 +237,7 @@ describe.skipIf(!hayBaseDeDatosReal)('evaluarTurno — garantías forzadas por c
       ],
     })
 
-    const r = await evaluarTurno(client, tenantId, [], '¿Cuánto cuesta?', 'activa')
+    const r = await evaluarTurno(client, tenantId, [], '¿Cuánto cuesta?', 'activa', 'whatsapp')
 
     expect(MAX_VUELTAS_TOOL_USE).toBe(6)
     expect(mockCreate).toHaveBeenCalledTimes(MAX_VUELTAS_TOOL_USE)

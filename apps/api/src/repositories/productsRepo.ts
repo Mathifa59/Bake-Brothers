@@ -107,11 +107,19 @@ export async function extrasActivos(
   return new Map(rows.map((r) => [r.slug, { slug: r.slug, nombre: r.nombre, precio: Number(r.precio) }]))
 }
 
-export async function productosParaPedido(
+/**
+ * Resuelve UN producto por slug exacto o texto aproximado — el bot (a
+ * diferencia de apps/web, que ya conoce el slug real del catálogo
+ * estructurado) solo tiene el nombre que escribió el cliente, mismo
+ * criterio de búsqueda que ya usa consultarPrecio en bot/tools.ts. El slug
+ * exacto sigue matcheando primero (`order by` prioriza esa coincidencia) —
+ * no cambia el comportamiento para quien ya manda el slug real.
+ */
+export async function productoParaPedidoPorBusqueda(
   client: pg.PoolClient,
   tenantId: string,
-  slugs: string[]
-): Promise<ProductoParaPedido[]> {
+  busqueda: string
+): Promise<ProductoParaPedido | null> {
   const { rows } = await client.query(
     `select p.id, p.slug, p.nombre, p.precio_base, p.disponible, p.anticipacion_horas, p.category_id,
             coalesce(
@@ -120,9 +128,11 @@ export async function productosParaPedido(
             ) as tamanos
      from products p
      left join product_sizes ps on ps.product_id = p.id
-     where p.tenant_id = $1 and p.slug = any($2)
-     group by p.id`,
-    [tenantId, slugs]
+     where p.tenant_id = $1 and (p.slug = $2 or p.nombre ilike $3)
+     group by p.id
+     order by (p.slug = $2) desc, p.nombre
+     limit 1`,
+    [tenantId, busqueda, `%${busqueda}%`]
   )
-  return rows
+  return rows[0] ?? null
 }

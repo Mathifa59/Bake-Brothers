@@ -7,6 +7,10 @@ export default function Clientes() {
   const [clientes, setClientes] = useState(null)
   const [error, setError] = useState(null)
   const [seleccionado, setSeleccionado] = useState(null) // { id, nombre }
+  // customer_id -> fecha ISO del pedido más reciente. Consulta agregada
+  // sobre orders (misma tabla/RLS que ya usa usePedidos, sin tocar el
+  // esquema) — no un campo nuevo en customers.
+  const [ultimoPedidoPorCliente, setUltimoPedidoPorCliente] = useState({})
 
   useEffect(() => {
     supabase
@@ -16,6 +20,21 @@ export default function Clientes() {
       .then(({ data, error }) => {
         if (error) setError(error.message)
         else setClientes(data)
+      })
+
+    supabase
+      .from('orders')
+      .select('customer_id, creado_en')
+      .order('creado_en', { ascending: false })
+      .then(({ data, error }) => {
+        if (error) return // no bloquea la pantalla — la columna queda vacía si falla
+        const porCliente = {}
+        for (const { customer_id, creado_en } of data) {
+          // Ya viene ordenado por creado_en desc, así que la primera
+          // ocurrencia por cliente es la más reciente.
+          if (!porCliente[customer_id]) porCliente[customer_id] = creado_en
+        }
+        setUltimoPedidoPorCliente(porCliente)
       })
   }, [])
 
@@ -39,6 +58,7 @@ export default function Clientes() {
                 <tr>
                   <th className="px-4 py-3">Nombre</th>
                   <th className="px-4 py-3">Teléfono</th>
+                  <th className="px-4 py-3">Último pedido</th>
                 </tr>
               </thead>
               <tbody>
@@ -52,6 +72,11 @@ export default function Clientes() {
                   >
                     <td className="px-4 py-3 font-semibold">{c.nombre}</td>
                     <td className="px-4 py-3">{c.telefono}</td>
+                    <td className="px-4 py-3 text-gris">
+                      {ultimoPedidoPorCliente[c.id]
+                        ? new Date(ultimoPedidoPorCliente[c.id]).toLocaleDateString('es-PE')
+                        : '—'}
+                    </td>
                   </tr>
                 ))}
               </tbody>

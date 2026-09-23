@@ -8,6 +8,9 @@ import {
   consultarReglasCatering,
   evaluarSemaforoCateringPedido,
 } from './tools.js'
+import { crearPedido, type CrearPedidoInput, type ItemPedidoInput } from '../services/crearPedido.js'
+
+type Canal = 'whatsapp' | 'facebook' | 'instagram' | 'web'
 
 /**
  * El "cerebro" de conversación del bot: dado un mensaje de texto entrante,
@@ -71,7 +74,13 @@ REGLAS DURAS, sin excepción:
 
 4. Nunca inventes datos de precio, stock, ingredientes, alérgenos ni reglas de catering — si no tenés la tool para algo, decilo.
 
-5. No armes ni confirmes un pedido completo (eso lo arma el operador humano) — tu rol es responder consultas e informar, no cerrar la venta.
+5. Podés registrar un pedido real con crearPedido cuando el cliente confirma que quiere comprar. Antes de llamarla:
+   - Pedile SIEMPRE el teléfono de contacto, incluso en WhatsApp aunque ya tengas el número de quien te escribe — quien escribe no es necesariamente quien recibe el pedido, no asumas que es el mismo.
+   - Juntá nombre, producto(s) y cantidad, fecha de entrega, y si es recojo en tienda o delivery (con dirección) — nunca cotices ni prometas el costo del delivery, eso lo cotiza el operador a mano.
+   - Si el producto es un jugo o helado, preguntá con azúcar o sin azúcar; si son empanadas, preguntá calientes o sin calentar — anotá la respuesta en el campo nota.
+   - Para CATERING: nunca llames a crearPedido si evaluarSemaforoCateringPedido no dio verde para ese ítem — en amarillo/rojo escalá (regla 2), no fuerces el pedido. crearPedido igual vuelve a verificar esto del lado del servidor.
+   - Si el cliente te dice que va a pagar por adelantado, marcá pagoPorAdelantado en true. Nunca proceses ni verifiques ningún comprobante de pago (captura, voucher) — eso lo revisa el equipo a mano. Hoy todavía no podés ver imágenes: si el cliente manda una captura de pago, avisale con calidez que el pedido ya quedó registrado y que el equipo confirma el pago, sin intentar describir ni validar la imagen.
+   - Si crearPedido devuelve un error, no inventes un número de pedido — contale al cliente lo que pasó con honestidad (ej. producto no disponible, dirección faltante) y ofrecé ayudarlo a resolverlo.
 
 Respondé siempre en español, breve y natural, como un mensaje real de WhatsApp — no un párrafo largo.`
 
@@ -138,6 +147,53 @@ const TOOLS: Anthropic.Tool[] = [
         fechaEntregaISO: { type: 'string', description: 'Fecha de entrega, formato YYYY-MM-DD.' },
       },
       required: ['busquedaItem', 'cantidadSolicitada', 'fechaEntregaISO'],
+    },
+  },
+  {
+    name: 'crearPedido',
+    description:
+      'Registra un pedido real (recalcula el precio en el servidor, nunca confía en un precio que vos calcules). Úsala solo para casos verdes: productos de tienda normales, o catering ya confirmado en verde por evaluarSemaforoCateringPedido. Siempre pedile el teléfono al cliente antes de llamarla, aunque ya conozcas el número de WhatsApp de quien escribe.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        clienteNombre: { type: 'string', description: 'Nombre del cliente.' },
+        clienteTelefono: {
+          type: 'string',
+          description: 'Teléfono de contacto — pedíselo siempre al cliente, no asumas que es el número de quien te escribe.',
+        },
+        tipoEntrega: { type: 'string', enum: ['tienda', 'delivery'], description: '"tienda" = recojo en local.' },
+        direccion: { type: 'string', description: 'Requerida si tipoEntrega es delivery.' },
+        distrito: { type: 'string', description: 'Requerido si tipoEntrega es delivery.' },
+        referencia: { type: 'string' },
+        fechaEntregaISO: { type: 'string', description: 'Fecha de entrega, formato YYYY-MM-DD.' },
+        horario: { type: 'string', description: 'Horario acordado con el cliente, en texto libre.' },
+        items: {
+          type: 'array',
+          description: 'Uno o más productos/ítems de catering del pedido.',
+          items: {
+            type: 'object',
+            properties: {
+              tipo: { type: 'string', enum: ['producto', 'catering'] },
+              busqueda: { type: 'string', description: 'Nombre o texto aproximado del producto o ítem de catering.' },
+              tamano: { type: 'string', description: 'Solo para tipo "producto", si el producto tiene tamaños.' },
+              cantidad: { type: 'number' },
+            },
+            required: ['tipo', 'busqueda', 'cantidad'],
+          },
+        },
+        metodoPago: { type: 'string', enum: ['yape', 'plin', 'transferencia', 'tarjeta', 'contraentrega'] },
+        pagoPorAdelantado: {
+          type: 'boolean',
+          description: 'true si el cliente dijo que va a pagar antes de la entrega (no si ya pagó ni si vas a verificar un comprobante).',
+        },
+        nota: {
+          type: 'string',
+          description: 'Preferencias del cliente por producto (ej. "jugo sin azúcar", "empanadas calientes") y cualquier otro detalle libre.',
+        },
+      },
+      required: [
+        'clienteNombre', 'clienteTelefono', 'tipoEntrega', 'fechaEntregaISO', 'horario', 'items', 'metodoPago', 'pagoPorAdelantado',
+      ],
     },
   },
   {
@@ -240,7 +296,58 @@ export function decidirEscaladaForzadaPorTool(
   if (nombreTool === 'evaluarSemaforoCateringPedido' && (resultadoTool === 'amarillo' || resultadoTool === 'rojo')) {
     return { forzar: true, motivo: `Semáforo de catering en ${resultadoTool} — no se confirma sin operador.` }
   }
+  // Misma garantía que arriba, pero para cuando el modelo saltó directo a
+  // crearPedido con un ítem de catering que no está verde — crearPedido ya
+  // lo rechaza y no crea nada, pero además fuerza la escalada acá, igual
+  // que si hubiera llamado a evaluarSemaforoCateringPedido primero.
+  if (
+    nombreTool === 'crearPedido' &&
+    typeof resultadoTool === 'object' &&
+    resultadoTool !== null &&
+    'ok' in resultadoTool &&
+    (resultadoTool as { ok: boolean }).ok === false &&
+    (resultadoTool as { error?: string }).error === 'CATERING_NO_VERDE'
+  ) {
+    return { forzar: true, motivo: 'Se intentó crear un pedido de catering que no está en verde — requiere revisión del equipo.' }
+  }
   return { forzar: false }
+}
+
+/** Traduce el input crudo (JSON del tool call) al tipo fuerte que espera crearPedido. */
+function construirInputCrearPedido(inputCrudo: unknown, sedeId: string | undefined): CrearPedidoInput {
+  const i = (inputCrudo ?? {}) as Record<string, unknown>
+  const items = Array.isArray(i.items) ? (i.items as Record<string, unknown>[]) : []
+  return {
+    cliente: {
+      nombre: String(i.clienteNombre ?? ''),
+      telefono: String(i.clienteTelefono ?? ''),
+    },
+    sedeId,
+    tipoEntrega: i.tipoEntrega === 'delivery' ? 'delivery' : 'tienda',
+    direccion: i.direccion ? String(i.direccion) : null,
+    distrito: i.distrito ? String(i.distrito) : null,
+    referencia: i.referencia ? String(i.referencia) : null,
+    fechaEntregaISO: String(i.fechaEntregaISO ?? ''),
+    horario: String(i.horario ?? ''),
+    items: items.map(
+      (item): ItemPedidoInput =>
+        item.tipo === 'catering'
+          ? { tipo: 'catering', busqueda: String(item.busqueda ?? ''), cantidad: Number(item.cantidad) }
+          : {
+              tipo: 'producto',
+              busqueda: String(item.busqueda ?? ''),
+              tamano: item.tamano ? String(item.tamano) : null,
+              cantidad: Number(item.cantidad),
+            }
+    ),
+    metodoPago: (['yape', 'plin', 'transferencia', 'tarjeta', 'contraentrega'] as const).includes(
+      i.metodoPago as 'yape' | 'plin' | 'transferencia' | 'tarjeta' | 'contraentrega'
+    )
+      ? (i.metodoPago as 'yape' | 'plin' | 'transferencia' | 'tarjeta' | 'contraentrega')
+      : 'yape',
+    pagoPorAdelantado: i.pagoPorAdelantado === true,
+    nota: i.nota ? String(i.nota) : null,
+  }
 }
 
 /**
@@ -256,6 +363,7 @@ export async function evaluarTurno(
   historialPrevio: TurnoHistorial[],
   mensajeEntrante: string,
   estadoActual: EstadoConversacion,
+  canal: Canal,
   sedeId?: string
 ): Promise<ResultadoTurno> {
   if (REGEX_ALERGIA.test(mensajeEntrante)) {
@@ -335,6 +443,26 @@ export async function evaluarTurno(
         continue
       }
 
+      if (bloque.name === 'crearPedido') {
+        try {
+          const resultado = await crearPedido(client, tenantId, canal, construirInputCrearPedido(bloque.input, sedeId))
+          const decision = decidirEscaladaForzadaPorTool(bloque.name, resultado)
+          if (decision.forzar) {
+            debeEscalar = true
+            motivoEscalacion = decision.motivo
+          }
+          resultadosTool.push({ type: 'tool_result', tool_use_id: bloque.id, content: JSON.stringify(resultado) })
+        } catch (err) {
+          resultadosTool.push({
+            type: 'tool_result',
+            tool_use_id: bloque.id,
+            content: `Error creando el pedido: ${err instanceof Error ? err.message : String(err)}`,
+            is_error: true,
+          })
+        }
+        continue
+      }
+
       if (!esNombreToolDeDatos(bloque.name)) {
         resultadosTool.push({
           type: 'tool_result',
@@ -389,7 +517,7 @@ export async function procesarMensajeEntrante(
   mensajeTexto: string
 ): Promise<ResultadoTurno | null> {
   const { rows } = await client.query(
-    `select estado, historial, sede_id from conversaciones where id = $1 and tenant_id = $2`,
+    `select estado, historial, sede_id, canal from conversaciones where id = $1 and tenant_id = $2`,
     [conversacionId, tenantId]
   )
   const fila = rows[0]
@@ -415,6 +543,7 @@ export async function procesarMensajeEntrante(
     historialPrevio,
     mensajeTexto,
     estadoNormalizado,
+    fila.canal as Canal,
     fila.sede_id ?? undefined
   )
 

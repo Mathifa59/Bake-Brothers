@@ -48,6 +48,11 @@ export interface OrderInsert {
   canal: 'web' | 'whatsapp' | 'facebook' | 'instagram'
   estado: EstadoPedido
   tipoEntrega: TipoEntrega
+  // null si no se pudo resolver la sede (ej. pedidos de web todavía, o
+  // crearPedido antes de que exista el mapeo real de número de WhatsApp →
+  // sede) — un admin igual la ve en el dashboard, un operador no (RLS por
+  // sede, 0011), mismo criterio ya usado en conversaciones.sede_id (0009).
+  sedeId: string | null
   direccion: string | null
   distrito: string | null
   referencia: string | null
@@ -63,7 +68,12 @@ export interface OrderInsert {
 }
 
 export interface OrderItemInsert {
-  productId: string
+  // Exactamente uno de los dos (ver 0019_order_items_catering.sql) — un item
+  // de tienda tiene productId y cateringItemId null; uno de catering, al
+  // revés. precioUnitario de catering siempre es 0 (no hay precio de
+  // catálogo, lo cotiza el operador — ver services/crearPedido.ts).
+  productId: string | null
+  cateringItemId: string | null
   nombreProducto: string
   tamano: string | null
   extras: string[]
@@ -78,14 +88,14 @@ export async function insertarPedido(
   items: OrderItemInsert[]
 ): Promise<string> {
   const { rows } = await client.query(
-    `insert into orders (tenant_id, numero, customer_id, canal, estado, tipo_entrega,
+    `insert into orders (tenant_id, numero, customer_id, canal, estado, tipo_entrega, sede_id,
                          direccion, distrito, referencia, fecha_entrega, horario_entrega,
                          nota, metodo_pago, cupon_codigo, subtotal, descuento_cupon, delivery, total)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
      returning id`,
     [
       tenantId, pedido.numero, pedido.customerId, pedido.canal, pedido.estado,
-      pedido.tipoEntrega, pedido.direccion, pedido.distrito, pedido.referencia,
+      pedido.tipoEntrega, pedido.sedeId, pedido.direccion, pedido.distrito, pedido.referencia,
       pedido.fechaEntrega, pedido.horario, pedido.nota, pedido.metodoPago,
       pedido.cuponCodigo, pedido.subtotal, pedido.descuentoCupon, pedido.delivery, pedido.total,
     ]
@@ -93,9 +103,12 @@ export async function insertarPedido(
   const orderId = rows[0].id
   for (const item of items) {
     await client.query(
-      `insert into order_items (tenant_id, order_id, product_id, nombre_producto, tamano, extras, precio_unitario, cantidad)
-       values ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [tenantId, orderId, item.productId, item.nombreProducto, item.tamano, item.extras, item.precioUnitario, item.cantidad]
+      `insert into order_items (tenant_id, order_id, product_id, catering_item_id, nombre_producto, tamano, extras, precio_unitario, cantidad)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [
+        tenantId, orderId, item.productId, item.cateringItemId, item.nombreProducto,
+        item.tamano, item.extras, item.precioUnitario, item.cantidad,
+      ]
     )
   }
   return orderId

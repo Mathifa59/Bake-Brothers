@@ -177,6 +177,11 @@ export async function consultarCombo(
 }
 
 export interface ReglaCatering {
+  // uuid real de catering_items — lo necesita crearPedido para guardar la
+  // línea del pedido (order_items.catering_item_id, ver 0019). No se lo
+  // exponemos al modelo como algo que tenga que manejar, es un detalle
+  // interno de wiring.
+  itemId: string
   itemNombre: string
   categoria: string
   unidadesMinimas: number
@@ -196,7 +201,7 @@ export async function consultarReglasCatering(
   busqueda: string
 ): Promise<ReglaCatering | null> {
   const { rows } = await client.query(
-    `select ci.nombre, ci.categoria, r.unidades_minimas, r.sale_mismo_dia,
+    `select ci.id, ci.nombre, ci.categoria, r.unidades_minimas, r.sale_mismo_dia,
             r.anticipacion_horas, r.requiere_auto_obligatorio, r.consultar_domingo,
             r.necesita_ticket, r.admite_corte_noche_anterior
      from catering_items ci
@@ -210,6 +215,7 @@ export async function consultarReglasCatering(
   if (!regla) return null
 
   return {
+    itemId: regla.id,
     itemNombre: regla.nombre,
     categoria: regla.categoria,
     unidadesMinimas: Number(regla.unidades_minimas),
@@ -234,9 +240,10 @@ export interface PedidoCateringConsulta {
  * función pura `evaluarSemaforoCatering` de packages/domain (la lógica de
  * negocio vive ahí, esto solo la alimenta con datos reales).
  *
- * Todavía no la usa nada — es una herramienta más para cuando se conecte
- * el cerebro del bot (ver la instrucción original: "no la conectes a nada
- * todavía, solo constrúyela y pruébala aislada").
+ * La usa el cerebro del bot (apps/api/src/bot/cerebro.ts) antes de confirmar
+ * cualquier pedido de catering, y `crearPedido` (más abajo) la vuelve a
+ * llamar server-side antes de persistir — nunca confía en que el modelo ya
+ * la haya llamado.
  */
 export async function evaluarSemaforoCateringPedido(
   client: pg.PoolClient,
