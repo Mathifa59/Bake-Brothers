@@ -284,3 +284,80 @@ Cambios de rutas respecto a antes:
   Pendiente, menor: la Data API del proyecto también estaba deshabilitada a nivel de
   Project Settings (ajeno a las migraciones, nadie lo había notado porque nada la usaba
   hasta `apps/admin`) — ya se reactivó a mano desde el dashboard de Supabase.
+
+## 10. Seguridad — barrido pre-tráfico-real (2026-09-24)
+
+Barrido completo antes de conectar el cerebro del bot (§ arriba) a tráfico real. Cada
+punto se verificó con evidencia real (JWT real, requests HTTP reales, tablas de prueba
+reales), no revisando solo el código.
+
+- **Escalación de privilegios en `usuarios_dashboard` — probado, NO vulnerable.** Se creó
+  un usuario real de prueba (`operador`, vía signup real de Supabase Auth + confirmación
+  manual del email por SQL, JWT real de sesión) y se intentó, vía la API REST real, que se
+  cambiara su propio `rol` a `admin` y su propio `sede_id` — ambos intentos devolvieron
+  `403 permission denied for table usuarios_dashboard` (código `42501`): `authenticated`
+  solo tiene `SELECT` en esa tabla desde 0011/0012, nunca tuvo `UPDATE`. Un `SELECT` de su
+  propia fila sí funcionó (confirma que el JWT/setup era válido, no un bloqueo total).
+  Usuario de prueba borrado al terminar.
+- **RLS/grants por defecto en tablas de 0009+ — reconfirmado con una tabla nueva de
+  verdad.** `conversaciones` (RLS activa, políticas correctas por sede) y
+  `contenido_rag`/`catering_items`/`reglas_catering` (sin RLS, pero sin ningún grant a
+  `anon`/`authenticated` tampoco — cerradas por ausencia de privilegio, que es lo
+  esperado, esas tablas las lee `app_api` por conexión directa, no por REST). Como ninguna
+  migración desde 0013 había creado una tabla nueva todavía, se creó una tabla de prueba
+  real (`_test_default_privileges_0013`) como `postgres` (mismo rol que corre las
+  migraciones) — nació sin ningún grant para `anon`/`authenticated`, confirmado por
+  `information_schema.role_table_grants` Y por un `SELECT` real como `anon` contra la API
+  REST (`403`, `permission denied`). Tabla de prueba borrada al terminar.
+- **CORS**: `bake-brothers.vercel.app` retirado de `ORIGENES_PERMITIDOS`
+  ([app.ts](apps/api/src/app.ts)) — quedan el dominio real (con y sin `www`), el alias de
+  rama de Vercel (no se pidió retirarlo) y localhost.
+- **`PATCH /api/orders/:numero/status` — huérfana, confirmado.** Ningún archivo del repo
+  la llama (ni `apps/admin`, que habla directo con Supabase, ni `apps/web`, ni nada más).
+  **No se tocó** — se reporta para decidir juntos si se retira o se deja para un uso
+  futuro (dashboard con auth real, por ejemplo), tal como se pidió.
+- **Rate limiting**: `@fastify/rate-limit` global, 100 req/min por IP
+  ([app.ts](apps/api/src/app.ts)). Al escribir el test se encontró un bug real (no
+  buscado): el `setErrorHandler` propio de la app convertía CUALQUIER error no-Zod en
+  `500` — incluido el `429` que ya arma el plugin de rate-limit — así que el límite
+  "andaba" pero el cliente nunca veía el código correcto. Corregido: ahora respeta el
+  `statusCode` 4xx de errores de plugins de confianza (rate-limit, body JSON malformado,
+  etc.) y solo cae a `500` genérico para lo que de verdad no se esperaba. Probado de
+  verdad: 101 requests reales contra `/health` en la misma prueba, la 101 vuelve `429`
+  con `Retry-After`.
+- **Headers de seguridad**: `@fastify/helmet` global (HSTS, `X-Content-Type-Options`,
+  etc.), con `crossOriginResourcePolicy: 'cross-origin'` explícito — el default de helmet
+  (`same-origin`) hubiera bloqueado en el navegador las respuestas que `apps/web` ya
+  consume desde otro origen, aunque CORS las permitiera (son dos mecanismos
+  independientes del browser). Probado con un request real verificando los headers.
+- **`pnpm audit` — corrido de verdad, con antes/después real.** Encontró 27
+  vulnerabilidades (18 high, 9 moderate), casi todas por versiones resueltas
+  desactualizadas dentro de los rangos ya declarados en cada `package.json` — no hacía
+  falta cambiar ningún rango, solo `pnpm update -r`: bajó a 4 (todas moderate). Lo más
+  relevante para mañana (`fastify` 5.10.0→5.12.5 y su cadena `find-my-way`/`fast-uri`,
+  expuestos directo a internet) quedó resuelto. Quedan 4 moderate que **no se tocaron a
+  propósito**, porque arreglarlas de verdad implica un major (no algo para decidir solo
+  en un barrido de seguridad):
+  - `react-router`/`react-router-dom` (open redirect, deserialización insegura en SSR) —
+    necesita React Router 7.x. Riesgo real revisado: `apps/web`/`apps/admin` no usan
+    Router en modo SSR, y todo `<Navigate>`/`<Link to=...>` del repo apunta a rutas
+    internas fijas (`/login`, `/pedidos`, slugs del catálogo), nunca a una URL derivada de
+    input del usuario — sin superficie explotable hoy, pero la deuda queda anotada.
+  - `vitest`/`@vitest/mocker` (path traversal) — necesita Vitest 4.x (major, tests
+    pinneados en `^3.x` en todo el monorepo). Herramienta de desarrollo/test, nunca corre
+    contra tráfico real — riesgo práctico nulo hoy.
+- **Firma `X-Hub-Signature-256` del webhook — preparada, sin activar (a propósito, falta
+  `META_APP_SECRET` real hasta mañana).** `verificarFirmaWebhook`
+  ([meta.ts](apps/api/src/bot/meta.ts)): HMAC-SHA256 sobre el body crudo, comparación en
+  tiempo constante (`timingSafeEqual`). `POST /webhook` ahora captura el body sin parsear
+  (content-type parser propio, encapsulado solo en ese router — no afecta el resto de
+  rutas JSON) y, **solo si `process.env.META_APP_SECRET` existe**, exige la firma; si no
+  existe, el comportamiento es idéntico al de antes. Probado de punta a punta: sin la
+  variable, acepta sin firma (comportamiento actual intacto); con la variable seteada,
+  rechaza sin firma, rechaza firma inválida, y acepta con la firma real calculada — la
+  activación de mañana no va a necesitar ningún cambio de código, solo setear la variable
+  en Coolify.
+- Verificado con datos reales tras el barrido: `pnpm build` limpio, `pnpm test` en verde
+  (54 tests de dominio + 23 de api sin credenciales, más los que necesitan DB/Anthropic
+  reales re-corridos con un rol temporal de solo lectura — borrado al terminar, como
+  siempre).

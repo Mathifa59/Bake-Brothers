@@ -1,5 +1,7 @@
-import Fastify from 'fastify'
+import Fastify, { type FastifyError } from 'fastify'
 import cors from '@fastify/cors'
+import helmet from '@fastify/helmet'
+import rateLimit from '@fastify/rate-limit'
 import { ZodError } from 'zod'
 import { env } from './env.js'
 import { tenantPorSlug } from './db.js'
@@ -26,13 +28,22 @@ const ORIGENES_PERMITIDOS = [
   // navegador manda Origin con "www", así que hace falta el permiso aparte
   // (CORS no considera un dominio y su "www" el mismo origen).
   'https://www.bake-brothers.com',
-  'https://bake-brothers.vercel.app',
   'https://bake-brothers-git-main-mathias-projects-eaced134.vercel.app',
   'http://localhost:5173',
 ]
 
 export async function buildApp() {
   const app = Fastify({ logger: true })
+
+  // Cross-Origin-Resource-Policy: 'cross-origin' porque esta API la consume
+  // apps/web desde otro origen (bake-brothers.com) — el default de helmet
+  // ('same-origin') bloquearía esas respuestas en el navegador aunque CORS
+  // (abajo) las permita: son dos mecanismos independientes del browser.
+  await app.register(helmet, { crossOriginResourcePolicy: { policy: 'cross-origin' } })
+
+  // Límite razonable por IP para los endpoints públicos (catálogo, webhook
+  // de Meta) — hoy no hay ningún límite, cualquiera puede pegarle sin freno.
+  await app.register(rateLimit, { max: 100, timeWindow: '1 minute' })
 
   await app.register(cors, { origin: ORIGENES_PERMITIDOS })
 
@@ -52,12 +63,19 @@ export async function buildApp() {
     req.tenantSlug = tenant.slug
   })
 
-  app.setErrorHandler((err, _req, reply) => {
+  app.setErrorHandler((err: FastifyError, _req, reply) => {
     if (err instanceof ZodError) {
       return reply.code(400).send({
         error: 'VALIDACION',
         detalles: err.issues.map((i) => ({ campo: i.path.join('.'), mensaje: i.message })),
       })
+    }
+    // Errores de plugins de confianza (rate-limit → 429, body JSON malformado
+    // → 400, etc.) ya traen su propio statusCode 4xx — antes se pisaban acá
+    // con un 500 genérico sin importar cuál fuera. Solo lo que de verdad no
+    // se esperaba (5xx o sin statusCode) sigue devolviendo 500 sin detalle.
+    if (typeof err.statusCode === 'number' && err.statusCode >= 400 && err.statusCode < 500) {
+      return reply.code(err.statusCode).send({ error: err.message })
     }
     app.log.error(err)
     return reply.code(500).send({ error: 'ERROR_INTERNO' })
