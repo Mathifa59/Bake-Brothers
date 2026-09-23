@@ -6,10 +6,7 @@ import {
   cumpleAnticipacionMinima,
   hayCupoDisponible,
   cupoRestante,
-  esEstadoPedido,
-  puedeTransicionar,
 } from '@bakebrothers/domain'
-import { env } from '../env.js'
 import { withTenantTx, tenantPorSlug } from '../db.js'
 import {
   productosParaPedido,
@@ -22,8 +19,6 @@ import {
   insertarPedido,
   listarPedidos,
   pedidoPorNumero,
-  estadoActual,
-  actualizarEstado,
   type OrderItemInsert,
 } from '../repositories/ordersRepo.js'
 
@@ -238,26 +233,4 @@ export function ordersRoutes(app: FastifyInstance) {
     return pedido
   })
 
-  // ——————————————————————————— PATCH /api/orders/:numero/status ————
-  // Pensado para el dashboard (Fase 2). X-Admin-Key es un placeholder hasta
-  // que exista auth real de operadores.
-  app.patch('/api/orders/:numero/status', async (req, reply) => {
-    if (req.headers['x-admin-key'] !== env.ADMIN_KEY) {
-      return reply.code(401).send({ error: 'NO_AUTORIZADO' })
-    }
-    const { numero } = z.object({ numero: z.string().min(1) }).parse(req.params)
-    const { estado } = z.object({ estado: z.string() }).parse(req.body)
-    if (!esEstadoPedido(estado)) {
-      return reply.code(400).send({ error: 'ESTADO_INVALIDO', estado })
-    }
-    return withTenantTx(req.tenantId, async (client) => {
-      const actual = await estadoActual(client, req.tenantId, numero)
-      if (!actual) return reply.code(404).send({ error: 'PEDIDO_NO_ENCONTRADO' })
-      if (!puedeTransicionar(actual, estado)) {
-        return reply.code(409).send({ error: 'TRANSICION_INVALIDA', de: actual, a: estado })
-      }
-      await actualizarEstado(client, req.tenantId, numero, estado)
-      return { numero, estado }
-    })
-  })
 }

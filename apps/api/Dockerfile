@@ -65,7 +65,7 @@ RUN apk add --no-cache curl
 WORKDIR /app
 COPY --from=build /repo/deploy .
 EXPOSE 3001
-# DATABASE_URL, PORT, DEFAULT_TENANT_SLUG, ADMIN_KEY: los inyecta Coolify
+# DATABASE_URL, PORT, DEFAULT_TENANT_SLUG: los inyecta Coolify
 # como variables de entorno reales del contenedor (ver apps/api/.env.example
 # para la lista) — por eso el arranque NO usa `node --env-file=.env` como el
 # script "start" de package.json (pensado para local): en producción no hay
