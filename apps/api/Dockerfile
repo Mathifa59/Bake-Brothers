@@ -54,6 +54,10 @@ RUN pnpm --filter @bakebrothers/api build
 # con dependencias de producción — sin devDependencies (typescript, tsx) ni
 # el resto del monorepo.
 RUN pnpm --filter @bakebrothers/api deploy --prod /repo/deploy
+# apps/api/assets/ (el logo real del comprobante en PDF) no es código fuente
+# que `pnpm deploy` necesariamente preserve — se copia explícito para no
+# depender de ese detalle de empaquetado.
+RUN cp -r apps/api/assets /repo/deploy/assets
 
 # -------------------------------------------------------------- runtime ---
 FROM base AS runtime

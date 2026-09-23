@@ -2,6 +2,7 @@ import { HashRouter, Routes, Route, Navigate, Link, useLocation } from 'react-ro
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Login from './pages/Login'
 import Pedidos from './pages/Pedidos'
+import NuevoPedido from './pages/NuevoPedido'
 import Stock from './pages/Stock'
 import Clientes from './pages/Clientes'
 import Atribucion from './pages/Atribucion'
@@ -26,6 +27,7 @@ function Layout({ children }) {
         <div className="flex items-center gap-2">
           <span className="font-bold">Bake Brothers</span>
           {enlace('/pedidos', 'Pedidos')}
+          {enlace('/nuevo-pedido', 'Nuevo pedido')}
           {enlace('/stock', 'Stock')}
           {enlace('/clientes', 'Clientes')}
           {enlace('/atribucion', 'Atribución')}
@@ -79,6 +81,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<RutaLogin />} />
           <Route path="/pedidos" element={<ConGuardia><Pedidos /></ConGuardia>} />
+          <Route path="/nuevo-pedido" element={<ConGuardia><NuevoPedido /></ConGuardia>} />
           <Route path="/stock" element={<ConGuardia><Stock /></ConGuardia>} />
           <Route path="/clientes" element={<ConGuardia><Clientes /></ConGuardia>} />
           <Route path="/atribucion" element={<ConGuardia><Atribucion /></ConGuardia>} />

@@ -127,6 +127,7 @@ export async function validarYValorizarItemsTienda(
     return {
       productId: producto.id,
       cateringItemId: null,
+      comboId: null,
       nombreProducto: producto.nombre,
       tamano: item.tamano ?? null,
       extras: item.extras ?? [],

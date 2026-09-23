@@ -10,6 +10,7 @@ import { categoriesRoutes } from './routes/categories.js'
 import { availabilityRoutes } from './routes/availability.js'
 import { ordersRoutes } from './routes/orders.js'
 import { webhookRoutes } from './routes/webhook.js'
+import { dashboardOrdersRoutes } from './routes/dashboardOrders.js'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -30,6 +31,10 @@ const ORIGENES_PERMITIDOS = [
   'https://www.bake-brothers.com',
   'https://bake-brothers-git-main-mathias-projects-eaced134.vercel.app',
   'http://localhost:5173',
+  // apps/admin — el puente nuevo (POST /api/dashboard/orders) lo llama
+  // directo desde el navegador del operador.
+  'https://bake-brothers-admin.vercel.app',
+  'http://localhost:5174',
 ]
 
 export async function buildApp() {
@@ -88,6 +93,7 @@ export async function buildApp() {
   availabilityRoutes(app)
   ordersRoutes(app)
   webhookRoutes(app)
+  dashboardOrdersRoutes(app)
 
   return app
 }

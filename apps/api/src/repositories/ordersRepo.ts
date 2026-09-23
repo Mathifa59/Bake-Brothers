@@ -45,7 +45,7 @@ export async function siguienteNumeroDePedido(
 export interface OrderInsert {
   numero: string
   customerId: string
-  canal: 'web' | 'whatsapp' | 'facebook' | 'instagram'
+  canal: 'web' | 'whatsapp' | 'facebook' | 'instagram' | 'presencial'
   estado: EstadoPedido
   tipoEntrega: TipoEntrega
   // null si no se pudo resolver la sede (ej. pedidos de web todavía, o
@@ -68,12 +68,15 @@ export interface OrderInsert {
 }
 
 export interface OrderItemInsert {
-  // Exactamente uno de los dos (ver 0019_order_items_catering.sql) — un item
-  // de tienda tiene productId y cateringItemId null; uno de catering, al
-  // revés. precioUnitario de catering siempre es 0 (no hay precio de
-  // catálogo, lo cotiza el operador — ver services/crearPedido.ts).
+  // Exactamente uno de los tres (ver 0019_order_items_catering.sql y
+  // 0020_pedidos_dashboard.sql) — un item de tienda tiene cateringItemId y
+  // comboId null; uno de catering, productId y comboId null; uno de combo,
+  // productId y cateringItemId null. precioUnitario de catering siempre es
+  // 0 (no hay precio de catálogo — ver services/crearPedido.ts); el de
+  // combo es combos.precio_promo tal cual (ver services/pedidosCombos.ts).
   productId: string | null
   cateringItemId: string | null
+  comboId: string | null
   nombreProducto: string
   tamano: string | null
   extras: string[]
@@ -103,10 +106,10 @@ export async function insertarPedido(
   const orderId = rows[0].id
   for (const item of items) {
     await client.query(
-      `insert into order_items (tenant_id, order_id, product_id, catering_item_id, nombre_producto, tamano, extras, precio_unitario, cantidad)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      `insert into order_items (tenant_id, order_id, product_id, catering_item_id, combo_id, nombre_producto, tamano, extras, precio_unitario, cantidad)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
       [
-        tenantId, orderId, item.productId, item.cateringItemId, item.nombreProducto,
+        tenantId, orderId, item.productId, item.cateringItemId, item.comboId, item.nombreProducto,
         item.tamano, item.extras, item.precioUnitario, item.cantidad,
       ]
     )
@@ -118,7 +121,7 @@ const SELECT_PEDIDOS = `
   select o.numero, o.estado, o.canal, o.tipo_entrega, o.distrito, o.direccion,
          o.fecha_entrega::text as fecha_entrega, o.horario_entrega, o.nota,
          o.metodo_pago, o.cupon_codigo, o.subtotal, o.descuento_cupon, o.delivery,
-         o.total, o.creado_en,
+         o.total, o.creado_en, se.nombre as sede_nombre,
          c.nombre as cliente_nombre, c.telefono as cliente_telefono,
          json_agg(json_build_object(
            'nombre', oi.nombre_producto,
@@ -132,6 +135,7 @@ const SELECT_PEDIDOS = `
   join customers c on c.id = o.customer_id
   join order_items oi on oi.order_id = o.id
   left join products p on p.id = oi.product_id
+  left join sedes se on se.id = o.sede_id
   where o.tenant_id = $1
 `
 
@@ -153,6 +157,7 @@ const aPedidoDTO = (r: Record<string, any>) => ({
   delivery: Number(r.delivery),
   total: Number(r.total),
   creadoEn: r.creado_en,
+  sedeNombre: r.sede_nombre as string | null,
   cliente: { nombre: r.cliente_nombre, telefono: r.cliente_telefono },
   items: (r.items as any[]).map((i) => ({ ...i, precio: Number(i.precio) })),
 })
@@ -175,7 +180,7 @@ export async function listarPedidos(
   const limite = Math.min(filtros.limite ?? 20, 100)
   const { rows } = await client.query(
     `${SELECT_PEDIDOS} ${condiciones.join(' ')}
-     group by o.id, c.id order by o.creado_en desc limit ${limite}`,
+     group by o.id, c.id, se.nombre order by o.creado_en desc limit ${limite}`,
     params
   )
   return rows.map(aPedidoDTO)
@@ -183,7 +188,7 @@ export async function listarPedidos(
 
 export async function pedidoPorNumero(client: pg.PoolClient, tenantId: string, numero: string) {
   const { rows } = await client.query(
-    `${SELECT_PEDIDOS} and o.numero = $2 group by o.id, c.id`,
+    `${SELECT_PEDIDOS} and o.numero = $2 group by o.id, c.id, se.nombre`,
     [tenantId, numero]
   )
   return rows[0] ? aPedidoDTO(rows[0]) : null

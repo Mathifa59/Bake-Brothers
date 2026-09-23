@@ -56,6 +56,7 @@ export async function validarItemsCatering(
     itemsValidados.push({
       productId: null,
       cateringItemId: regla.itemId,
+      comboId: null,
       nombreProducto: regla.itemNombre,
       tamano: null,
       extras: [],
