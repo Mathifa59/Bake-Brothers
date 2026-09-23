@@ -22,6 +22,10 @@ declare module 'fastify' {
 // en Vercel (con su alias de rama) + localhost para desarrollo.
 const ORIGENES_PERMITIDOS = [
   'https://bake-brothers.com',
+  // El dominio raíz redirige a "www" como versión oficial en Vercel — el
+  // navegador manda Origin con "www", así que hace falta el permiso aparte
+  // (CORS no considera un dominio y su "www" el mismo origen).
+  'https://www.bake-brothers.com',
   'https://bake-brothers.vercel.app',
   'https://bake-brothers-git-main-mathias-projects-eaced134.vercel.app',
   'http://localhost:5173',
