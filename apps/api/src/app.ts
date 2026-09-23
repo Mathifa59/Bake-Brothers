@@ -21,6 +21,7 @@ declare module 'fastify' {
 // apps/web sí lo está, se restringe a una lista explícita: la landing real
 // en Vercel (con su alias de rama) + localhost para desarrollo.
 const ORIGENES_PERMITIDOS = [
+  'https://bake-brothers.com',
   'https://bake-brothers.vercel.app',
   'https://bake-brothers-git-main-mathias-projects-eaced134.vercel.app',
   'http://localhost:5173',
