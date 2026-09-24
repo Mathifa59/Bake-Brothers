@@ -257,7 +257,9 @@ Cambios de rutas respecto a antes:
 - **`apps/admin` en Vercel — desplegado**: proyecto `bake-brothers-admin` (mismo team),
   creado a mano por el cliente desde el dashboard (el MCP de Vercel no tiene permiso para
   crear proyectos nuevos vía API — solo lectura). Dominio real
-  `bake-brothers-admin.vercel.app`, auto-deploy en cada push a `main`. Causa real de un
+  `bake-brothers-admin.vercel.app`, **más el dominio propio `dashboard.bake-brothers.com`**
+  (Cloudflare → Vercel, no documentado hasta ahora — encontrado al verificar un deploy),
+  auto-deploy en cada push a `main`. Causa real de un
   primer deploy fallido (construía `apps/web` en vez de `apps/admin`): el `vercel.json` de
   la raíz del repo tiene el build de `apps/web` hardcodeado y **no está scopeado a ningún
   proyecto** — Vercel lo aplica a cualquier proyecto conectado al repo. Fix:
