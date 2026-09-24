@@ -17,6 +17,14 @@
 //      negocio, un fallo real de la API de Anthropic) mientras procesa en
 //      segundo plano, la conversación queda `escalada` con el motivo real
 //      del error guardado — nunca se pierde el mensaje en silencio.
+//   4. Un mensaje nuevo del cliente sobre una conversación que YA está
+//      `escalada`/`atendida_por_operador` (un humano ya está a cargo) se
+//      guarda en el historial (para que el operador lo vea) pero NO dispara
+//      al cerebro (cero llamadas al SDK de Anthropic) ni manda ninguna
+//      respuesta automática por WhatsApp — la única forma de que el bot
+//      vuelva a responder solo es que el operador devuelva la conversación
+//      a `activa` a mano (Conversaciones.jsx, transición ya existente en
+//      conversationStatus.ts).
 //
 // Se salta si falta DATABASE_URL real, igual que el resto de tests de este
 // proyecto contra Postgres real. Necesita un rol con select amplio en
@@ -364,5 +372,70 @@ describe.skipIf(!hayBaseDeDatosReal)('POST /webhook — async + idempotencia rea
       }
     },
     15_000
+  )
+
+  it.each(['escalada', 'atendida_por_operador'] as const)(
+    'un mensaje nuevo sobre una conversación ya %s se guarda en el historial pero NO llama a Claude ni manda nada por WhatsApp',
+    async (estadoPrevio) => {
+      const telefono = estadoPrevio === 'escalada' ? '999000780' : '999000781'
+      const mensajeId = `wamid.TEST_${estadoPrevio.toUpperCase()}_${Date.now()}`
+
+      await client.query(`delete from conversaciones where tenant_id = $1 and canal = 'whatsapp' and external_id = $2`, [
+        tenantId,
+        telefono,
+      ])
+      await client.query(`delete from mensajes_webhook_procesados where mensaje_id = $1`, [mensajeId])
+
+      const historialPrevio = [
+        { rol: 'cliente', texto: 'Tengo un problema con mi pedido', en: new Date().toISOString() },
+        { rol: 'bot', texto: 'Te derivo con un operador real, un momento por favor.', en: new Date().toISOString() },
+      ]
+      const { rows: creada } = await client.query(
+        `insert into conversaciones (tenant_id, canal, external_id, estado, historial)
+         values ($1, 'whatsapp', $2, $3, $4::jsonb) returning id`,
+        [tenantId, telefono, estadoPrevio, JSON.stringify(historialPrevio)]
+      )
+      const conversacionId = creada[0].id as string
+
+      const app = await buildApp()
+      try {
+        const res = await app.inject({
+          method: 'POST',
+          url: '/webhook',
+          payload: payloadWhatsApp(mensajeId, telefono, 'Sigo esperando una respuesta, hola?'),
+        })
+        expect(res.statusCode).toBe(200)
+
+        // Se espera al procesamiento de fondo igual que en los otros casos
+        // de este archivo — sin asumir que ya terminó apenas responde 200.
+        let historialFinal: Array<{ rol: string; texto: string }> = []
+        let estadoFinal: string | undefined
+        for (let intento = 0; intento < 15; intento++) {
+          await esperar(300)
+          const { rows } = await client.query(`select estado, historial from conversaciones where id = $1`, [conversacionId])
+          estadoFinal = rows[0]?.estado
+          historialFinal = rows[0]?.historial ?? []
+          if (historialFinal.length > historialPrevio.length) break
+        }
+
+        expect(historialFinal.length).toBe(historialPrevio.length + 1)
+        expect(historialFinal[historialPrevio.length]).toMatchObject({
+          rol: 'cliente',
+          texto: 'Sigo esperando una respuesta, hola?',
+        })
+        // El estado no lo cambia el mensaje entrante — sigue igual que
+        // antes, nadie lo "reactiva" solo con que el cliente escriba.
+        expect(estadoFinal).toBe(estadoPrevio)
+
+        // El cerebro nunca se llamó (ni siquiera un intento fallido) y no
+        // se mandó ninguna respuesta automática por WhatsApp.
+        expect(mockCreate).not.toHaveBeenCalled()
+        expect(mockFetch).not.toHaveBeenCalled()
+      } finally {
+        await client.query(`delete from conversaciones where id = $1`, [conversacionId])
+        await client.query(`delete from mensajes_webhook_procesados where mensaje_id = $1`, [mensajeId])
+      }
+    },
+    10_000
   )
 })
