@@ -6,31 +6,51 @@ import GraficoBarras from '../components/GraficoBarras'
 
 const formatoMoneda = (n) => `S/ ${Number(n ?? 0).toFixed(2)}`
 
-function aISO(fecha) {
-  const y = fecha.getFullYear()
-  const m = String(fecha.getMonth() + 1).padStart(2, '0')
-  const d = String(fecha.getDate()).padStart(2, '0')
+// "Hoy" tiene que ser el día calendario en Lima (único lugar donde opera
+// el negocio), no el del timezone que tenga configurado el sistema
+// operativo del dispositivo del operador — confiar en new Date().getDate()
+// directo ya causó un bug real de 5 horas del lado del backend (ver 0027),
+// no vale la pena repetir el mismo supuesto acá. Intl.DateTimeFormat con
+// timeZone explícito da los componentes Y/M/D correctos sin importar en
+// qué timezone esté el navegador; se anclan a un Date en UTC solo para
+// poder hacer aritmética de calendario (+/- días) sin que ningún getter
+// local vuelva a meter una zona horaria de por medio.
+function fechaLimaComoUTC(fechaReal = new Date()) {
+  const partes = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Lima',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(fechaReal)
+  const { year, month, day } = Object.fromEntries(partes.map((p) => [p.type, p.value]))
+  return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)))
+}
+
+function aISO(fechaUTC) {
+  const y = fechaUTC.getUTCFullYear()
+  const m = String(fechaUTC.getUTCMonth() + 1).padStart(2, '0')
+  const d = String(fechaUTC.getUTCDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
 }
 
 function rangoHoy() {
-  const hoy = aISO(new Date())
+  const hoy = aISO(fechaLimaComoUTC())
   return { desde: hoy, hasta: hoy }
 }
 
 function rangoEstaSemana() {
-  const hoy = new Date()
-  // Semana de lunes a hoy (0 = domingo en getDay()).
-  const diaSemana = hoy.getDay()
+  const hoy = fechaLimaComoUTC()
+  // Semana de lunes a hoy (0 = domingo en getUTCDay()).
+  const diaSemana = hoy.getUTCDay()
   const offsetDesdeElLunes = diaSemana === 0 ? 6 : diaSemana - 1
   const lunes = new Date(hoy)
-  lunes.setDate(hoy.getDate() - offsetDesdeElLunes)
+  lunes.setUTCDate(hoy.getUTCDate() - offsetDesdeElLunes)
   return { desde: aISO(lunes), hasta: aISO(hoy) }
 }
 
 function rangoEsteMes() {
-  const hoy = new Date()
-  const primero = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
+  const hoy = fechaLimaComoUTC()
+  const primero = new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth(), 1))
   return { desde: aISO(primero), hasta: aISO(hoy) }
 }
 
