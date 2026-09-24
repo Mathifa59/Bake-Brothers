@@ -2,6 +2,10 @@ import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { env } from '../env.js'
 import { verificarFirmaWebhook } from '../bot/meta.js'
+import { parsearMensajesWhatsApp } from '../bot/parsearMensajesWhatsApp.js'
+import { procesarMensajeWhatsAppEnBackground } from '../bot/procesarWebhookWhatsApp.js'
+import { marcarMensajeComoProcesado } from '../repositories/conversacionesRepo.js'
+import { pool, tenantPorSlug } from '../db.js'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -19,11 +23,20 @@ const verificacionSchema = z.object({
 })
 
 /**
- * Webhook de Meta (WhatsApp/Messenger/Instagram comparten un solo endpoint).
+ * Webhook de Meta (WhatsApp/Messenger/Instagram comparten un solo endpoint,
+ * aunque hoy solo WhatsApp tiene parser real — ver parsearMensajesWhatsApp.ts).
  * GET es el handshake de verificación que Meta exige al configurar el
- * webhook en su dashboard. POST todavía no responde mensajes — solo loggea
- * el payload crudo; la lógica real llega cuando haya credenciales reales de
- * Meta para probarla de punta a punta (fuera de alcance de Semana 2).
+ * webhook en su dashboard.
+ *
+ * POST responde 200 apenas valida el mensaje (idempotencia incluida) y
+ * procesa el resto EN SEGUNDO PLANO, sin esperarlo — Meta considera fallido
+ * cualquier webhook que tarde más de ~3s en responder y reintenta el mismo
+ * mensaje, y el cerebro del bot (cerebro.ts) puede hacer varias vueltas de
+ * tool-use contra Claude, mucho más lento que eso. La única parte síncrona
+ * antes de responder es la marca de idempotencia (una sola query rápida) —
+ * necesaria ANTES de responder, no después: si se hiciera en el background,
+ * un reintento de Meta que llegue muy rápido podría pasar la validación dos
+ * veces antes de que la primera corrida termine de marcarlo.
  */
 export function webhookRoutes(app: FastifyInstance) {
   // Encapsulado aparte (no directo sobre `app`) para que el content-type
@@ -67,7 +80,34 @@ export function webhookRoutes(app: FastifyInstance) {
         }
       }
       app.log.info({ payload: req.body }, 'webhook de Meta recibido')
-      return reply.code(200).send()
+
+      const mensajes = parsearMensajesWhatsApp(req.body)
+      const mensajesNuevos = []
+      for (const mensaje of mensajes) {
+        // Síncrono a propósito (ver docstring de arriba) — una sola query rápida.
+        const esNuevo = await marcarMensajeComoProcesado(pool, mensaje.mensajeId)
+        if (esNuevo) mensajesNuevos.push(mensaje)
+        else app.log.info({ mensajeId: mensaje.mensajeId }, 'Mensaje de WhatsApp ya procesado antes — Meta reintentó, se ignora')
+      }
+
+      reply.code(200).send()
+
+      if (mensajesNuevos.length === 0) return
+
+      const tenant = await tenantPorSlug(env.DEFAULT_TENANT_SLUG)
+      if (!tenant) {
+        app.log.error({ slug: env.DEFAULT_TENANT_SLUG }, 'Webhook de Meta: no se pudo resolver el tenant por defecto')
+        return
+      }
+
+      for (const mensaje of mensajesNuevos) {
+        // Fire-and-forget: la respuesta ya se mandó arriba, esto sigue
+        // corriendo en el mismo proceso (apps/api es un servidor persistente
+        // en Coolify, no serverless) sin bloquear nada más.
+        void procesarMensajeWhatsAppEnBackground(app.log, tenant.id, mensaje).catch((err) => {
+          app.log.error({ err, mensajeId: mensaje.mensajeId }, 'Fallo inesperado no atrapado procesando un mensaje de WhatsApp')
+        })
+      }
     })
   })
 }
