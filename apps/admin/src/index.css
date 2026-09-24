@@ -9,6 +9,11 @@
   --color-acento-suave: #FDEFDD;
   --color-borde: #E7E0DA;
   --color-gris: #6F675F;
+  /* Caramelo: color real del logo (imagenes/logo/BakeBrothers-caramelo.png,
+     muestreado ~#A96E34) — variedad cromática adicional para la interfaz del
+     dashboard, antes plana en blanco/negro/gris. */
+  --color-caramelo: #A96E34;
+  --color-caramelo-suave: #EBDCCB;
   --font-sans: "Albert Sans", ui-sans-serif, system-ui, sans-serif;
 }
 

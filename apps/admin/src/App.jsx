@@ -15,17 +15,29 @@ function Layout({ children }) {
     <Link
       to={ruta}
       className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
-        location.pathname === ruta ? 'bg-tinta text-white' : 'text-tinta/70 hover:bg-borde/40'
+        location.pathname === ruta ? 'bg-caramelo text-white' : 'text-tinta/70 hover:bg-caramelo-suave'
       }`}
     >
       {texto}
     </Link>
   )
+  const saludo =
+    perfil?.rol === 'admin'
+      ? 'Bienvenido/a al panel de Bake Brothers.'
+      : `Bienvenido/a, Administrador/a de ${perfil?.sedeNombre ?? 'tu sede'}`
   return (
     <div className="min-h-screen">
       <header className="flex items-center justify-between border-b border-borde/60 bg-white px-6 py-3">
         <div className="flex items-center gap-2">
-          <span className="font-bold">Bake Brothers</span>
+          <Link to="/pedidos" className="mr-2" aria-label="Bake Brothers — Panel">
+            <img
+              src="/img/logo-bakebrothers.png"
+              alt="Bake Brothers"
+              width={64}
+              height={36}
+              className="h-9 w-16"
+            />
+          </Link>
           {enlace('/pedidos', 'Pedidos')}
           {enlace('/nuevo-pedido', 'Nuevo pedido')}
           {enlace('/stock', 'Stock')}
@@ -40,6 +52,11 @@ function Layout({ children }) {
           </button>
         </div>
       </header>
+      {perfil && (
+        <div className="border-b border-borde/60 bg-caramelo-suave/60 px-6 py-2 text-sm font-semibold text-caramelo">
+          {saludo}
+        </div>
+      )}
       {children}
     </div>
   )

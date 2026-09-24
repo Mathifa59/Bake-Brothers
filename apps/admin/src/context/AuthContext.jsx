@@ -28,7 +28,7 @@ export function AuthProvider({ children }) {
     setCargandoPerfil(true)
     supabase
       .from('usuarios_dashboard')
-      .select('rol, sede_id')
+      .select('rol, sede_id, sedes(nombre)')
       .eq('id', session.user.id)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -36,7 +36,9 @@ export function AuthProvider({ children }) {
           console.error('No se pudo leer usuarios_dashboard', error)
           setPerfil(null)
         } else {
-          setPerfil(data ? { rol: data.rol, sedeId: data.sede_id } : null)
+          setPerfil(
+            data ? { rol: data.rol, sedeId: data.sede_id, sedeNombre: data.sedes?.nombre ?? null } : null
+          )
         }
         setCargandoPerfil(false)
       })

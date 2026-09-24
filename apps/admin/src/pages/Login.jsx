@@ -20,7 +20,14 @@ export default function Login() {
   return (
     <div className="grid min-h-screen place-items-center bg-crema px-4">
       <div className="w-full max-w-sm rounded-3xl border border-borde/60 bg-white p-8 shadow-sm">
-        <h1 className="text-center text-xl font-bold text-tinta">Bake Brothers · Panel</h1>
+        <img
+          src="/img/logo-bakebrothers.png"
+          alt="Bake Brothers"
+          width={99}
+          height={56}
+          className="mx-auto h-14 w-[99px]"
+        />
+        <p className="mt-3 text-center text-sm font-semibold text-caramelo">Panel del equipo</p>
         <p className="mt-1 text-center text-sm text-gris">Acceso solo para el equipo.</p>
 
         <form onSubmit={enviar} className="mt-6 space-y-4">
