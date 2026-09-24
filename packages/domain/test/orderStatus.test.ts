@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { puedeTransicionar, estadoLegible, esEstadoPedido, ESTADOS_PEDIDO } from '../src/index.js'
+import {
+  puedeTransicionar,
+  estadoLegible,
+  esEstadoPedido,
+  ESTADOS_PEDIDO,
+  ESTADOS_QUE_CUENTAN_COMO_INGRESO,
+} from '../src/index.js'
 
 describe('máquina de estados del pedido', () => {
   it('sigue el camino feliz completo', () => {
@@ -50,6 +56,15 @@ describe('máquina de estados del pedido', () => {
   it('todo estado del enum tiene texto legible', () => {
     for (const estado of ESTADOS_PEDIDO) {
       expect(estadoLegible(estado)).toBeTruthy()
+    }
+  })
+
+  it('el panel de métricas cuenta todo como ingreso excepto cancelled', () => {
+    expect(ESTADOS_QUE_CUENTAN_COMO_INGRESO).not.toContain('cancelled')
+    expect(ESTADOS_QUE_CUENTAN_COMO_INGRESO).toHaveLength(ESTADOS_PEDIDO.length - 1)
+    for (const estado of ESTADOS_PEDIDO) {
+      if (estado === 'cancelled') continue
+      expect(ESTADOS_QUE_CUENTAN_COMO_INGRESO).toContain(estado)
     }
   })
 })

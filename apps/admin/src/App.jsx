@@ -7,6 +7,7 @@ import Stock from './pages/Stock'
 import Clientes from './pages/Clientes'
 import Atribucion from './pages/Atribucion'
 import Conversaciones from './pages/Conversaciones'
+import Metricas from './pages/Metricas'
 
 function Layout({ children }) {
   const { perfil, logout } = useAuth()
@@ -42,6 +43,7 @@ function Layout({ children }) {
           {enlace('/nuevo-pedido', 'Nuevo pedido')}
           {enlace('/stock', 'Stock')}
           {enlace('/clientes', 'Clientes')}
+          {enlace('/metricas', 'Métricas')}
           {enlace('/atribucion', 'Atribución')}
           {enlace('/conversaciones', 'Conversaciones')}
         </div>
@@ -101,6 +103,7 @@ export default function App() {
           <Route path="/nuevo-pedido" element={<ConGuardia><NuevoPedido /></ConGuardia>} />
           <Route path="/stock" element={<ConGuardia><Stock /></ConGuardia>} />
           <Route path="/clientes" element={<ConGuardia><Clientes /></ConGuardia>} />
+          <Route path="/metricas" element={<ConGuardia><Metricas /></ConGuardia>} />
           <Route path="/atribucion" element={<ConGuardia><Atribucion /></ConGuardia>} />
           <Route path="/conversaciones" element={<ConGuardia><Conversaciones /></ConGuardia>} />
           <Route path="*" element={<Navigate to="/pedidos" replace />} />

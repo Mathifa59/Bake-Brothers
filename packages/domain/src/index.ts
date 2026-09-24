@@ -25,6 +25,7 @@ export {
 export {
   ESTADOS_PEDIDO,
   TRANSICIONES_VALIDAS,
+  ESTADOS_QUE_CUENTAN_COMO_INGRESO,
   esEstadoPedido,
   puedeTransicionar,
   estadoLegible,

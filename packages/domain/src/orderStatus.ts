@@ -33,6 +33,19 @@ export function esEstadoPedido(valor: string): valor is EstadoPedido {
   return (ESTADOS_PEDIDO as readonly string[]).includes(valor)
 }
 
+/**
+ * Qué estados cuentan como ingreso para el panel de métricas del dashboard
+ * (apps/admin/src/pages/Metricas.jsx) — todo excepto `cancelled`. Un pedido
+ * `confirmed`/`payment_pending` sin pagar todavía sigue siendo ingreso
+ * comprometido, no solo `paid`+. La función SQL `metricas_kpis` (migración
+ * 0026) duplica esta misma lista a propósito — no puede importar TS —
+ * mismo criterio que ya existe entre este archivo y el trigger de
+ * conversaciones (ver 0017_rls_conversaciones.sql).
+ */
+export const ESTADOS_QUE_CUENTAN_COMO_INGRESO: readonly EstadoPedido[] = ESTADOS_PEDIDO.filter(
+  (e) => e !== 'cancelled'
+)
+
 export function puedeTransicionar(actual: EstadoPedido, siguiente: EstadoPedido): boolean {
   return TRANSICIONES_VALIDAS[actual]?.includes(siguiente) ?? false
 }
