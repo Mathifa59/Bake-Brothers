@@ -1,14 +1,22 @@
 // Prueba real de la arquitectura async + idempotencia de POST /webhook (ver
 // routes/webhook.ts + bot/procesarWebhookWhatsApp.ts). Meta considera
 // fallido cualquier webhook que tarde más de ~3s en responder y reintenta el
-// mismo mensaje si eso pasa — dos cosas que hay que probar con evidencia
-// real, no solo revisando el código:
+// mismo mensaje si eso pasa — cosas que hay que probar con evidencia real,
+// no solo revisando el código:
 //   1. El POST responde 200 bien por debajo de 3s AUNQUE el procesamiento de
 //      fondo (el cerebro del bot) tarde mucho más — se mockea el SDK de
 //      Anthropic para que cada vuelta tarde ~1.2s de verdad (delay real, no
 //      simulado), sumando bien por encima de 3s en total entre las 3 vueltas.
+//      También confirma que la respuesta real del bot se manda de verdad por
+//      WhatsApp (enviarMensajeMeta, con fetch mockeado — no hay token real
+//      de Meta en este entorno).
 //   2. Mandar el MISMO mensaje (mismo id real de WhatsApp) dos veces no
-//      duplica nada — ni el historial de la conversación ni un pedido real.
+//      duplica nada — ni el historial de la conversación, ni un pedido real,
+//      ni el envío real (fetch solo se llama una vez).
+//   3. Si el cerebro revienta con una excepción real (no un rechazo de
+//      negocio, un fallo real de la API de Anthropic) mientras procesa en
+//      segundo plano, la conversación queda `escalada` con el motivo real
+//      del error guardado — nunca se pierde el mensaje en silencio.
 //
 // Se salta si falta DATABASE_URL real, igual que el resto de tests de este
 // proyecto contra Postgres real. Necesita un rol con select amplio en
@@ -16,7 +24,7 @@
 // conversaciones/mensajes_webhook_procesados y update en order_sequences
 // (mismo criterio que test/dashboardOrders.test.ts) — membresía en app_api
 // alcanza para las políticas RLS de conversaciones.
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import pg from 'pg'
 import { DATABASE_URL_PLACEHOLDER } from './testEnv.js'
 
@@ -26,6 +34,9 @@ const hayBaseDeDatosReal =
 // obtenerApiKey() de cerebro.ts exige que la variable exista — el SDK está
 // mockeado abajo, nunca sale un request real.
 process.env.ANTHROPIC_API_KEY ||= 'dummy-para-test-mockeado-nunca-sale-un-request-real'
+// enviarMensajeMeta (bot/meta.ts) exige esta variable para no fallar de
+// entrada — fetch está mockeado abajo, nunca sale un request real a Meta.
+process.env.META_WHATSAPP_TOKEN ||= 'dummy-token-para-test-fetch-mockeado'
 
 const mockCreate = vi.fn()
 vi.mock('@anthropic-ai/sdk', () => ({
@@ -33,6 +44,9 @@ vi.mock('@anthropic-ai/sdk', () => ({
     messages: { create: mockCreate },
   })),
 }))
+
+const mockFetch = vi.fn()
+vi.stubGlobal('fetch', mockFetch)
 
 // vi.mock se hoistea arriba de este import — app.js (y cerebro.ts dentro)
 // ya recibe el SDK mockeado cuando se importa acá.
@@ -86,8 +100,15 @@ describe.skipIf(!hayBaseDeDatosReal)('POST /webhook — async + idempotencia rea
     await pool.end()
   })
 
+  beforeEach(() => {
+    // Default: el envío real por WhatsApp "funciona" — los tests que
+    // necesitan que falle lo pisan explícitamente.
+    mockFetch.mockResolvedValue({ ok: true, text: async () => '' } as unknown as Response)
+  })
+
   afterEach(() => {
     mockCreate.mockReset()
+    mockFetch.mockReset()
   })
 
   it(
@@ -161,6 +182,16 @@ describe.skipIf(!hayBaseDeDatosReal)('POST /webhook — async + idempotencia rea
         expect(historialFinal.length).toBe(2)
         expect(historialFinal[0].rol).toBe('cliente')
         expect(historialFinal[1].texto).toMatch(/9[.,]90/)
+
+        // La respuesta real del bot se mandó de verdad por WhatsApp
+        // (enviarMensajeMeta → fetch a la Cloud API real de Meta, mockeado).
+        expect(mockFetch).toHaveBeenCalledTimes(1)
+        const [url, opciones] = mockFetch.mock.calls[0] as [string, RequestInit]
+        expect(url).toBe('https://graph.facebook.com/v21.0/PHONE_ID_DE_PRUEBA/messages')
+        expect((opciones.headers as Record<string, string>).Authorization).toBe('Bearer dummy-token-para-test-fetch-mockeado')
+        const cuerpo = JSON.parse(opciones.body as string)
+        expect(cuerpo.to).toBe(telefono)
+        expect(cuerpo.text.body).toMatch(/9[.,]90/)
       } finally {
         await client.query(`delete from conversaciones where tenant_id = $1 and canal = 'whatsapp' and external_id = $2`, [
           tenantId,
@@ -239,6 +270,7 @@ describe.skipIf(!hayBaseDeDatosReal)('POST /webhook — async + idempotencia rea
         }
         expect(ordenesLuego1).toBe(1)
         expect(mockCreate).toHaveBeenCalledTimes(2)
+        expect(mockFetch).toHaveBeenCalledTimes(1)
 
         // Meta reintenta EXACTAMENTE el mismo mensaje (mismo id real).
         const res2 = await app.inject({ method: 'POST', url: '/webhook', payload })
@@ -246,8 +278,10 @@ describe.skipIf(!hayBaseDeDatosReal)('POST /webhook — async + idempotencia rea
         await esperar(500)
 
         // El modelo no se volvió a llamar — el mensaje ya estaba marcado
-        // como procesado, no se reprocesó nada.
+        // como procesado, no se reprocesó nada. Tampoco se volvió a mandar
+        // el mensaje por WhatsApp.
         expect(mockCreate).toHaveBeenCalledTimes(2)
+        expect(mockFetch).toHaveBeenCalledTimes(1)
 
         const { rows: ordenesFinal } = await client.query(
           `select count(*)::int as n from orders where customer_id in (select id from customers where telefono = $1)`,
@@ -271,5 +305,64 @@ describe.skipIf(!hayBaseDeDatosReal)('POST /webhook — async + idempotencia rea
       }
     },
     20_000
+  )
+
+  it(
+    'si el modelo revienta con un error real, la conversación queda escalada con el motivo real — nunca se pierde en silencio',
+    async () => {
+      const telefono = '999000779'
+      const mensajeId = `wamid.TEST_ERROR_${Date.now()}`
+
+      await client.query(`delete from conversaciones where tenant_id = $1 and canal = 'whatsapp' and external_id = $2`, [
+        tenantId,
+        telefono,
+      ])
+      await client.query(`delete from mensajes_webhook_procesados where mensaje_id = $1`, [mensajeId])
+
+      // Error real del SDK, no un rechazo de negocio — simula, por ejemplo,
+      // que la API de Anthropic esté caída o el request falle por la razón
+      // que sea. No hay try/catch alrededor de esta llamada dentro del loop
+      // de evaluarTurno — se propaga tal cual, que es justo lo que hay que
+      // probar que el código de más arriba maneja bien.
+      mockCreate.mockRejectedValueOnce(new Error('Fallo simulado de la API de Anthropic'))
+
+      const app = await buildApp()
+      try {
+        const res = await app.inject({
+          method: 'POST',
+          url: '/webhook',
+          payload: payloadWhatsApp(mensajeId, telefono, '¿Tienen torta de chocolate?'),
+        })
+        expect(res.statusCode).toBe(200)
+
+        let estadoFinal: string | undefined
+        let contextoFinal: { ultimoError?: { motivo?: string } } | undefined
+        for (let intento = 0; intento < 20; intento++) {
+          await esperar(300)
+          const { rows } = await client.query(
+            `select estado, contexto from conversaciones where tenant_id = $1 and canal = 'whatsapp' and external_id = $2`,
+            [tenantId, telefono]
+          )
+          estadoFinal = rows[0]?.estado
+          contextoFinal = rows[0]?.contexto
+          if (estadoFinal === 'escalada') break
+        }
+
+        expect(estadoFinal).toBe('escalada')
+        expect(contextoFinal?.ultimoError?.motivo).toMatch(/error interno/i)
+        expect(contextoFinal?.ultimoError?.motivo).toMatch(/Fallo simulado de la API de Anthropic/)
+
+        // El cerebro nunca llegó a generar una respuesta — no se intentó
+        // mandar nada por WhatsApp.
+        expect(mockFetch).not.toHaveBeenCalled()
+      } finally {
+        await client.query(`delete from conversaciones where tenant_id = $1 and canal = 'whatsapp' and external_id = $2`, [
+          tenantId,
+          telefono,
+        ])
+        await client.query(`delete from mensajes_webhook_procesados where mensaje_id = $1`, [mensajeId])
+      }
+    },
+    15_000
   )
 })

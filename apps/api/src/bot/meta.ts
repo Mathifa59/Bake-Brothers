@@ -33,27 +33,47 @@ export function verificarFirmaWebhook(
   return crypto.timingSafeEqual(bufEsperada, bufRecibida)
 }
 
-// TODO(Semana 2/3 — credenciales reales de Meta): implementar el envío real
-// contra la Cloud API de WhatsApp/Messenger/Instagram
-// (https://graph.facebook.com/v21.0/{phone_number_id}/messages) una vez que
-// exista el token permanente de la app de Meta. Necesita, como mínimo:
-// META_WHATSAPP_TOKEN (o el que corresponda por canal) y el
-// phone_number_id/page_id de la sede que corresponda (ver
-// sedes.whatsapp_phone_number_id).
+// Envío real contra la Cloud API de WhatsApp — bot/procesarWebhookWhatsApp.ts
+// la llama después de procesarMensajeEntrante, con el texto real que generó
+// el cerebro. Solo WhatsApp por ahora (Messenger/Instagram no tienen parser
+// de entrada real todavía, ver bot/parsearMensajesWhatsApp.ts — no tendría
+// sentido implementar su envío antes que su recepción).
 //
-// Stub a propósito: nadie en este repo debe poder mandar un mensaje real a
-// un cliente todavía sin darse cuenta. No se simula una respuesta exitosa de
-// Meta — si algo llega a invocar esta función antes de que esté
-// implementada, tiene que fallar visiblemente (excepción), nunca en
-// silencio. Ahora mismo nada del código la invoca — ni el bandeja de
-// conversaciones de apps/admin (que solo escribe historial/estado en
-// Supabase directo), ni ninguna ruta de apps/api.
+// Gateada por META_WHATSAPP_TOKEN (igual que META_APP_SECRET en
+// routes/webhook.ts: se lee directo de process.env, no está en env.ts,
+// porque todavía no existe — se configura en Coolify junto con el resto de
+// credenciales reales de Meta). Sin la variable, sigue fallando
+// visiblemente (nunca en silencio) — mismo criterio de siempre, ahora
+// aplicado a la llamada real en vez de a un stub incondicional.
 export async function enviarMensajeMeta(
-  _canal: 'whatsapp' | 'facebook' | 'instagram',
-  _destinatarioId: string,
-  _texto: string
-): Promise<never> {
-  throw new Error(
-    'enviarMensajeMeta no está implementado — falta el token permanente de la Cloud API de Meta (ver CLAUDE.md §9)'
-  )
+  canal: 'whatsapp' | 'facebook' | 'instagram',
+  remitentePhoneNumberId: string,
+  destinatarioId: string,
+  texto: string
+): Promise<void> {
+  if (canal !== 'whatsapp') {
+    throw new Error(`enviarMensajeMeta: envío real para el canal "${canal}" todavía no implementado (solo WhatsApp)`)
+  }
+  const token = process.env.META_WHATSAPP_TOKEN
+  if (!token) {
+    throw new Error(
+      'enviarMensajeMeta: falta META_WHATSAPP_TOKEN — no se puede mandar el mensaje real todavía (ver CLAUDE.md §9)'
+    )
+  }
+
+  const res = await fetch(`https://graph.facebook.com/v21.0/${remitentePhoneNumberId}/messages`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to: destinatarioId,
+      type: 'text',
+      text: { body: texto },
+    }),
+  })
+
+  if (!res.ok) {
+    const detalle = await res.text().catch(() => '')
+    throw new Error(`enviarMensajeMeta: la Cloud API de Meta respondió ${res.status} — ${detalle}`)
+  }
 }
