@@ -2,9 +2,10 @@ import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { env } from '../env.js'
 import { verificarFirmaWebhook } from '../bot/meta.js'
-import { parsearMensajesWhatsApp } from '../bot/parsearMensajesWhatsApp.js'
+import { parsearMensajesWhatsApp, detectarCanalNoWhatsApp } from '../bot/parsearMensajesWhatsApp.js'
 import { procesarMensajeWhatsAppEnBackground } from '../bot/procesarWebhookWhatsApp.js'
 import { marcarMensajeComoProcesado } from '../repositories/conversacionesRepo.js'
+import { guardarEventoMetaSinProcesar } from '../repositories/eventosMetaRepo.js'
 import { pool, tenantPorSlug } from '../db.js'
 
 declare module 'fastify' {
@@ -80,6 +81,18 @@ export function webhookRoutes(app: FastifyInstance) {
         }
       }
       app.log.info({ payload: req.body }, 'webhook de Meta recibido')
+
+      const canalNoWhatsApp = detectarCanalNoWhatsApp(req.body)
+      if (canalNoWhatsApp) {
+        // Todavía sin parser real para Messenger/Instagram (ver
+        // parsearMensajesWhatsApp.ts) — se guarda el payload crudo completo
+        // para construirlo después contra ejemplos reales, no a ciegas
+        // contra la documentación de Meta. Síncrono (una sola query rápida),
+        // antes de responder, mismo criterio que la marca de idempotencia.
+        await guardarEventoMetaSinProcesar(pool, canalNoWhatsApp, req.body)
+        app.log.info({ canal: canalNoWhatsApp }, 'Evento de Meta fuera de WhatsApp guardado para revisión — sin procesar')
+        return reply.code(200).send()
+      }
 
       const mensajes = parsearMensajesWhatsApp(req.body)
       const mensajesNuevos = []

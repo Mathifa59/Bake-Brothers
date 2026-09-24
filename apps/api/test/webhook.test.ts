@@ -1,8 +1,11 @@
 // DATABASE_URL/META_VERIFY_TOKEN se fijan en vitest.config.ts, no acá: env.ts
 // valida process.env al importarse (import estático, corre antes que
 // cualquier código propio de este archivo) — asignarlas aquí arriba no
-// llegaría a tiempo. GET/POST /webhook no tocan la base de datos de todos
-// modos (no empiezan con /api/, el preHandler de tenant las ignora).
+// llegaría a tiempo. GET /webhook nunca toca la base. Los payloads de POST
+// de este archivo tampoco (no tienen `object` de WhatsApp ni de Messenger/
+// Instagram, así que ni la idempotencia ni el guardado de eventos sin
+// procesar llegan a correr) — el procesamiento real contra Postgres real
+// vive en webhookWhatsApp.test.ts y webhookEventosNoWhatsApp.test.ts.
 import { describe, it, expect, afterEach } from 'vitest'
 import crypto from 'node:crypto'
 import { buildApp } from '../src/app.js'

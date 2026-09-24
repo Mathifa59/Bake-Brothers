@@ -1,3 +1,18 @@
+/**
+ * El mismo webhook de Meta recibe eventos de Messenger (`object: "page"`) e
+ * Instagram (`object: "instagram"`) — ninguno de los dos tiene parser real
+ * todavía (ver routes/webhook.ts). Se usa solo para saber a qué canal
+ * corresponde un evento que se va a guardar sin procesar, no para leer nada
+ * de su contenido.
+ */
+export function detectarCanalNoWhatsApp(payload: unknown): 'facebook' | 'instagram' | null {
+  if (typeof payload !== 'object' || payload === null) return null
+  const object = (payload as Record<string, unknown>).object
+  if (object === 'page') return 'facebook'
+  if (object === 'instagram') return 'instagram'
+  return null
+}
+
 export interface MensajeWhatsAppEntrante {
   mensajeId: string
   telefono: string
