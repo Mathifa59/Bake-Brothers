@@ -22,7 +22,7 @@ function Mensaje({ m }) {
 }
 
 export default function Conversaciones() {
-  const { conversaciones, error, enviando, enviarMensaje } = useConversaciones()
+  const { conversaciones, error, enviando, errorEnvio, enviarMensaje } = useConversaciones()
   const [seleccionadoId, setSeleccionadoId] = useState(null)
   const [texto, setTexto] = useState('')
 
@@ -100,6 +100,14 @@ export default function Conversaciones() {
                   )}
                 </div>
 
+                {errorEnvio && (
+                  <p className="border-t border-borde/60 bg-red-50 px-4 py-2 text-sm text-red-600">
+                    No se pudo enviar el mensaje por WhatsApp: {errorEnvio.message}
+                    {errorEnvio.detalle ? (
+                      <span className="block text-xs opacity-80">{JSON.stringify(errorEnvio.detalle)}</span>
+                    ) : null}
+                  </p>
+                )}
                 <form onSubmit={enviar} className="flex gap-2 border-t border-borde/60 p-4">
                   <input
                     value={texto}

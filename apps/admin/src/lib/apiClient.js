@@ -38,6 +38,22 @@ export async function crearPedidoDashboard(payload) {
   return data
 }
 
+/** Responde de verdad por WhatsApp desde la bandeja de Conversaciones. Lanza un Error con .codigo/.detalle si falla. */
+export async function responderConversacion(conversacionId, texto) {
+  const res = await pedirConAuth(`/api/dashboard/conversaciones/${encodeURIComponent(conversacionId)}/responder`, {
+    method: 'POST',
+    body: JSON.stringify({ texto }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.error || `Error del servidor (${res.status})`)
+    err.codigo = data.error
+    err.detalle = data.detalle
+    throw err
+  }
+  return data
+}
+
 /**
  * Trae el comprobante como blob (no como link directo: el navegador no
  * manda el header de Authorization en una navegación normal) y devuelve una
