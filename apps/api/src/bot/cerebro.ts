@@ -82,6 +82,11 @@ REGLAS DURAS, sin excepción:
    - Si el cliente te dice que va a pagar por adelantado, marcá pagoPorAdelantado en true. Nunca proceses ni verifiques ningún comprobante de pago (captura, voucher) — eso lo revisa el equipo a mano. Hoy todavía no podés ver imágenes: si el cliente manda una captura de pago, avisale con calidez que el pedido ya quedó registrado y que el equipo confirma el pago, sin intentar describir ni validar la imagen.
    - Si crearPedido devuelve un error, no inventes un número de pedido — contale al cliente lo que pasó con honestidad (ej. producto no disponible, dirección faltante) y ofrecé ayudarlo a resolverlo.
 
+6. Combos: antes de vender un combo, llamá siempre a consultarCombo para ver su composición real (items) y si admite cambios (permiteCambios) — nunca lo asumas.
+   - Si "items" viene vacío (combo sin composición fija, "sujeto a stock del día"), NO podés cerrar ese pedido vos — llamá a escalarAHumano con un motivo breve, avisándole al cliente con calidez que el equipo lo va a confirmar.
+   - Si el combo SÍ tiene composición (fija o con cambios), podés cerrarlo con crearPedido con total naturalidad — nunca hagas esperar al cliente "por si acaso" ni le digas que "alguien lo va a revisar".
+   - Si además admite cambios (permiteCambios=true) y el cliente pidió una sustitución (ej. cambiar un sabor, elegir entre opciones), identificá bien qué eligió y pasalo en el campo "seleccion" de ese ítem al llamar a crearPedido — nunca lo dejes solo en el mensaje de texto.
+
 Respondé siempre en español, breve y natural, como un mensaje real de WhatsApp — no un párrafo largo.`
 
 const TOOLS: Anthropic.Tool[] = [
@@ -152,7 +157,7 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: 'crearPedido',
     description:
-      'Registra un pedido real (recalcula el precio en el servidor, nunca confía en un precio que vos calcules). Úsala solo para casos verdes: productos de tienda normales, o catering ya confirmado en verde por evaluarSemaforoCateringPedido. Siempre pedile el teléfono al cliente antes de llamarla, aunque ya conozcas el número de WhatsApp de quien escribe.',
+      'Registra un pedido real (recalcula el precio en el servidor, nunca confía en un precio que vos calcules). Úsala solo para casos verdes: productos de tienda normales, catering ya confirmado en verde por evaluarSemaforoCateringPedido, o combos con composición real (ver regla 6). Siempre pedile el teléfono al cliente antes de llamarla, aunque ya conozcas el número de WhatsApp de quien escribe.',
     input_schema: {
       type: 'object',
       properties: {
@@ -169,14 +174,28 @@ const TOOLS: Anthropic.Tool[] = [
         horario: { type: 'string', description: 'Horario acordado con el cliente, en texto libre.' },
         items: {
           type: 'array',
-          description: 'Uno o más productos/ítems de catering del pedido.',
+          description: 'Uno o más productos/ítems de catering/combos del pedido.',
           items: {
             type: 'object',
             properties: {
-              tipo: { type: 'string', enum: ['producto', 'catering'] },
-              busqueda: { type: 'string', description: 'Nombre o texto aproximado del producto o ítem de catering.' },
+              tipo: { type: 'string', enum: ['producto', 'catering', 'combo'] },
+              busqueda: { type: 'string', description: 'Nombre o texto aproximado del producto, ítem de catering o combo.' },
               tamano: { type: 'string', description: 'Solo para tipo "producto", si el producto tiene tamaños.' },
               cantidad: { type: 'number' },
+              seleccion: {
+                type: 'array',
+                description:
+                  'Solo para tipo "combo" que admite cambios (permiteCambios=true en consultarCombo) — la composición real que eligió el cliente. Obligatorio en ese caso, ignorado si no aplica.',
+                items: {
+                  type: 'object',
+                  properties: {
+                    productoBusqueda: { type: 'string', description: 'Nombre o texto aproximado del producto elegido.' },
+                    tamano: { type: 'string', description: 'Si el producto tiene tamaños.' },
+                    cantidad: { type: 'number' },
+                  },
+                  required: ['productoBusqueda', 'cantidad'],
+                },
+              },
             },
             required: ['tipo', 'busqueda', 'cantidad'],
           },
@@ -310,6 +329,19 @@ export function decidirEscaladaForzadaPorTool(
   ) {
     return { forzar: true, motivo: 'Se intentó crear un pedido de catering que no está en verde — requiere revisión del equipo.' }
   }
+  // Mismo criterio para combos sin composición definida (Grupo 3, ver
+  // pedidosCombos.ts) — el bot no tiene con qué confirmarlo, ni aunque el
+  // modelo no haya llamado a escalarAHumano por su cuenta.
+  if (
+    nombreTool === 'crearPedido' &&
+    typeof resultadoTool === 'object' &&
+    resultadoTool !== null &&
+    'ok' in resultadoTool &&
+    (resultadoTool as { ok: boolean }).ok === false &&
+    (resultadoTool as { error?: string }).error === 'COMBO_SIN_COMPOSICION_DEFINIDA'
+  ) {
+    return { forzar: true, motivo: 'Se intentó vender un combo sin composición definida ("sujeto a stock") — requiere revisión del equipo.' }
+  }
   return { forzar: false }
 }
 
@@ -329,17 +361,30 @@ function construirInputCrearPedido(inputCrudo: unknown, sedeId: string | undefin
     referencia: i.referencia ? String(i.referencia) : null,
     fechaEntregaISO: String(i.fechaEntregaISO ?? ''),
     horario: String(i.horario ?? ''),
-    items: items.map(
-      (item): ItemPedidoInput =>
-        item.tipo === 'catering'
-          ? { tipo: 'catering', busqueda: String(item.busqueda ?? ''), cantidad: Number(item.cantidad) }
-          : {
-              tipo: 'producto',
-              busqueda: String(item.busqueda ?? ''),
-              tamano: item.tamano ? String(item.tamano) : null,
-              cantidad: Number(item.cantidad),
-            }
-    ),
+    items: items.map((item): ItemPedidoInput => {
+      if (item.tipo === 'catering') {
+        return { tipo: 'catering', busqueda: String(item.busqueda ?? ''), cantidad: Number(item.cantidad) }
+      }
+      if (item.tipo === 'combo') {
+        const seleccionCruda = Array.isArray(item.seleccion) ? (item.seleccion as Record<string, unknown>[]) : undefined
+        return {
+          tipo: 'combo',
+          busqueda: String(item.busqueda ?? ''),
+          cantidad: Number(item.cantidad),
+          seleccion: seleccionCruda?.map((s) => ({
+            productoBusqueda: String(s.productoBusqueda ?? ''),
+            tamano: s.tamano ? String(s.tamano) : null,
+            cantidad: Number(s.cantidad),
+          })),
+        }
+      }
+      return {
+        tipo: 'producto',
+        busqueda: String(item.busqueda ?? ''),
+        tamano: item.tamano ? String(item.tamano) : null,
+        cantidad: Number(item.cantidad),
+      }
+    }),
     metodoPago: (['yape', 'plin', 'transferencia', 'tarjeta', 'contraentrega'] as const).includes(
       i.metodoPago as 'yape' | 'plin' | 'transferencia' | 'tarjeta' | 'contraentrega'
     )

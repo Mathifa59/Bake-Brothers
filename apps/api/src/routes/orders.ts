@@ -108,6 +108,7 @@ export function ordersRoutes(app: FastifyInstance) {
           nota: body.nota ?? null,
           metodoPago: body.metodoPago,
           cuponCodigo: null, // columna conservada por compatibilidad; los cupones se retiraron (ver combos)
+          requiereConfirmarCombo: false, // apps/web no vende combos, exclusivo del bot (ver 0028)
           ...totales,
         },
         resultado.items

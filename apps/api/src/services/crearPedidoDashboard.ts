@@ -110,7 +110,7 @@ export async function crearPedidoDashboard(
   }
 
   if (itemsCombo.length > 0) {
-    const resultado = await validarItemsCombo(client, itemsCombo)
+    const resultado = await validarItemsCombo(client, tenantId, itemsCombo, 'presencial')
     if (!resultado.ok) return resultado
     itemsParaInsertar.push(...resultado.items)
     subtotal += resultado.subtotal
@@ -155,6 +155,9 @@ export async function crearPedidoDashboard(
       descuentoCupon: 0,
       delivery: 0,
       total,
+      // Un operador ya confirma todo a mano al vender — este flag es
+      // exclusivo del bot (ver 0028/pedidosCombos.ts).
+      requiereConfirmarCombo: false,
     },
     itemsParaInsertar
   )

@@ -1,0 +1,27 @@
+-- ============================================================================
+-- 0028_orders_requiere_confirmar_combo — el bot ya puede vender combos
+--
+-- Clasificación real (no una lista de nombres a mano) de los 13 combos
+-- activos de hoy, por combo_items/permite_cambios (ver
+-- services/pedidosCombos.ts):
+--   - Grupo 1 (composición fija, sin cambios) — 5 combos: Combo para ti,
+--     Combo Perfecto, Pack Postres de Locura, Pack Tres Delicias, Pie Pack.
+--     El bot cierra el pedido directo, sin marca.
+--   - Grupo 2 (composición fija pero permite sustituciones) — 5 combos:
+--     Combo Horneamos con amor, Combo Ideal, Pack Trio Cheesebake, Pack Trio
+--     Imperdible, Tortipack. El bot cierra el pedido igual (nunca hace
+--     esperar al cliente "por si acaso"), pero el pedido nace marcado para
+--     que el equipo revise la sustitución elegida antes de preparar.
+--   - Grupo 3 (sin combo_items, "sujeto a stock del día") — 3 combos: Pack
+--     12 empanadas, Pack 6 empanadas, Pack Petitbro. El bot no tiene cómo
+--     confirmar una composición que no existe — escala a un humano.
+--
+-- `requiere_confirmar_combo` es la marca del Grupo 2 — boolean simple, sin
+-- relación con ninguna otra tabla: no hace falta más que un flag para que
+-- el equipo lo note en su revisión normal (Pedidos.jsx) antes de preparar.
+-- Nunca lo pone `apps/admin` (un operador ya confirma todo a mano al
+-- vender) — solo lo pone `crearPedido` (el tool del bot) vía
+-- services/pedidosCombos.ts.
+-- ============================================================================
+
+alter table orders add column requiere_confirmar_combo boolean not null default false;

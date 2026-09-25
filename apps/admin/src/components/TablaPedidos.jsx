@@ -24,7 +24,19 @@ export default function TablaPedidos({ pedidos, guardando, onCambiarEstado }) {
         <tbody>
           {pedidos.map((p) => (
             <tr key={p.numero} className="border-b border-borde/40 last:border-0">
-              <td className="px-4 py-3 font-semibold">{p.numero}</td>
+              <td className="px-4 py-3 font-semibold">
+                <span className="flex items-center gap-2">
+                  {p.numero}
+                  {p.requiere_confirmar_combo && (
+                    <span
+                      title="El bot vendió un combo con sustitución — revisar antes de preparar."
+                      className="rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-yellow-800"
+                    >
+                      Revisar combo
+                    </span>
+                  )}
+                </span>
+              </td>
               <td className="px-4 py-3">{p.sedes?.nombre ?? <span className="text-gris">sin asignar</span>}</td>
               <td className="px-4 py-3 capitalize">{p.canal}</td>
               <td className="px-4 py-3 capitalize">{p.tipo_entrega}</td>

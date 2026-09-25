@@ -3,6 +3,7 @@ import type { EstadoPedido, TipoEntrega } from '@bakebrothers/domain'
 import { findOrCreateCustomer, siguienteNumeroDePedido, insertarPedido, type OrderItemInsert } from '../repositories/ordersRepo.js'
 import { validarYValorizarItemsTienda } from './pedidosTienda.js'
 import { validarItemsCatering } from './pedidosCatering.js'
+import { validarItemsCombo, type SeleccionComboInput } from './pedidosCombos.js'
 
 /**
  * Tool del bot que de verdad registra un pedido — reusa la validación y el
@@ -31,7 +32,17 @@ export interface ItemPedidoCatering {
   cantidad: number
 }
 
-export type ItemPedidoInput = ItemPedidoProducto | ItemPedidoCatering
+export interface ItemPedidoCombo {
+  tipo: 'combo'
+  busqueda: string
+  cantidad: number
+  // Solo para combos que permiten sustituciones (ver pedidosCombos.ts) — la
+  // composición real que eligió el cliente. crearPedido rechaza el pedido
+  // si el combo la requiere y no vino.
+  seleccion?: SeleccionComboInput[]
+}
+
+export type ItemPedidoInput = ItemPedidoProducto | ItemPedidoCatering | ItemPedidoCombo
 
 export interface CrearPedidoInput {
   cliente: {
@@ -76,9 +87,11 @@ export async function crearPedido(
 
   const itemsProducto = input.items.filter((i): i is ItemPedidoProducto => i.tipo === 'producto')
   const itemsCatering = input.items.filter((i): i is ItemPedidoCatering => i.tipo === 'catering')
+  const itemsCombo = input.items.filter((i): i is ItemPedidoCombo => i.tipo === 'combo')
 
   const itemsParaInsertar: OrderItemInsert[] = []
   let subtotal = 0
+  let requiereConfirmarCombo = false
 
   if (itemsProducto.length > 0) {
     const resultado = await validarYValorizarItemsTienda(
@@ -109,6 +122,24 @@ export async function crearPedido(
     itemsParaInsertar.push(...resultado.items)
     // Los items de catering suman 0 al subtotal — no hay precio de
     // catálogo (ver pedidosCatering.ts), lo cotiza el operador después.
+  }
+
+  if (itemsCombo.length > 0) {
+    // Re-verificación server-side, mismo criterio que catering arriba:
+    // nunca confía en que el modelo haya clasificado bien el combo por su
+    // cuenta. canal viene de la conversación real, nunca del modelo — es
+    // lo que decide si el combo está disponible acá y si aplican las
+    // reglas de Grupo 2/3 (ver pedidosCombos.ts).
+    const resultado = await validarItemsCombo(
+      client,
+      tenantId,
+      itemsCombo.map((i) => ({ comboId: i.busqueda, cantidad: i.cantidad, seleccion: i.seleccion })),
+      canal
+    )
+    if (!resultado.ok) return resultado
+    itemsParaInsertar.push(...resultado.items)
+    subtotal += resultado.subtotal
+    requiereConfirmarCombo = requiereConfirmarCombo || resultado.requiereConfirmarCombo
   }
 
   if (input.tipoEntrega === 'delivery' && (!input.direccion || !input.distrito)) {
@@ -155,6 +186,7 @@ export async function crearPedido(
       descuentoCupon: 0,
       delivery: 0,
       total,
+      requiereConfirmarCombo,
     },
     itemsParaInsertar
   )

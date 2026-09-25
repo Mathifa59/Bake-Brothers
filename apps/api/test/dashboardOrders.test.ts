@@ -209,7 +209,10 @@ describe.skipIf(!hayBaseDeDatosReal || !JWT_OPERADOR || ROL_ES_ADMIN)('POST /api
       })
 
       expect(res.statusCode).toBe(409)
-      expect(res.json().error).toBe('COMBO_NO_DISPONIBLE_PRESENCIAL')
+      // Renombrado de COMBO_NO_DISPONIBLE_PRESENCIAL a este código genérico
+      // cuando pedidosCombos.ts se generalizó para las dos direcciones (ver
+      // 0028) — mismo comportamiento real, solo el nombre del código.
+      expect(res.json().error).toBe('COMBO_NO_DISPONIBLE_EN_ESTE_CANAL')
 
       const { rows } = await client.query(
         `select count(*)::int as n from orders where customer_id in (select id from customers where telefono = $1)`,

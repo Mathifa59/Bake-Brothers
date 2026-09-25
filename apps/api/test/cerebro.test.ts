@@ -314,4 +314,194 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
     },
     TIMEOUT_MS
   )
+
+  // ==========================================================================
+  // Combos reales (0028) — clasificados por datos reales, no por nombre:
+  //   Grupo 1 (Pack Tres Delicias): combo_items definidos, permite_cambios=false.
+  //   Grupo 2 (Tortipack): combo_items definidos, permite_cambios=true.
+  //   Grupo 3 (Pack 6 empanadas): sin combo_items ("sujeto a stock").
+  //   Canal (Combo Ideal): canal_permitido='presencial', el bot no lo vende.
+  // ==========================================================================
+
+  it(
+    '11. Combo Grupo 1 (Pack Tres Delicias, composición fija) → crearPedido cierra directo, sin flag',
+    async () => {
+      const telefono = '999000003'
+      await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
+      await client.query(`delete from customers where telefono = $1`, [telefono])
+
+      const fecha = fechaFuturaNoDomingo(11)
+      const mensaje =
+        `Quiero el Pack Tres Delicias para recoger en tienda el ${fecha}, a las 4pm — solo recojo, no delivery. ` +
+        `Mi nombre es Diana Test y mi teléfono es ${telefono}. Voy a pagar con yape cuando llegue, no por adelantado.`
+
+      try {
+        const r = await conversarHastaCrearPedido(client, tenantId, mensaje)
+        expect(r.herramientasUsadas).toContain('crearPedido')
+        expect(r.nuevoEstado).toBe('activa')
+
+        const numeroMatch = r.textoRespuesta.match(/BB-\d+/)
+        expect(numeroMatch).not.toBeNull()
+
+        const { rows: pedidoRows } = await client.query(
+          `select o.numero, o.estado, o.total, o.requiere_confirmar_combo, c.telefono
+           from orders o join customers c on c.id = o.customer_id where o.numero = $1`,
+          [numeroMatch![0]]
+        )
+        expect(pedidoRows.length).toBe(1)
+        expect(pedidoRows[0].estado).toBe('confirmed')
+        expect(pedidoRows[0].telefono).toBe(telefono)
+        expect(Number(pedidoRows[0].total)).toBe(30.9)
+        expect(pedidoRows[0].requiere_confirmar_combo).toBe(false)
+
+        const { rows: itemRows } = await client.query(
+          `select nombre_producto, cantidad, precio_unitario, combo_id, product_id
+           from order_items where order_id = (select id from orders where numero = $1)`,
+          [numeroMatch![0]]
+        )
+        expect(itemRows.length).toBe(1)
+        expect(itemRows[0].combo_id).not.toBeNull()
+        expect(itemRows[0].product_id).toBeNull()
+        expect(itemRows[0].nombre_producto).toMatch(/tres delicias/i)
+        expect(Number(itemRows[0].precio_unitario)).toBe(30.9)
+      } finally {
+        await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
+        await client.query(`delete from customers where telefono = $1`, [telefono])
+      }
+    },
+    TIMEOUT_MS_PEDIDO
+  )
+
+  it(
+    '12. Combo Grupo 2 (Tortipack, admite sustitución) → crearPedido cierra CON flag, misma confirmación inmediata',
+    async () => {
+      const telefono = '999000004'
+      await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
+      await client.query(`delete from customers where telefono = $1`, [telefono])
+
+      const fecha = fechaFuturaNoDomingo(12)
+      const mensaje =
+        `Quiero el Tortipack, pero las DOS porciones de carrot cake — no quiero la de chocolate, cambiámela por otra de carrot cake. ` +
+        `Para recoger en tienda el ${fecha}, a las 4pm — solo recojo, no delivery. ` +
+        `Mi nombre es Elena Test y mi teléfono es ${telefono}. Voy a pagar con yape cuando llegue, no por adelantado.`
+
+      try {
+        const r = await conversarHastaCrearPedido(client, tenantId, mensaje)
+        expect(r.herramientasUsadas).toContain('crearPedido')
+        expect(r.nuevoEstado).toBe('activa')
+        // Mismo criterio de confirmación inmediata que el Grupo 1 — el flag
+        // no cambia cómo se le responde al cliente, nunca lo hace esperar.
+        const numeroMatch = r.textoRespuesta.match(/BB-\d+/)
+        expect(numeroMatch).not.toBeNull()
+
+        const { rows: pedidoRows } = await client.query(
+          `select o.numero, o.estado, o.total, o.requiere_confirmar_combo, c.telefono
+           from orders o join customers c on c.id = o.customer_id where o.numero = $1`,
+          [numeroMatch![0]]
+        )
+        expect(pedidoRows.length).toBe(1)
+        expect(pedidoRows[0].estado).toBe('confirmed')
+        expect(pedidoRows[0].telefono).toBe(telefono)
+        // El combo cobra su precio fijo una sola vez — las líneas de
+        // selección son informativas (precio 0), no duplican el total.
+        expect(Number(pedidoRows[0].total)).toBe(16)
+        expect(pedidoRows[0].requiere_confirmar_combo).toBe(true)
+
+        const { rows: itemRows } = await client.query(
+          `select nombre_producto, cantidad, precio_unitario, combo_id, product_id
+           from order_items where order_id = (select id from orders where numero = $1)`,
+          [numeroMatch![0]]
+        )
+        const lineaCombo = itemRows.find((i) => i.combo_id !== null)
+        expect(lineaCombo).toBeTruthy()
+        expect(lineaCombo!.nombre_producto).toMatch(/tortipack/i)
+        expect(Number(lineaCombo!.precio_unitario)).toBe(16)
+
+        // La sustitución real que eligió el cliente queda como datos
+        // estructurados (líneas de producto real, precio 0) — no solo en
+        // el texto del mensaje.
+        const lineasSeleccion = itemRows.filter((i) => i.product_id !== null)
+        expect(lineasSeleccion.length).toBeGreaterThan(0)
+        for (const linea of lineasSeleccion) {
+          expect(Number(linea.precio_unitario)).toBe(0)
+        }
+        expect(lineasSeleccion.some((i) => /carrot/i.test(i.nombre_producto))).toBe(true)
+      } finally {
+        await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
+        await client.query(`delete from customers where telefono = $1`, [telefono])
+      }
+    },
+    TIMEOUT_MS_PEDIDO
+  )
+
+  it(
+    '13. Combo Grupo 3 (Pack 6 empanadas, sin composición definida) → el bot escala, no crea ningún pedido',
+    async () => {
+      const telefono = '999000005'
+      await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
+      await client.query(`delete from customers where telefono = $1`, [telefono])
+
+      const fecha = fechaFuturaNoDomingo(13)
+      const r = await evaluarTurno(
+        client,
+        tenantId,
+        [],
+        `Quiero el Pack 6 empanadas para recoger en tienda el ${fecha}, a las 4pm. Mi nombre es Fernando Test y mi teléfono es ${telefono}, pago con yape cuando llegue.`,
+        'activa',
+        'whatsapp'
+      )
+
+      try {
+        expect(r.nuevoEstado).toBe('escalada')
+        // Sin importar si el modelo escaló solo (regla 6 del prompt) o si
+        // intentó crearPedido y el código forzó la escalada al recibir
+        // COMBO_SIN_COMPOSICION_DEFINIDA (decidirEscaladaForzadaPorTool) —
+        // lo que importa de verdad es que no queda ningún pedido real.
+        expect(r.textoRespuesta).not.toMatch(/BB-\d+/)
+
+        const { rows } = await client.query(
+          `select count(*)::int as n from orders where customer_id in (select id from customers where telefono = $1)`,
+          [telefono]
+        )
+        expect(rows[0].n).toBe(0)
+      } finally {
+        await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
+        await client.query(`delete from customers where telefono = $1`, [telefono])
+      }
+    },
+    TIMEOUT_MS
+  )
+
+  it(
+    '14. Combo exclusivo presencial (Combo Ideal) pedido por WhatsApp → rechazado, ningún pedido creado (mismo criterio que el dashboard en la dirección contraria)',
+    async () => {
+      const telefono = '999000006'
+      await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
+      await client.query(`delete from customers where telefono = $1`, [telefono])
+
+      const fecha = fechaFuturaNoDomingo(14)
+      const r = await evaluarTurno(
+        client,
+        tenantId,
+        [],
+        `Quiero el Combo Ideal para recoger en tienda el ${fecha}, a las 4pm. Mi nombre es Gabriel Test y mi teléfono es ${telefono}, pago con yape cuando llegue.`,
+        'activa',
+        'whatsapp'
+      )
+
+      try {
+        expect(r.textoRespuesta).not.toMatch(/BB-\d+/)
+
+        const { rows } = await client.query(
+          `select count(*)::int as n from orders where customer_id in (select id from customers where telefono = $1)`,
+          [telefono]
+        )
+        expect(rows[0].n).toBe(0)
+      } finally {
+        await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
+        await client.query(`delete from customers where telefono = $1`, [telefono])
+      }
+    },
+    TIMEOUT_MS
+  )
 })

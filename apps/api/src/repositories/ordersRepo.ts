@@ -65,6 +65,10 @@ export interface OrderInsert {
   descuentoCupon: number
   delivery: number
   total: number
+  // Grupo 2 de combos (composición fija, pero permite sustituciones) — ver
+  // services/pedidosCombos.ts y 0028. Siempre false salvo que crearPedido
+  // (el tool del bot) lo ponga en true; apps/admin nunca lo setea.
+  requiereConfirmarCombo: boolean
 }
 
 export interface OrderItemInsert {
@@ -93,14 +97,16 @@ export async function insertarPedido(
   const { rows } = await client.query(
     `insert into orders (tenant_id, numero, customer_id, canal, estado, tipo_entrega, sede_id,
                          direccion, distrito, referencia, fecha_entrega, horario_entrega,
-                         nota, metodo_pago, cupon_codigo, subtotal, descuento_cupon, delivery, total)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+                         nota, metodo_pago, cupon_codigo, subtotal, descuento_cupon, delivery, total,
+                         requiere_confirmar_combo)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
      returning id`,
     [
       tenantId, pedido.numero, pedido.customerId, pedido.canal, pedido.estado,
       pedido.tipoEntrega, pedido.sedeId, pedido.direccion, pedido.distrito, pedido.referencia,
       pedido.fechaEntrega, pedido.horario, pedido.nota, pedido.metodoPago,
       pedido.cuponCodigo, pedido.subtotal, pedido.descuentoCupon, pedido.delivery, pedido.total,
+      pedido.requiereConfirmarCombo,
     ]
   )
   const orderId = rows[0].id
