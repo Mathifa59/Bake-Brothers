@@ -6,7 +6,7 @@ import { Facebook, Instagram, MapPin, MessageCircle } from 'lucide-react'
 import WhatsAppCTA from './WhatsAppCTA'
 import { locales, redes, mensajeWhatsappGenerico } from '../../config/landing'
 import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
-import { scrollToTop } from '../../hooks/useLenisScroll'
+import { scrollTo, scrollToTop } from '../../hooks/useLenisScroll'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -112,6 +112,27 @@ export default function ClosingFooter({ onVisibilidadCambia }) {
             </a>
             <span className="font-semibold tracking-wide text-white/70">{redes.handle}</span>
           </div>
+
+          {/* Accesos rápidos a las secciones — pedido explícito del
+              cliente, mismo mecanismo que el logo (scrollTo de Lenis, no
+              hash-links: esta app usa HashRouter para las rutas). */}
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 lg:justify-start">
+            <button
+              type="button"
+              onClick={() => scrollTo('#alfajores')}
+              className="rounded-full border border-white/15 px-3.5 py-1.5 text-xs font-semibold text-white/70 transition-colors hover:border-white/40 hover:text-white"
+            >
+              Caja de Alfajores
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollTo('#empanadas')}
+              className="rounded-full border border-white/15 px-3.5 py-1.5 text-xs font-semibold text-white/70 transition-colors hover:border-white/40 hover:text-white"
+            >
+              Empanadas
+            </button>
+          </div>
+
           <div className="mt-4 flex flex-col gap-2.5 sm:flex-row sm:justify-center sm:gap-10 lg:flex-col lg:items-start lg:gap-1.5">
             {locales.map((local) => (
               <p key={local.nombre} className="flex items-start justify-center gap-1.5 sm:items-center lg:justify-start">

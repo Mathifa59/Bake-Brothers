@@ -35,17 +35,25 @@ export function useLenisScroll(activo) {
   }, [activo])
 }
 
-// Con Lenis activo, un window.scrollTo nativo pelea contra su loop de
-// animación (Lenis lo pisa en el siguiente frame) — hay que pedirle el
-// scroll a Lenis mismo. Sin Lenis (prefers-reduced-motion), cae al scroll
-// nativo del navegador.
-export function scrollToTop() {
+// Con Lenis activo, un window.scrollTo/scrollIntoView nativo pelea contra
+// su loop de animación (Lenis lo pisa en el siguiente frame) — hay que
+// pedirle el scroll a Lenis mismo. Sin Lenis (prefers-reduced-motion), cae
+// al scroll nativo del navegador. `target` acepta 0/un número (posición
+// absoluta) o un selector CSS (Lenis resuelve el elemento y calcula su
+// posición solo).
+export function scrollTo(target) {
   if (lenisInstance) {
     // force:true real: sin él, `scrollTo` no arranca si Lenis quedó
     // "stopped"/"locked" en ese instante — probado real con y sin la
     // opción, no agregado a ciegas.
-    lenisInstance.scrollTo(0, { duration: 1.2, force: true })
+    lenisInstance.scrollTo(target, { duration: 1.2, force: true })
+  } else if (typeof target === 'string') {
+    document.querySelector(target)?.scrollIntoView({ behavior: 'smooth' })
   } else {
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    window.scrollTo({ top: target, behavior: 'smooth' })
   }
+}
+
+export function scrollToTop() {
+  scrollTo(0)
 }

@@ -632,12 +632,36 @@ propio loop de animación lo pisa en el siguiente frame — por eso el fallback 
 `prefers-reduced-motion`, donde Lenis ni se crea) sigue usando el scroll nativo, nunca al
 mismo tiempo que Lenis.
 
-**Pendiente de aclarar con el cliente**: pidió además "botones ahí en la parte de la
-derecha, así como las secciones" — no quedó claro a qué se refiere exactamente (¿un botón
-de WhatsApp por cada local, tipo "cómo llegar"? ¿otra cosa?) y no se implementó nada
-todavía para evitar adivinar mal — la sección de mapas (`Ubicaciones.jsx`) ya cubre algo
-similar (mapa embebido por local), así que también hay que revisar que no quede
-redundante. Queda para la próxima vuelta, con la respuesta del cliente.
+**Aclarado con el cliente — accesos rápidos a secciones, no botones de contacto
+(2026-09-28, mismo día)**: "botones ahí en la parte de la derecha, así como las secciones"
+resultó ser pedir enlaces rápidos a las secciones de la página ("la de empanadas o la de
+caja de alfajores"), no otro tipo de CTA de contacto — se le preguntó con opciones
+concretas en vez de adivinar. `scrollToTop()` se generalizó a `scrollTo(target)` (acepta un
+número o un selector CSS — Lenis resuelve el elemento y calcula su posición solo). Se
+agregaron `id="alfajores"` a la sección del hero y `id="empanadas"` a la galería, más dos
+botones chicos ("Caja de Alfajores", "Empanadas") en la columna derecha del footer, debajo
+de los íconos de redes. Como esta app usa `HashRouter` para las rutas, se usó `scrollTo` de
+Lenis en vez de links `href="#alfajores"` a propósito — un `#` en la URL choca con cómo
+`HashRouter` decide qué ruta mostrar.
+
+**Límite real de verificación en este entorno — encontrado y diagnosticado, no
+descartado a ciegas**: probar el scroll animado a una sección (`scrollTo('#empanadas')`,
+`duration` con easing) resultó intermitente en el Browser pane de esta sesión — a veces
+completaba, a veces se quedaba pegado en el origen para siempre (`onStart` disparaba,
+`onComplete` nunca). Investigado a fondo antes de asumir que era un bug propio: el modo
+`immediate:true` de Lenis (sin animación, sin depender de ningún ticker) funcionó siempre,
+100% de las veces, confirmando que el cableado botón→`scrollTo`→Lenis→resolución del
+elemento (`document.getElementById`, cálculo de `rect.top`) está bien. El patrón fallaba
+específicamente en el tramo animado por tiempo (`this.animate.advance()`, que depende de
+que siga llegando `requestAnimationFrame` vía el ticker de GSAP). Encontrada la señal
+real: `document.hasFocus()` daba `false` en las pestañas de esta sesión (incluso con
+`document.hidden=false` y una pestaña nueva recién creada) — un tercer eje de
+"visibilidad" en el navegador, distinto de `document.hidden`, ya documentado dos veces
+antes en este archivo (el `document.hidden` que frenaba el auto-cambio de video, la
+inyección de red de Kaspersky) — específico de cómo este entorno automatizado maneja el
+foco de ventana, no reproducible por un usuario real mirando su propia pantalla. La
+implementación (`scrollTo` con `duration`+`force:true`) es la forma correcta y documentada
+de usar la API de Lenis — no se cambió por esto, solo queda anotado por si se repite.
 
 ## 8. Reglas de trabajo
 

@@ -8,7 +8,7 @@ import EmpanadaCard from './EmpanadaCard'
 // se mueve o se desliza.
 export default function EmpanadasGallery() {
   return (
-    <section className="bg-hueso py-20 sm:py-28">
+    <section id="empanadas" className="bg-hueso py-20 sm:py-28">
       <div className="mb-10 px-6 sm:px-12 lg:px-20">
         <h2 className="font-display text-4xl font-semibold text-tinta sm:text-5xl">Empanadas BigBro</h2>
         <p className="mt-3 max-w-md text-gris">Masa dorada y relleno generoso — elige tu sabor y te las dejamos listas.</p>
