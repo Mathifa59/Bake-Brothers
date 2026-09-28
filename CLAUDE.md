@@ -610,6 +610,35 @@ problema de altura de las últimas dos vueltas: al repartir el contenido en hori
 vez de apilarlo todo, el footer en desktop bajó de 550px a **357px** — mucho más margen de
 sobra todavía.
 
+**Logo del footer: más grande, clicable, y "Desarrollado por" centrado (2026-09-28, mismo
+día)**: tres pedidos puntuales sobre el footer de dos columnas recién hecho. Logo de
+`h-10 sm:h-12` a `h-16 sm:h-20` (footer sigue midiendo 389px, lejos de cualquier problema
+de altura). El logo ahora es un `<button>` que llama a `scrollToTop()` (nuevo, exportado de
+`useLenisScroll.js`) — vuelve arriba de la página. La línea "Desarrollado por DevHorses"
+quedó centrada explícitamente (`text-center` en el propio `<p>`, pisando el `lg:text-left`
+heredado del resto de esa columna, que sigue alineada a la izquierda).
+
+**Bug real encontrado armando `scrollToTop` — `force: true` hacía falta de verdad**:
+Lenis no expone su instancia fuera del hook que la crea — se guardó en una variable a nivel
+de módulo (`lenisInstance`) para que el botón del logo pueda pedirle un scroll animado sin
+pasar por contexto de React. La primera versión (`lenis.scrollTo(0, { duration: 1.2 })`)
+no siempre arrancaba — reproducido real varias veces, no descartado a la primera: el
+propio código fuente de Lenis (`node_modules/lenis/dist/lenis.mjs`) tiene esta guarda en
+`scrollTo`: `if ((this.isStopped || this.isLocked) && !force) return`. Agregar
+`force: true` lo resolvió — confirmado con 5/5 intentos reales exitosos (bajando al fondo
+con eventos de `wheel` sintéticos y clickeando el botón, no solo mirándolo una vez). Un
+`window.scrollTo` nativo directo NO es la alternativa correcta acá: con Lenis activo, su
+propio loop de animación lo pisa en el siguiente frame — por eso el fallback (solo para
+`prefers-reduced-motion`, donde Lenis ni se crea) sigue usando el scroll nativo, nunca al
+mismo tiempo que Lenis.
+
+**Pendiente de aclarar con el cliente**: pidió además "botones ahí en la parte de la
+derecha, así como las secciones" — no quedó claro a qué se refiere exactamente (¿un botón
+de WhatsApp por cada local, tipo "cómo llegar"? ¿otra cosa?) y no se implementó nada
+todavía para evitar adivinar mal — la sección de mapas (`Ubicaciones.jsx`) ya cubre algo
+similar (mapa embebido por local), así que también hay que revisar que no quede
+redundante. Queda para la próxima vuelta, con la respuesta del cliente.
+
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.

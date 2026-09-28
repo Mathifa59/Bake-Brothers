@@ -5,6 +5,11 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 
 gsap.registerPlugin(ScrollTrigger)
 
+// Instancia compartida, para que otros componentes (ej. "volver arriba" del
+// logo del footer) puedan pedirle un scroll animado sin necesitar contexto
+// de React de por medio — solo existe mientras el hook está montado.
+let lenisInstance = null
+
 // Smooth scroll de toda la landing, atado al ticker de GSAP — patrón
 // recomendado por GSAP para que ScrollTrigger lea la posición de Lenis en
 // vez de la del scroll nativo (si no, el pin/scrub queda un paso atrás y se
@@ -15,6 +20,7 @@ export function useLenisScroll(activo) {
     if (!activo) return undefined
 
     const lenis = new Lenis({ duration: 1.1, smoothWheel: true })
+    lenisInstance = lenis
     lenis.on('scroll', ScrollTrigger.update)
 
     const tick = (time) => lenis.raf(time * 1000)
@@ -24,6 +30,22 @@ export function useLenisScroll(activo) {
     return () => {
       gsap.ticker.remove(tick)
       lenis.destroy()
+      lenisInstance = null
     }
   }, [activo])
+}
+
+// Con Lenis activo, un window.scrollTo nativo pelea contra su loop de
+// animación (Lenis lo pisa en el siguiente frame) — hay que pedirle el
+// scroll a Lenis mismo. Sin Lenis (prefers-reduced-motion), cae al scroll
+// nativo del navegador.
+export function scrollToTop() {
+  if (lenisInstance) {
+    // force:true real: sin él, `scrollTo` no arranca si Lenis quedó
+    // "stopped"/"locked" en ese instante — probado real con y sin la
+    // opción, no agregado a ciegas.
+    lenisInstance.scrollTo(0, { duration: 1.2, force: true })
+  } else {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 }

@@ -6,6 +6,7 @@ import { Facebook, Instagram, MapPin, MessageCircle } from 'lucide-react'
 import WhatsAppCTA from './WhatsAppCTA'
 import { locales, redes, mensajeWhatsappGenerico } from '../../config/landing'
 import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
+import { scrollToTop } from '../../hooks/useLenisScroll'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -54,14 +55,21 @@ export default function ClosingFooter({ onVisibilidadCambia }) {
           la raya horizontal apilada de antes. */}
       <div className="mx-auto flex max-w-4xl flex-col items-center gap-10 text-center lg:flex-row lg:items-stretch lg:justify-between lg:gap-12 lg:text-left">
         <div data-cierre-reveal className="lg:flex-1">
-          <img
-            src="/img/logo-landing-blanco.png"
-            alt="Bake Brothers"
-            loading="lazy"
-            width={200}
-            height={113}
-            className="mx-auto h-10 w-auto sm:h-12 lg:mx-0"
-          />
+          <button
+            type="button"
+            onClick={scrollToTop}
+            aria-label="Volver arriba"
+            className="mx-auto block transition-opacity hover:opacity-80 lg:mx-0"
+          >
+            <img
+              src="/img/logo-landing-blanco.png"
+              alt="Bake Brothers"
+              loading="lazy"
+              width={200}
+              height={113}
+              className="h-16 w-auto sm:h-20"
+            />
+          </button>
 
           <h2 className="mt-5 font-display text-3xl font-semibold leading-tight sm:text-4xl">¿Se te antojó?</h2>
           <p className="mt-1 font-display text-xl text-white/85 sm:text-2xl">Escríbenos por WhatsApp</p>
@@ -115,7 +123,7 @@ export default function ClosingFooter({ onVisibilidadCambia }) {
             ))}
           </div>
 
-          <p className="mt-6 text-xs text-white/35">
+          <p className="mt-6 text-center text-xs text-white/35">
             Desarrollado por{' '}
             <a
               href="https://www.devhorses.com/"
