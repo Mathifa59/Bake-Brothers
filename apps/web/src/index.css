@@ -70,16 +70,6 @@ body {
 .anim-pop { animation: pop 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .anim-respirar { animation: respirar 4.5s ease-in-out infinite; }
 
-/* Cinta continua de empanadas: se mueve sola (nunca requiere que el usuario
-   entienda "scrollea vertical para mover horizontal" — feedback real del
-   cliente, esa mecánica se sentía rara/confusa). Se pausa al pasar el mouse
-   o enfocar con teclado, para poder pedir sin perseguir la tarjeta. */
-.anim-marquee-empanadas { animation: marquee 42s linear infinite; }
-.anim-marquee-empanadas:hover,
-.anim-marquee-empanadas:focus-within {
-  animation-play-state: paused;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .anim-respirar { animation: none; }
 }

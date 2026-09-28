@@ -10,7 +10,7 @@ export default function EmpanadaCard({ empanada }) {
     <WhatsAppCTA
       mensaje={empanada.mensajeWhatsapp}
       producto={empanada.id}
-      className="group relative block w-[220px] shrink-0 overflow-hidden rounded-[28px] bg-tinta shadow-md transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl active:scale-[0.97] sm:w-[260px]"
+      className="group relative block w-full overflow-hidden rounded-[28px] bg-tinta shadow-md transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl active:scale-[0.97]"
     >
       <div className="aspect-[3/4] overflow-hidden">
         <img

@@ -352,7 +352,53 @@ galería, no a esa transición.
 **Sitemap para Google Search Console**: `apps/web/public/sitemap.xml` (una sola URL, es
 una landing de una página) + línea `Sitemap:` agregada a `robots.txt`. La verificación de
 propiedad en Search Console (TXT en DNS o archivo) la hace el cliente directamente, fuera
-de este repo.
+de este repo. **`bake-brothers.com` redirige a `www.bake-brothers.com`** (config existente
+de Vercel, ver §9) — el `canonical`/Open Graph/`sitemap.xml`/`robots.txt` se corrigieron
+para apuntar todos a la versión `www` (antes apuntaban a la raíz sin `www`, inconsistente
+con el redirect real — corregido el mismo día que se detectó, sin haber llegado a
+indexarse). Para la propiedad de Search Console se recomendó el tipo "Dominio"
+(`bake-brothers.com`, sin `https://` ni `www`) en vez de "Prefijo de URL", porque agrupa
+automáticamente todas las variantes (con/sin `www`, http/https) bajo una sola propiedad —
+evita este mismo tipo de desalineación a futuro.
+
+**Corrección real de rumbo con feedback del cliente (2026-09-28, mismo día)**: el feedback
+anterior ("las animaciones se ven raras, hay como para deslizar horizontal y vertical") en
+realidad apuntaba al **video-hero**, no a la galería de empanadas — el cliente lo aclaró
+explícitamente después de ver el resultado en producción. Lo que se leía como "horizontal
+y vertical" era el propio wipe circular de la transición (un `clip-path: circle()`
+expandiéndose crece en todas las direcciones a la vez, no en una sola) — no el scroll de
+la página. Además, aclaró que tampoco quería el marquee de empanadas de la iteración
+anterior ("no quiero un carrusel... quiero darle un espacio a cada una para que resalten
+más"). Dos cambios reales:
+- **`VideosHero.jsx`**: el `clip-path` circular se reemplazó por un **cross-fade de
+  opacidad** simple entre `layer1` y `layer2` (mismo timeline con scroll-scrub de antes,
+  solo cambia qué propiedad anima) — más simple de leer, y de paso más liviano para el
+  navegador (animar opacidad es mucho más barato que animar `clip-path` sobre un
+  `<video>`). Verificado con evidencia real: opacidades complementarias a mitad de
+  transición (`layer1: 0.675`, `layer2: 0.325` en una muestra real), nunca ambas en 0.
+- **`EmpanadasGallery.jsx`**: se sacó el marquee por completo (era la iteración anterior,
+  ya obsoleta) — ahora es una **grilla estática simple** (`grid grid-cols-2 sm:grid-cols-3
+  xl:grid-cols-4`, sin animación, sin GSAP, sin `usePrefersReducedMotion`), cada empanada
+  con su propio espacio real, visible con el scroll normal de la página. `EmpanadaCard`
+  pasó de ancho fijo (`w-[220px]`, pensado para una fila que se mueve) a `w-full` (llena su
+  celda del grid). Es, de las tres versiones probadas de esta sección en el mismo día
+  (pin+scroll horizontal → marquee → grilla estática), la más simple de las tres — y la que
+  el cliente pidió al final.
+
+**Nota sobre el "hueco en blanco" reportado en producción**: al investigar el reporte
+("hay una parte que sale todo en blanco") se reprodujo un frame en blanco tanto en el
+Browser pane propio de esta sesión como, aparentemente, en el navegador real del cliente —
+pero la inspección del DOM en el momento exacto del "hueco" (`getBoundingClientRect`,
+opacidad computada de ambas capas, `video.paused`/`readyState`) mostró siempre el estado
+correcto (video1 a opacidad 1 cubriendo toda la pantalla, o el clip-path/opacidad de video2
+en el valor esperado) — nunca un estado real "sin nada pintado". Forzar un recompose
+(`resize_window` a otro preset y de vuelta) hacía desaparecer el hueco sin cambiar nada del
+DOM, igual que el artefacto de compositing de captura ya documentado en una sesión
+anterior de este mismo proyecto. Conclusión: es un frame de pintura tardío del navegador
+durante una animación GPU-intensiva (`clip-path` sobre `<video>` pineado), no un bug de
+datos/lógica — y es exactamente el tipo de costo que el cambio a cross-fade (opacidad,
+mucho más barata de componer) reduce de raíz, más allá de la razón estética por la que se
+pidió el cambio.
 
 ## 8. Reglas de trabajo
 

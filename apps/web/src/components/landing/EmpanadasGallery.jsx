@@ -1,41 +1,24 @@
 import { empanadas } from '../../config/landing'
 import EmpanadaCard from './EmpanadaCard'
-import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
 
-// Antes esto pineaba la sección y traducía la fila en horizontal atada al
-// scroll vertical — funcionaba, pero en la práctica se sentía confuso
-// (feedback real del cliente: "hay como para deslizar horizontal y
-// vertical"). Se reemplazó por una cinta que se mueve sola (marquee),
-// mecánica mucho más simple y sin scrollbars propios en ningún breakpoint.
-//
-// Con prefers-reduced-motion no se anima nada — lista simple con scroll
-// horizontal nativo, controlado por el usuario.
+// Grilla simple, sin scroll propio ni movimiento automático — a pedido real
+// del cliente ("dale un espacio a cada una para que resalten más", "no
+// quiero un carrusel"). Cada empanada visible de una, con aire real
+// alrededor (gap generoso), en vez de competir por espacio en una fila que
+// se mueve o se desliza.
 export default function EmpanadasGallery() {
-  const reducido = usePrefersReducedMotion()
-  const items = reducido ? empanadas : [...empanadas, ...empanadas]
-
   return (
-    <section className="overflow-hidden bg-hueso py-20 sm:py-28">
+    <section className="bg-hueso py-20 sm:py-28">
       <div className="mb-10 px-6 sm:px-12 lg:px-20">
         <h2 className="font-display text-4xl font-semibold text-tinta sm:text-5xl">Empanadas BigBro</h2>
         <p className="mt-3 max-w-md text-gris">Masa dorada y relleno generoso — elegí tu sabor y te las dejamos listas.</p>
       </div>
 
-      {reducido ? (
-        <div className="no-scrollbar flex snap-x snap-mandatory gap-5 overflow-x-auto px-6 pb-2 sm:px-12 lg:px-20">
-          {items.map((empanada) => (
-            <div key={empanada.id} className="snap-start">
-              <EmpanadaCard empanada={empanada} />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="anim-marquee-empanadas flex w-max gap-5">
-          {items.map((empanada, i) => (
-            <EmpanadaCard key={`${empanada.id}-${i}`} empanada={empanada} />
-          ))}
-        </div>
-      )}
+      <div className="grid grid-cols-2 gap-x-5 gap-y-10 px-6 sm:grid-cols-3 sm:gap-x-8 sm:gap-y-14 sm:px-12 lg:px-20 xl:grid-cols-4 xl:gap-x-10">
+        {empanadas.map((empanada) => (
+          <EmpanadaCard key={empanada.id} empanada={empanada} />
+        ))}
+      </div>
     </section>
   )
 }

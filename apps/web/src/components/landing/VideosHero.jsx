@@ -85,7 +85,8 @@ function ProductoOverlay({ producto, contentRef, tituloRef, subtituloRef }) {
 export default function VideosHero({ onVisibilidadCambia }) {
   const reducido = usePrefersReducedMotion()
   const sectionRef = useRef(null)
-  const clipWrapperRef = useRef(null)
+  const layer1Ref = useRef(null)
+  const layer2Ref = useRef(null)
   const video1Ref = useRef(null)
   const video2Ref = useRef(null)
   const contenido1Ref = useRef(null)
@@ -118,7 +119,7 @@ export default function VideosHero({ onVisibilidadCambia }) {
       if (reducido) {
         // Sin pin, sin scrub, sin reveal escalonado: el segundo video queda
         // simplemente visible debajo, como cualquier sección normal.
-        gsap.set(clipWrapperRef.current, { clipPath: 'circle(150% at 50% 50%)' })
+        gsap.set(layer2Ref.current, { opacity: 1 })
         gsap.set(contenido2Ref.current, { opacity: 1 })
         gsap.set('[data-hero-cta]', { opacity: 1 })
         return () => observer.disconnect()
@@ -132,9 +133,13 @@ export default function VideosHero({ onVisibilidadCambia }) {
         .to(splitSubtitulo.lines, { yPercent: 0, duration: 0.8, stagger: 0.06, ease: 'expo.out' }, '-=0.6')
         .to('[data-hero-cta]', { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' }, '-=0.4')
 
-      // La transición: el video 1 queda pineado, el video 2 entra por
-      // clip-path circular que se expande — todo atado al mismo scrub, así
-      // que avanza y retrocede exactamente con el scroll, nunca "de golpe".
+      // La transición: el video 1 queda pineado y se desvanece en un simple
+      // cross-fade hacia el video 2, todo atado al mismo scrub (nunca "de
+      // golpe"). Antes esto era un clip-path circular expandiéndose — se
+      // simplificó a pedido real del cliente: el wipe radial (crece en
+      // todas direcciones a la vez) se sentía "raro"/confuso; un fade en
+      // una sola dimensión (opacidad) es más simple de leer y, de paso, más
+      // liviano para el navegador que animar un clip-path sobre video.
       const tl = gsap.timeline({
         scrollTrigger: {
           trigger: seccion,
@@ -145,13 +150,14 @@ export default function VideosHero({ onVisibilidadCambia }) {
           anticipatePin: 1,
         },
       })
-      tl.to(contenido1Ref.current, { opacity: 0, yPercent: -8, duration: 0.35, ease: 'power1.in' }, 0)
-        .to(clipWrapperRef.current, { clipPath: 'circle(150% at 50% 50%)', duration: 1, ease: 'power2.inOut' }, 0.1)
+      tl.to(contenido1Ref.current, { opacity: 0, yPercent: -8, duration: 0.4, ease: 'power1.in' }, 0)
+        .to(layer1Ref.current, { opacity: 0, duration: 0.5, ease: 'power1.inOut' }, 0.15)
+        .fromTo(layer2Ref.current, { opacity: 0 }, { opacity: 1, duration: 0.5, ease: 'power1.inOut' }, 0.15)
         .fromTo(
           contenido2Ref.current,
           { opacity: 0, yPercent: 8 },
-          { opacity: 1, yPercent: 0, duration: 0.35, ease: 'power1.out' },
-          0.55
+          { opacity: 1, yPercent: 0, duration: 0.4, ease: 'power1.out' },
+          0.5
         )
 
       return () => observer.disconnect()
@@ -162,7 +168,7 @@ export default function VideosHero({ onVisibilidadCambia }) {
   return (
     <section ref={sectionRef} className={`relative ${reducido ? '' : 'h-[220vh]'}`}>
       <div className="sticky top-0 h-svh w-full overflow-hidden bg-tinta">
-        <div className="absolute inset-0">
+        <div ref={layer1Ref} className="absolute inset-0">
           <VideoBackground video={videosHero[0].video} videoRef={video1Ref} prioridad="high" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/35" />
           <ProductoOverlay
@@ -173,7 +179,7 @@ export default function VideosHero({ onVisibilidadCambia }) {
           />
         </div>
 
-        <div ref={clipWrapperRef} className="absolute inset-0" style={{ clipPath: 'circle(0% at 50% 50%)' }}>
+        <div ref={layer2Ref} className="absolute inset-0" style={{ opacity: 0 }}>
           <VideoBackground video={videosHero[1].video} videoRef={video2Ref} prioridad="low" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/35" />
           <ProductoOverlay producto={videosHero[1]} contentRef={contenido2Ref} />
