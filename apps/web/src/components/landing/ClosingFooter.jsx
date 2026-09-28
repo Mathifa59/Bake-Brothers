@@ -120,6 +120,18 @@ export default function ClosingFooter({ onVisibilidadCambia }) {
             ))}
           </div>
         </div>
+
+        <p data-cierre-reveal className="mt-6 text-xs text-white/35">
+          Desarrollado por{' '}
+          <a
+            href="https://www.devhorses.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-white/50 transition-colors hover:text-white/80"
+          >
+            DevHorses
+          </a>
+        </p>
       </div>
     </footer>
   )

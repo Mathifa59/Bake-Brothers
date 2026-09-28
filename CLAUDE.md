@@ -493,6 +493,18 @@ del bloque de redes/locales achicados (`mt-16`→`mt-12`, `mt-8`→`mt-6`, `pt-1
 Verificado con el mismo método: al scroll máximo, el footer ahora empieza a 75px del borde
 superior (antes -20px) y termina exacto en el borde inferior — entra completo.
 
+**Crédito de desarrollo + decisión consciente sobre las tarjetas de empanada
+(2026-09-28, mismo día)**: el cliente preguntó si que cada tarjeta de empanada sea un link
+completo a WhatsApp (no solo el botón "Pedir") se siente invasivo — se le dio la opinión
+(abre en pestaña nueva, hay un badge visible, el objetivo explícito de la landing es
+minimizar fricción hacia WhatsApp, mejor área de toque en mobile) y **decidió dejarlo
+como está** — sin cambios de código, solo quedó registrada la decisión por si se
+re-evalúa más adelante. Se agregó un crédito de desarrollo al pie del footer
+("Desarrollado por DevHorses", link a `https://www.devhorses.com/`, `target="_blank"`) —
+texto chico (`text-xs`, `text-white/35`) para no competir visualmente con nada, verificado
+que el footer sigue entrando completo en una ventana de 768px con el crédito agregado
+(733px, margen de 35px).
+
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.
