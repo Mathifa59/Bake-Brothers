@@ -16,8 +16,11 @@ el modelo multi-tenant del plan original (`plan bb.md`) fue descartado.
 
 Tres piezas:
 
-1. **Landing institucional** (`apps/web`) — marca, catálogo referencial, accesos directos a
-   WhatsApp/Facebook/Instagram. **Sin carrito, sin checkout, sin pasarela de pagos.**
+1. **Landing institucional** (`apps/web`) — **desde 2026-09-27, una sola vista** (una
+   landing de una página, no un sitio multi-página), enfocada en los productos estrella y
+   en empujar a WhatsApp. Marca, accesos directos a WhatsApp/Facebook/Instagram. **Sin
+   carrito, sin checkout, sin pasarela de pagos, sin formularios.** Ver el bloque dedicado
+   más abajo (§7, "Landing de una sola vista") para el detalle completo.
 2. **Bot omnicanal** (WhatsApp Business, Facebook Messenger, Instagram) sobre un único
    webhook de Meta. RAG sobre catálogo/promos/FAQs + toma de pedidos estructurada.
 3. **Dashboard/CRM** — gestión de pedidos e inventario, roles por sede, atribución de
@@ -49,6 +52,10 @@ apps/
 │       └── pages/                            Home, Catalogo, ProductoDetalle, Ofertas,
 │                                              Catering, Nosotros, Contacto
 │                                              (Carrito/Checkout/Auth/Cuenta: ELIMINADOS)
+│                                              ⚠ Snapshot de Semana 1 (2026-09-16). Desde
+│                                              2026-09-27 estas páginas siguen existiendo
+│                                              como archivos pero NO están enrutadas — ver
+│                                              "Landing de una sola vista" en §7.
 ├── api/        Fastify + zod + pg (TypeScript, ESM) — SIN desplegar a internet
 │   ├── migrations/            0001 esquema+RLS · 0002 seed · 0003 orden ·
 │   │                          0004 rediseno_alcance (sedes/stock/combos/reglas_catering/
@@ -234,6 +241,118 @@ Cambios de rutas respecto a antes:
   **Caso negativo real entre sedes — probado aparte, con evidencia real (2026-09-25)**: que la tabla ya tenga RLS por sede no garantiza que el canal de Realtime la respete — son dos mecanismos distintos, no se asumió. **Hallazgo real al intentar armar la prueba con dos pestañas de dos cuentas distintas**: `supabase-js` (v2.117) sincroniza la sesión entre pestañas del mismo origen (mismo `localStorage`) — loguear `adminsantamaria` en una pestaña nueva también cambió la sesión de la pestaña ya logueada como `adminalameda` (confirmado real: ambas terminaron mostrando "Bienvenido/a, Administrador/a de Santa Marina" sin haber tocado esa pestaña) — dos pestañas del mismo navegador **no pueden sostener dos sesiones de operadores distintos simultáneamente** con el cliente actual. Se rediseñó la prueba sin depender de eso: una sola pestaña fija logueada como `adminsantamaria` (Santa Marina), con control negativo y positivo reales. Negativo: se escaló una conversación real de **Cedros** (`sede_id` verificado antes de disparar) — el contador de osciladores se quedó en 0 y la conversación nunca apareció en la lista de Santa Marina, ni siquiera recargando la página completa (recarga incluida a propósito, para reconfirmar también que el fetch inicial vía RLS normal tampoco la filtra mal). Positivo (para descartar un falso negativo por una suscripción simplemente rota/desconectada): se escaló, en la misma pestaña sin volver a loguear, una conversación real de **Santa Marina** — el contador subió a 2 y la conversación apareció en la lista de inmediato. **Conclusión: RLS sí se aplica también a nivel de Realtime, no hay fuga de datos entre sedes** — no hizo falta ningún cambio de código, la migración 0029 ya lo hacía bien (Realtime hereda RLS de la tabla por diseño de Supabase; esto lo confirma con evidencia real en vez de asumirlo). Datos de prueba borrados al terminar.
 
 - **Semana 4 — Inventario + atribución + cierre**: `stock` conectado al flujo real, atribución de marketing (`campana`/`ctwa_clid`), cierre y entrega.
+
+### Landing de una sola vista en `apps/web` (2026-09-27) — reemplaza el sitio multi-página
+
+Tarea aparte del roadmap del bot/dashboard: `apps/web` pasó de sitio multi-página (Home/
+Catálogo/Producto/Ofertas/Catering/Nosotros/Contacto) a **una sola landing**, orientada 100%
+a empujar a WhatsApp — sin carrito, sin checkout, sin formularios. Las páginas viejas y su
+lógica (`CatalogContext`, `CatalogGate`, etc.) **se comentaron en `App.jsx`, no se
+borraron** (queda `AppTiendaAnterior` inerte por si se retoman). Trabajado por etapas con
+aprobación explícita del cliente después de cada una (videos → transición → empanadas →
+cierre → pulido).
+
+**Estructura** (`src/pages/Landing.jsx`): `VideosHero` → `EmpanadasGallery` → `ClosingFooter`
++ `WhatsAppFloatButton` fijo. `VideosHero` pinea el primer video (Alfajores Mix) y, atado al
+mismo scroll (GSAP ScrollTrigger `scrub`), revela el segundo (Alfajores con Manjar Blanco)
+mediante un `clip-path: circle()` que se expande — la transición "wow" pedida, sin animar
+`top/left/width` (todo por `transform/opacity/clip-path`, 60fps). Reveal de texto por líneas
+con `SplitText` (bundled gratis en `gsap` desde 2025, sin licencia Club GreenSock). Scroll
+suave con **Lenis**, atado al ticker de GSAP. `EmpanadasGallery` pinea horizontal en desktop
+(`gsap.matchMedia`) y usa scroll nativo con snap en mobile/`prefers-reduced-motion` (deliberado,
+la propia tarea permitía simplificar ahí). Todo gatea por `usePrefersReducedMotion`.
+
+**Config editable**: `src/config/landing.js` — precios, productos, mensajes de WhatsApp por
+producto, locales, redes. El cliente cambia precios ahí, sin tocar componentes. Número de
+WhatsApp real (`912944096`) en `utils/whatsapp.js`, ya existente. Cada CTA deja un
+`data-whatsapp-click` + `CustomEvent('whatsapp_click')` con el nombre del producto, listo
+para conectar analítica después — **no se integró ninguna herramienta de analítica todavía**,
+a propósito (pedido explícito de la tarea).
+
+**Librerías nuevas**: `gsap` + `@gsap/react` + `lenis`. Nada más — se evaluó
+`@fontsource/fraunces`/`@fontsource/inter` y se descartó: `index.html` ya cargaba
+Fraunces + Albert Sans por `<link>` de Google Fonts, agregar el paquete hubiera sido
+una dependencia redundante.
+
+**Assets**: originales (2 videos 360°, fotos de empanadas, logos) viven intactos en
+`imagenes/` (raíz del repo, ya trackeados). Copias optimizadas generadas con ffmpeg a
+`apps/web/public/`: video en H.264 (`.mp4`) + VP9 (`.webm`) sin audio + poster `.webp`
+(primer frame); fotos de empanada a `.webp`. Identidad de los 2 videos (ninguno tenía
+nombre claro) resuelta comparando el primer frame de cada uno, confirmada con el cliente
+antes de continuar.
+
+**Accesibilidad y SEO — barrido real con Lighthouse mobile, no solo revisado a ojo.**
+Primera pasada: Accessibility 84, tres fallos reales:
+- `SplitText` (GSAP) inyecta automáticamente un `aria-label` con el texto completo en el
+  elemento que divide en líneas — un `<p>` no admite nombre accesible por `aria-label`
+  según ARIA-in-HTML. Fix: `role="text"` en ese `<p>` (recomendación propia de la
+  documentación de GSAP para este caso, no aplicado al `<h2>` del título porque ahí sí
+  rompería la semántica de heading).
+- **Contraste insuficiente en todos los CTA de WhatsApp**: texto blanco sobre el verde de
+  marca `#25D366` da solo 1.98:1 (WCAG exige 4.5:1 en texto normal). Se oscureció el verde
+  a `#0F7B3F` (5.35:1, sigue leyéndose claramente como "verde WhatsApp") en los 4 lugares
+  de la landing que lo usan (botón flotante, CTA de cada video, badge de cada empanada,
+  CTA del cierre) — **las páginas viejas de la tienda no se tocaron** (no están enrutadas,
+  no las audita Lighthouse, fuera de alcance).
+- El botón flotante no tiene texto visible en mobile (el `<span>` con la frase se oculta
+  bajo `sm:`) y no tenía `aria-label` — se agregó soporte de `ariaLabel` en `WhatsAppCTA` y
+  se usa en el flotante.
+Segunda pasada: **Accessibility 100/100, SEO 100/100** (agregado `robots.txt`, meta
+`description`/Open Graph/Twitter Card con la imagen de Alfajores Mix, `<link rel=canonical>`,
+`lang="es-PE"`, preload del poster del primer video con `fetchpriority="high"` para el LCP,
+`fetchpriority="low"` en el segundo video).
+
+**Hallazgo real de paso, corregido**: las fotos de empanada se habían generado a 1000px de
+ancho — sobredimensionadas para su despliegue real (~220-260px de ancho de tarjeta,
+`aspect-[3/4]`). Lighthouse lo señaló como "imagen más grande de lo necesario" con datos
+reales (82KB desperdiciados en una sola foto). Se regeneraron a 780px (cubre hasta 3x DPR
+en el tamaño real de tarjeta) desde los PNG originales — no desde el `.webp` ya comprimido,
+para no perder calidad en cascada — bajando el peso ~30% sin pérdida visible.
+
+**Hallazgo de entorno, no del código — igual que el `SELF_SIGNED_CERT_IN_CHAIN` de una
+sesión anterior, documentado en vez de perseguido a ciegas**: el antivirus Kaspersky de
+esta máquina Windows intercepta a nivel de red TODO el tráfico HTTP de cualquier Chrome
+lanzado localmente (incluido `localhost`) e inyecta un script propio
+(`gc.kes.v2.scr.kaspersky-labs.com`) — confirmado con 3 combinaciones distintas de flags de
+Chrome (`--proxy-server=direct://`, `--host-resolver-rules`, ninguna funcionó: la
+intercepción es a nivel de SO, no de la app) y confirmado **ausente** cuando la misma
+página se carga en el Browser pane propio de Claude Code (proceso de navegador distinto).
+Esto infla cualquier auditoría de Lighthouse corrida con `npx lighthouse` desde esta
+máquina: de 49 requests capturados, 32 eran del script inyectado de Kaspersky, y es la
+causa exclusiva del único fallo de Best Practices (`is-on-https`, apuntando al script de
+Kaspersky, no a nuestro código). **Performance dio 72/100 localmente (meta ≥85) — no es un
+número confiable dado lo anterior.** Se aplicaron igual las optimizaciones reales posibles
+(preload del poster/LCP, `fetchpriority`, fotos de empanada más livianas, video ya
+optimizado desde el Paso 0) y se deja documentado que conviene remedir con PageSpeed
+Insights u otra máquina una vez desplegado, en vez de confiar en un Lighthouse local en
+este entorno.
+
+Build limpio y los 55+27 tests estructurales de siempre en verde (sin tests nuevos — el
+alcance de esta tarea es 100% frontend estático, sin lógica de dominio/servidor nueva).
+
+**Ajuste post-entrega, con feedback real del cliente (2026-09-28)**: la galería de
+empanadas pineaba la sección y traducía la fila en horizontal atada al scroll vertical —
+funcionaba, pero el cliente reportó que se sentía confusa en la práctica ("hay como para
+deslizar horizontal y vertical", con captura real mostrando scrollbar horizontal propio de
+la fila conviviendo con el scroll vertical de la página). Reemplazada por una **cinta
+continua (marquee)** que se mueve sola, sin pedirle nada al usuario — mercado peruano,
+según el cliente, prefiere algo más simple que scroll-jacking. `EmpanadasGallery.jsx` ya
+no usa GSAP/ScrollTrigger en absoluto (se sacó `gsap.matchMedia`, el pin y el scrub): la
+lista se duplica una vez (`[...empanadas, ...empanadas]`) y una animación CSS
+(`.anim-marquee-empanadas` en `index.css`, reutiliza el `@keyframes marquee` que ya
+existía para el marquee de testimonios de la tienda vieja) la traslada `-50%` en loop,
+pausándose con `:hover`/`:focus-within` para poder pedir sin perseguir la tarjeta. Con
+`prefers-reduced-motion` no se anima nada — vuelve a la lista simple con scroll horizontal
+nativo de antes (sin duplicar contenido). Sin scrollbar propio en ningún breakpoint
+(`overflow-hidden` en la sección) — verificado con `getBoundingClientRect`/
+`document.documentElement.scrollWidth`, no solo mirándolo. El video-hero (sección 1-2, la
+transición pineada + scrubbed) no se tocó — el feedback apuntaba específicamente a la
+galería, no a esa transición.
+
+**Sitemap para Google Search Console**: `apps/web/public/sitemap.xml` (una sola URL, es
+una landing de una página) + línea `Sitemap:` agregada a `robots.txt`. La verificación de
+propiedad en Search Console (TXT en DNS o archivo) la hace el cliente directamente, fuera
+de este repo.
 
 ## 8. Reglas de trabajo
 

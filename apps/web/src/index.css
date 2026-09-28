@@ -55,6 +55,12 @@ body {
   70% { transform: scale(1.08); }
   100% { transform: scale(1); opacity: 1; }
 }
+/* "Respiración" del botón flotante de WhatsApp — sutil, cada pocos
+   segundos, nunca corre a más de 60fps porque solo anima transform. */
+@keyframes respirar {
+  0%, 78%, 100% { transform: scale(1); }
+  87% { transform: scale(1.08); }
+}
 
 .anim-fade-up { animation: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .anim-fade-in { animation: fade-in 0.5s ease both; }
@@ -62,6 +68,21 @@ body {
 .anim-float { animation: float-y 5s ease-in-out infinite; }
 .anim-slide-in-right { animation: slide-in-right 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .anim-pop { animation: pop 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.anim-respirar { animation: respirar 4.5s ease-in-out infinite; }
+
+/* Cinta continua de empanadas: se mueve sola (nunca requiere que el usuario
+   entienda "scrollea vertical para mover horizontal" — feedback real del
+   cliente, esa mecánica se sentía rara/confusa). Se pausa al pasar el mouse
+   o enfocar con teclado, para poder pedir sin perseguir la tarjeta. */
+.anim-marquee-empanadas { animation: marquee 42s linear infinite; }
+.anim-marquee-empanadas:hover,
+.anim-marquee-empanadas:focus-within {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-respirar { animation: none; }
+}
 
 .delay-1 { animation-delay: 0.08s; }
 .delay-2 { animation-delay: 0.16s; }
