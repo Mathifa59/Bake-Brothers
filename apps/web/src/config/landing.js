@@ -45,9 +45,27 @@ export const empanadas = [
   { id: 'jamon-queso-cabanossi', nombre: 'Jamón, queso y cabanossi', precio: 8.9, imagen: '/img/empanadas/jamon-queso-cabanossi.webp' },
 ].map((e) => ({ ...e, mensajeWhatsapp: `Hola Bake Brothers 👋 Quiero pedir empanadas de ${e.nombre.toLowerCase()}` }))
 
+// mapsUrl: link real a Google Maps (formato documentado "Maps URLs",
+// https://developers.google.com/maps/documentation/urls/get-started, sin API
+// key) — abre la ubicación real en una pestaña nueva (o la app de Maps en el
+// celular). Antes se probó embeber el mapa con un <iframe> (tanto el hack
+// `?q=&output=embed` como el oficial `embed?pb=...`) pero AMBOS formatos
+// muestran, a la altura de tarjeta que usa esta sección, un botón "Abrir en
+// Maps" propio de Google encima del mapa — verificado real que no depende de
+// cuál de los dos formatos se use, ni es controlable desde nuestro código
+// (es contenido de google.com, cross-origin). Se reemplazó el embed por una
+// tarjeta estática con este link.
 export const locales = [
-  { nombre: 'Cedros', direccion: 'Av. Alameda Los Horizontes 820, Chorrillos' },
-  { nombre: 'Santa Marina', direccion: 'Av. Defensores del Morro 2270' },
+  {
+    nombre: 'Cedros',
+    direccion: 'Av. Alameda Los Horizontes 820, Chorrillos',
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=BakeBrothers%2C+Av.+Alameda+Los+Horizontes+820%2C+Chorrillos%2C+Lima%2C+Per%C3%BA',
+  },
+  {
+    nombre: 'Santa Marina',
+    direccion: 'Av. Defensores del Morro 2270',
+    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Av.+Defensores+del+Morro+2270%2C+Chorrillos%2C+Lima%2C+Per%C3%BA',
+  },
 ]
 
 export const redes = {

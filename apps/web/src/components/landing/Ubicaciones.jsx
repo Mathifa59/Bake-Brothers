@@ -1,14 +1,5 @@
+import { MapPin, Navigation } from 'lucide-react'
 import { locales } from '../../config/landing'
-
-// Embed de Google Maps sin API key (el mismo que da "Compartir > Insertar
-// mapa" en Google Maps) — no hace falta credenciales para esto.
-// La dirección de Cedros ya trae "Chorrillos" adentro y la de Santa Marina
-// no — se agrega el distrito solo cuando falta, para no duplicarlo en la
-// consulta.
-const mapaDe = (direccion) => {
-  const consulta = direccion.includes('Chorrillos') ? `${direccion}, Lima, Perú` : `${direccion}, Chorrillos, Lima, Perú`
-  return `https://www.google.com/maps?q=${encodeURIComponent(consulta)}&output=embed`
-}
 
 export default function Ubicaciones() {
   return (
@@ -21,16 +12,30 @@ export default function Ubicaciones() {
       <div className="grid gap-8 sm:grid-cols-2">
         {locales.map((local) => (
           <div key={local.nombre} className="overflow-hidden rounded-[28px] bg-white shadow-md">
-            <iframe
-              title={`Mapa de Bake Brothers ${local.nombre}`}
-              src={mapaDe(local.direccion)}
-              className="h-64 w-full border-0 sm:h-72"
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            />
+            {/* Tarjeta estática en vez del mapa embebido de Google: el
+                iframe (con o sin API key) siempre trae un elemento propio de
+                Google encima — a esta altura de tarjeta, un botón "Abrir en
+                Maps" comprimido y feo; más alto, a veces una tarjeta
+                completa, pero no de forma consistente en todos los tamaños
+                de pantalla (verificado real, no es controlable desde acá,
+                es contenido de google.com). El botón de abajo lleva a la
+                ubicación real en Google Maps — mismo destino, sin ningún
+                elemento ajeno flotando encima. */}
+            <div className="flex h-40 items-center justify-center bg-acento-suave">
+              <MapPin size={40} strokeWidth={1.5} className="text-acento" />
+            </div>
             <div className="p-5">
               <p className="font-display text-lg font-semibold text-tinta">{local.nombre}</p>
               <p className="mt-1 text-sm text-gris">{local.direccion}</p>
+              <a
+                href={local.mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 inline-flex items-center gap-2 rounded-full bg-tinta px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-85"
+              >
+                <Navigation size={15} />
+                Cómo llegar
+              </a>
             </div>
           </div>
         ))}

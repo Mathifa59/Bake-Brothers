@@ -201,6 +201,18 @@ export default function VideosHero({ onVisibilidadCambia }) {
 
   return (
     <section id="alfajores" ref={sectionRef} className="relative h-svh w-full overflow-hidden bg-tinta">
+      {/* Logo fijo en la esquina, sobre ambas capas de video (no dentro de
+          cada layer, así no parpadea con el cross-fade) — es lo primero que
+          se ve al entrar a la página y no tenía ninguna marca visible. */}
+      <img
+        src="/img/logo-landing-blanco.png"
+        alt="Bake Brothers"
+        loading="eager"
+        width={200}
+        height={113}
+        className="absolute left-6 top-6 z-20 h-9 w-auto drop-shadow-md sm:left-10 sm:top-8 sm:h-11"
+      />
+
       <div ref={layer1Ref} className="absolute inset-0">
         <VideoBackground video={videosHero[0].video} videoRef={video1Ref} />
         <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/35" />

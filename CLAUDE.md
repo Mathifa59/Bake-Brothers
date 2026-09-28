@@ -673,6 +673,46 @@ geometría real: el centro horizontal del texto coincide exacto con el centro de
 (507px = 507px en una prueba a 1024px de ancho), y queda por debajo de las dos columnas
 (`pRect.top >= rowRect.bottom`), no metido adentro de ninguna.
 
+**Tres hallazgos reales del cliente compartiendo el link en producción, corregidos
+(2026-09-28, mismo día)**:
+
+- **Imagen de Open Graph no se veía al compartir el link**: `og:image`/`twitter:image`
+  apuntaban al poster `.webp` del primer video — el archivo cargaba bien (200, confirmado
+  real contra `www.bake-brothers.com`), pero el formato `.webp` no tiene soporte confiable
+  en varios crawlers de mensajería/redes que generan la vista previa del link (WhatsApp en
+  particular). Se generó una copia en `.jpg` del mismo poster
+  (`apps/web/public/video/alfajores-mix-og.jpg`, mismo tamaño 1280×720, calidad 85) con
+  Pillow, y `og:image`/`twitter:image` apuntan ahora a esa copia — el poster `.webp`
+  original sigue igual para el video (no se tocó `VideosHero.jsx`).
+- **Faltaba el logo en el hero**: la sección 1-2 (videos) no tenía ninguna marca visible
+  más allá del texto pequeño "BAKE BROTHERS" — confirmado real navegando la producción, se
+  ve la caja de alfajores sin logo en ninguna esquina. Se agregó el logo real
+  (`logo-landing-blanco.png`, el mismo que ya usa el footer) fijo en la esquina superior
+  izquierda del hero (`absolute left-6 top-6 sm:left-10 sm:top-8`), como hermano de las dos
+  capas de video (`layer1Ref`/`layer2Ref`) en vez de dentro de cada una — así no parpadea
+  con el cross-fade entre los dos videos.
+- **Mapas con un botón "Abrir en Maps" feo encima**: investigado a fondo antes de tocar
+  código, no asumido. Se probó primero reemplazar el embed "rápido"
+  (`maps?q=...&output=embed`, el que se usaba) por el embed OFICIAL de Google
+  (`maps/embed?pb=...`, el que da real "Compartir → Incorporar un mapa" sobre el negocio
+  real "BakeBrothers" en Google Maps) — pero el botón seguía apareciendo igual, confirmado
+  real probando ambos formatos lado a lado. Investigado más: es un elemento propio del
+  iframe de Google (contenido de `google.com`, cross-origin — no editable desde nuestro
+  código) que se comprime a un botón chico "Abrir en Maps ↗" cuando el iframe es bajito
+  (la altura que usaba esta sección, 256-288px) y se expande a una tarjeta completa
+  (nombre, dirección, estrellas) cuando es más alto (probado real: a 288px de alto sale el
+  botón feo, a 320-400px sale la tarjeta linda) — pero el punto exacto donde cambia también
+  depende del ancho, no es un único número confiable en todos los tamaños de pantalla
+  (probado real: 320px de ancho con 340px de alto todavía mostraba el botón feo). Se
+  presentaron 3 opciones al cliente (tarjeta estática, agrandar el mapa aceptando el riesgo
+  de inconsistencia, o cambiar a OpenStreetMap) y eligió la tarjeta estática. `Ubicaciones.jsx`
+  ya no usa ningún `<iframe>` — cada local es una tarjeta con un ícono de pin (mismo
+  `--color-acento` de marca) y un botón "Cómo llegar" que abre la ubicación real en Google
+  Maps en una pestaña nueva, con el formato oficial y documentado "Maps URLs"
+  (`google.com/maps/search/?api=1&query=...`, sin API key) — mismo destino real, sin ningún
+  elemento de Google flotando encima de nuestra tarjeta. `config/landing.js`: `locales`
+  cambió su campo `mapaSrc` (embed) por `mapsUrl` (link).
+
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.
