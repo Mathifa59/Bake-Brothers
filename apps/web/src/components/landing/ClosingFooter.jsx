@@ -12,21 +12,35 @@ gsap.registerPlugin(ScrollTrigger)
 // Cierre mínimo a propósito (pedido explícito: "que no compita con el
 // CTA") — un solo reveal simple al entrar en pantalla, nada de pin ni
 // scrub acá, la sección no lo necesita.
-export default function ClosingFooter() {
+//
+// onVisibilidadCambia: este footer ya trae su propio botón grande de
+// WhatsApp — el flotante se oculta mientras el footer está en pantalla
+// para no mostrar dos botones de WhatsApp a la vez (mismo patrón que ya
+// usa VideosHero.jsx para su propio CTA).
+export default function ClosingFooter({ onVisibilidadCambia }) {
   const reducido = usePrefersReducedMotion()
   const seccionRef = useRef(null)
 
   useGSAP(
     () => {
-      if (reducido) return
+      const seccion = seccionRef.current
+      const observer = new IntersectionObserver(([entry]) => onVisibilidadCambia?.(entry.isIntersecting), {
+        threshold: 0.15,
+      })
+      if (seccion) observer.observe(seccion)
+
+      if (reducido) return () => observer.disconnect()
+
       gsap.from('[data-cierre-reveal]', {
         opacity: 0,
         y: 24,
         duration: 0.8,
         stagger: 0.1,
         ease: 'power2.out',
-        scrollTrigger: { trigger: seccionRef.current, start: 'top 75%' },
+        scrollTrigger: { trigger: seccion, start: 'top 75%' },
       })
+
+      return () => observer.disconnect()
     },
     { scope: seccionRef, dependencies: [reducido] }
   )

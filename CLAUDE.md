@@ -434,6 +434,49 @@ descartarlo, había que arreglarlo.
   CTA del bloque de información — mejora la jerarquía visual sin competir con el botón de
   WhatsApp (la regla original del brief para esta sección sigue intacta).
 
+**Bug real encontrado y corregido — "la caja de manjar aparece dos veces" (2026-09-28,
+mismo día, con evidencia real de producción)**: no era un problema de diseño, era un
+mismatch real de layout. `VideosHero.jsx` tenía la sección exterior en `h-[220vh]`
+(arbitraria) mientras el pin de GSAP (`end: '+=100%'`) solo necesita 100vh adicionales de
+scroll para la animación. Confirmado inspeccionando el `.pin-spacer` real que arma GSAP en
+producción: media 2458px = 1690px (alto natural de la sección, 220vh) + 768px (distancia
+del pin, 100vh) — GSAP no toma el máximo entre ambos, los **suma**. Consecuencia real: al
+soltar el pin (a los 768px), la sección volvía a flujo normal con ~922px de alto natural
+sobrante, y el `<div className="sticky top-0 h-svh">` de adentro — `sticky` nativo de CSS,
+totalmente independiente del pin de GSAP — se volvía a pegar arriba del viewport durante
+ese sobrante, mostrando la Caja de Alfajores con Manjar Blanco ya transicionada (y
+congelada, la animación ya había terminado) por un tramo extra de scroll. Eso se leía como
+"aparece dos veces" y el eventual corte al soltar de verdad (con el hueco en blanco que
+también se reportó) coincide con el release real de ese doble mecanismo pin+sticky.
+**Fix real**: la sección pasó de `h-[220vh]` a `h-svh` (exactamente 1 viewport, ni más) —
+así su alto natural coincide exacto con el contenido visible (el div de adentro, también
+`h-svh`), sin sobrante donde el `sticky` nativo tenga dónde pegarse de más. Verificado con
+los mismos números: `pinSpacerHeight` pasó a 1536px = 768 (natural) + 768 (pin) — exacto
+200vh, sin excedente — y recorriendo la página con scroll real se confirmó que apenas
+termina el cross-fade (768px de scroll) el contenido de la siguiente sección ya está justo
+ahí, sin ningún tramo muerto de por medio.
+
+**Otros tres pedidos del mismo reporte, resueltos**:
+- **Favicon real**: el cliente subió un set completo de ícono de marca a
+  `imagenes/icono/isotipo/` (favicon.ico, PNGs en 16/32/48/64/192/512, apple-touch-icon) —
+  reemplaza el placeholder (un círculo naranja con una "B" genérica en SVG inline) que
+  quedó de una iteración muy temprana. Copiados a `apps/web/public/favicon.ico` y
+  `apps/web/public/icons/`, referenciados en `index.html`.
+- **Dos botones de WhatsApp a la vez en el footer**: el flotante no se ocultaba ahí (solo
+  se ocultaba durante el hero) — mismo patrón que ya usa `VideosHero.jsx` aplicado también
+  a `ClosingFooter.jsx` (`onVisibilidadCambia` + `IntersectionObserver`), combinado en
+  `Landing.jsx` (`oculto={heroEnPantalla || footerEnPantalla}`). Verificado con evidencia
+  real: `opacity` del botón flotante en 0 dentro del footer, vuelve a 1 en la sección de
+  mapas (donde no hay otro CTA compitiendo).
+- **Mapas reales de cada local**: sección nueva `Ubicaciones.jsx`, entre la galería de
+  empanadas y el footer — dos embeds de Google Maps (sin API key, el mismo link que da
+  "Compartir → Insertar mapa") por cada local de `config/landing.js`. Bug menor encontrado
+  al armar la consulta: la dirección de Cedros ya trae "Chorrillos" adentro y la de Santa
+  Marina no — agregar el distrito a ciegas duplicaba "Chorrillos, Chorrillos" en la
+  consulta de Cedros; corregido para agregarlo solo cuando falta. Verificado cargando el
+  mapa real: se ve la cuadra correcta de Chorrillos, con puntos de referencia reales
+  (Innova Schools Chorrillos Villa, junto al local de Cedros).
+
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.

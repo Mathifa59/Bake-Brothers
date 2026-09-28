@@ -184,8 +184,21 @@ export default function VideosHero({ onVisibilidadCambia }) {
     { scope: sectionRef, dependencies: [reducido] }
   )
 
+  // La sección mide exactamente 1 viewport (h-svh), NO más — el pin de
+  // GSAP (`end: '+=100%'`) ya agrega los 100vh extra de scroll que necesita
+  // la animación por su cuenta. Bug real encontrado (reporte del cliente:
+  // "se repite la caja de manjar"): con una altura mayor acá (había
+  // `h-[220vh]`, arbitraria) el pin-spacer que arma GSAP mide altura
+  // natural + distancia de pin (confirmado inspeccionando `.pin-spacer` en
+  // producción: 2458px = 1690px + 768px) — al soltar el pin, la sección
+  // volvía a flujo normal con su alto natural sobrante, y el `sticky` del
+  // div de adentro (nativo, independiente de GSAP) se volvía a pegar arriba
+  // durante ese sobrante, mostrando la caja ya transicionada congelada por
+  // un tramo extra de scroll — se leía como "aparece dos veces". Con la
+  // sección exactamente del tamaño del contenido visible, no queda alto
+  // natural sobrante y el `sticky` no tiene dónde pegarse de más.
   return (
-    <section ref={sectionRef} className={`relative ${reducido ? '' : 'h-[220vh]'}`}>
+    <section ref={sectionRef} className={`relative ${reducido ? '' : 'h-svh'}`}>
       <div className="sticky top-0 h-svh w-full overflow-hidden bg-tinta">
         <div ref={layer1Ref} className="absolute inset-0">
           <VideoBackground video={videosHero[0].video} videoRef={video1Ref} prioridad="high" />
