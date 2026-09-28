@@ -568,6 +568,32 @@ El máster circular (1024×1024, esquinas transparentes) también se guardó com
 `imagenes/icono/isotipo/BakeBrothers-isotipo-circular.png`, junto a los demás archivos de
 marca — no solo las copias optimizadas en `apps/web/public/`.
 
+**El footer se seguía cortando — segunda vuelta, con la causa real esta vez (2026-09-28,
+mismo día)**: el ajuste anterior (§ arriba, "footer cortado al llegar al final del
+scroll") había apuntado a caber en 768px de alto y se probó ahí — pero el cliente lo vio
+cortado de nuevo después de agregar la línea de DevHorses. Medido en una ventana real de
+~650px (el tamaño real de su navegador, no un supuesto) contra la producción ya
+desplegada: `footerRect.top = -83px` al scroll máximo — se seguía cortando, el ajuste
+anterior no alcanzaba para una ventana tan chica. Esta vez, en vez de perseguir "la altura
+exacta de la ventana de alguien" (frágil — la próxima ventana más chica rompe lo mismo de
+nuevo), se recortó bastante más agresivo con margen real de sobra: logo más chico
+(`h-14`→`h-10`, `h-16`→`h-12`), título/subtítulo un escalón menos (`text-4xl`→`text-3xl`,
+etc.), y todos los `mt`/`pt` internos reducidos. El footer bajó de 733px a **550px**.
+Verificado con evidencia real en dos tamaños de ventana: a 650px de alto (el real del
+cliente) el footer entra con 100px de margen; incluso a 600px (más chico que cualquier
+ventana real razonable) entra con 50px de margen — ya no depende de acertarle a un alto de
+ventana específico.
+
+**`.mcp.json` y `catalogo-real-bake-brothers.md` — commiteados con confirmación explícita
+del cliente (2026-09-28)**: quedaban sueltos (sin trackear) desde antes de esta sesión, no
+eran parte de ningún cambio de la landing — no se habían tocado por iniciativa propia. El
+cliente los vio en su copia local (VS Code, panel de Source Control) y preguntó qué eran;
+se le explicó que `.mcp.json` es la configuración local de Claude Code para el MCP de
+Supabase de este proyecto (sin credenciales, solo una referencia de proyecto) y que
+`catalogo-real-bake-brothers.md` es el catálogo real (precios/ingredientes/alérgenos) que
+se usó como fuente para la migración 0006 — documentación útil, sin nada sensible. Pidió
+subir ambos.
+
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.
