@@ -546,6 +546,28 @@ silencioso en consola y nadie lo había notado):
   y el navegador lo ignoraba. Se sacó del componente (el poster del primer video sigue
   precargándose con prioridad alta, pero eso ya vivía aparte en `index.html`).
 
+**Favicon circular (2026-09-28, mismo día)**: el cliente mandó `BakeBrothers-isotipo-B-
+transparente.png` (fondo realmente transparente, confirmado con el valor real del píxel
+de esquina vía PIL: `(0,0,0,0)`, a diferencia del favicon que se había usado antes —
+generado del "icono maestro", con fondo crema opaco horneado adentro, aunque el archivo
+también tuviera canal alfa). Se evaluó usar la versión transparente tal cual: **no se
+recomendó** — la "B" es negra sólida, sobre una pestaña de navegador en tema oscuro se
+mezclaría con el fondo y solo quedarían visibles los detalles naranjas (ojo/sonrisa),
+viéndose incompleta. El cliente pidió una versión circular en su lugar. Generado con
+Python/Pillow (no había herramienta de edición de imágenes en el flujo hasta ahora): un
+círculo relleno de crema (mismo tono de marca, `--color-crema`/`--color-hueso`) con la "B"
+transparente centrada encima, con aire alrededor. Dos variantes reales, no la misma imagen
+reescalada dos veces:
+- **Esquinas transparentes** (favicon-16/32/48/64.png, favicon.ico multi-resolución) — el
+  navegador compone el círculo directo sobre el fondo real de la pestaña.
+- **Cuadrado sólido, sin transparencia** (apple-touch-icon.png, icon-192.png,
+  icon-512.png) — iOS/Android agregan su propio recorte/máscara, un ícono con
+  transparencia ahí puede rellenarse en negro o verse mal recortado.
+
+El máster circular (1024×1024, esquinas transparentes) también se guardó como fuente en
+`imagenes/icono/isotipo/BakeBrothers-isotipo-circular.png`, junto a los demás archivos de
+marca — no solo las copias optimizadas en `apps/web/public/`.
+
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.
