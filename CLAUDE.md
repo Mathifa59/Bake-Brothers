@@ -594,6 +594,22 @@ Supabase de este proyecto (sin credenciales, solo una referencia de proyecto) y 
 se usó como fuente para la migración 0006 — documentación útil, sin nada sensible. Pidió
 subir ambos.
 
+**Footer rediseñado a dos columnas — "como un footer convencional" (2026-09-28, mismo
+día)**: el cliente no quedó conforme con el footer centrado/apilado ("mejor una parte a la
+izquierda y esa raya que se para a la derecha"). `ClosingFooter.jsx` pasó de un único
+bloque centrado a un layout de dos columnas en desktop (`lg:flex-row`): marca+CTA a la
+izquierda, contacto (redes/locales/crédito) a la derecha, separadas por una raya —
+horizontal y apilada en mobile/tablet (`border-t`, como antes), **vertical entre las dos
+columnas en desktop** (`lg:border-l lg:self-stretch`, un solo `<div>` que cambia de
+orientación según el breakpoint en vez de dos elementos separados). Verificado con
+geometría real (`getBoundingClientRect`), no solo mirándolo: en desktop la raya mide 1px de
+ancho y se estira a la misma altura que las dos columnas (229px, `self-stretch`
+funcionando); en mobile vuelve a ser horizontal (1px de alto, ancho completo) y todo
+centrado en una sola columna, sin tocar ese comportamiento. Efecto colateral bueno para el
+problema de altura de las últimas dos vueltas: al repartir el contenido en horizontal en
+vez de apilarlo todo, el footer en desktop bajó de 550px a **357px** — mucho más margen de
+sobra todavía.
+
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.

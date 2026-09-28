@@ -46,36 +46,26 @@ export default function ClosingFooter({ onVisibilidadCambia }) {
   )
 
   return (
-    // Este padding ya se había ajustado una vez (ver commit anterior) para
-    // caber en una ventana de ~768px — no alcanzó: el cliente probó en una
-    // ventana real de ~650px de alto (laptop con barra de tareas/pestañas
-    // ocupando más espacio del que asumí) y el footer (733px) se seguía
-    // cortando por arriba (confirmado midiendo: footerRect.top = -83px a
-    // esa altura real). Esta vez se recorta bastante más agresivo, con
-    // margen real de sobra en vez de ajustar justo al límite — no tiene
-    // sentido perseguir "la altura exacta de la ventana de alguien", mejor
-    // que el footer completo mida bastante menos que cualquier ventana
-    // razonable.
-    <footer ref={seccionRef} className="bg-tinta px-6 pb-10 pt-14 text-center text-white sm:px-12 sm:pb-14 sm:pt-16">
-      <div className="mx-auto max-w-2xl">
-        <img
-          src="/img/logo-landing-blanco.png"
-          alt="Bake Brothers"
-          data-cierre-reveal
-          loading="lazy"
-          width={200}
-          height={113}
-          className="mx-auto h-10 w-auto sm:h-12"
-        />
+    <footer ref={seccionRef} className="bg-tinta px-6 py-14 text-white sm:px-12 sm:py-16">
+      {/* Mobile/tablet: todo centrado y apilado, como antes. Desktop
+          (lg+): footer convencional de dos columnas — marca+CTA a la
+          izquierda, contacto a la derecha, separadas por una raya vertical
+          (a pedido del cliente, "como un footer convencional") en vez de
+          la raya horizontal apilada de antes. */}
+      <div className="mx-auto flex max-w-4xl flex-col items-center gap-10 text-center lg:flex-row lg:items-stretch lg:justify-between lg:gap-12 lg:text-left">
+        <div data-cierre-reveal className="lg:flex-1">
+          <img
+            src="/img/logo-landing-blanco.png"
+            alt="Bake Brothers"
+            loading="lazy"
+            width={200}
+            height={113}
+            className="mx-auto h-10 w-auto sm:h-12 lg:mx-0"
+          />
 
-        <h2 data-cierre-reveal className="mt-5 font-display text-3xl font-semibold leading-tight sm:text-4xl">
-          ¿Se te antojó?
-        </h2>
-        <p data-cierre-reveal className="mt-1 font-display text-xl text-white/85 sm:text-2xl">
-          Escríbenos por WhatsApp
-        </p>
+          <h2 className="mt-5 font-display text-3xl font-semibold leading-tight sm:text-4xl">¿Se te antojó?</h2>
+          <p className="mt-1 font-display text-xl text-white/85 sm:text-2xl">Escríbenos por WhatsApp</p>
 
-        <div data-cierre-reveal>
           <WhatsAppCTA
             mensaje={mensajeWhatsappGenerico}
             producto="cierre"
@@ -86,8 +76,14 @@ export default function ClosingFooter({ onVisibilidadCambia }) {
           </WhatsAppCTA>
         </div>
 
-        <div data-cierre-reveal className="mx-auto mt-8 max-w-md border-t border-white/10 pt-6 text-sm text-white/55">
-          <div className="flex items-center justify-center gap-4">
+        {/* La "raya": horizontal apilada en mobile, vertical entre columnas en desktop. */}
+        <div
+          aria-hidden="true"
+          className="w-full border-t border-white/10 lg:w-px lg:self-stretch lg:border-l lg:border-t-0"
+        />
+
+        <div data-cierre-reveal className="text-sm text-white/55 lg:flex-1">
+          <div className="flex items-center justify-center gap-4 lg:justify-start">
             <a
               href={redes.instagram}
               target="_blank"
@@ -108,9 +104,9 @@ export default function ClosingFooter({ onVisibilidadCambia }) {
             </a>
             <span className="font-semibold tracking-wide text-white/70">{redes.handle}</span>
           </div>
-          <div className="mt-4 flex flex-col gap-2.5 sm:flex-row sm:justify-center sm:gap-10">
+          <div className="mt-4 flex flex-col gap-2.5 sm:flex-row sm:justify-center sm:gap-10 lg:flex-col lg:items-start lg:gap-1.5">
             {locales.map((local) => (
-              <p key={local.nombre} className="flex items-start justify-center gap-1.5 sm:items-center">
+              <p key={local.nombre} className="flex items-start justify-center gap-1.5 sm:items-center lg:justify-start">
                 <MapPin size={14} className="mt-0.5 shrink-0 text-white/40 sm:mt-0" />
                 <span>
                   <span className="font-semibold text-white/75">{local.nombre}:</span> {local.direccion}
@@ -118,19 +114,19 @@ export default function ClosingFooter({ onVisibilidadCambia }) {
               </p>
             ))}
           </div>
-        </div>
 
-        <p data-cierre-reveal className="mt-4 text-xs text-white/35">
-          Desarrollado por{' '}
-          <a
-            href="https://www.devhorses.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-semibold text-white/50 transition-colors hover:text-white/80"
-          >
-            DevHorses
-          </a>
-        </p>
+          <p className="mt-6 text-xs text-white/35">
+            Desarrollado por{' '}
+            <a
+              href="https://www.devhorses.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-white/50 transition-colors hover:text-white/80"
+            >
+              DevHorses
+            </a>
+          </p>
+        </div>
       </div>
     </footer>
   )
