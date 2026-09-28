@@ -505,6 +505,47 @@ texto chico (`text-xs`, `text-white/35`) para no competir visualmente con nada, 
 que el footer sigue entrando completo en una ventana de 768px con el crédito agregado
 (733px, margen de 35px).
 
+**El video-hero deja de depender del scroll — pedido real del cliente (2026-09-28, mismo
+día)**: "no que tenga que scrollear para cambiar el video... que se cambien
+automáticamente". Se sacó por completo el pin + scroll-scrub de GSAP ScrollTrigger de
+`VideosHero.jsx` (ya no se usa `ScrollTrigger` en este archivo, solo `SplitText`) — la
+sección ahora es un `h-svh` normal, sin pin, sin `sticky`, el scroll la atraviesa como
+cualquier otra sección. El cross-fade entre los dos videos (mismo cross-fade de opacidad
+de la iteración anterior) lo dispara un `setInterval` cada 6 segundos
+(`SEGUNDOS_POR_VIDEO`), prendido/apagado con el mismo `IntersectionObserver` que ya pausaba
+los videos fuera de pantalla (ahorra el timer cuando la sección no se ve, y evita que el
+usuario vuelva a mitad de una transición vieja). `prefers-reduced-motion`: sin auto-cambio,
+el hero queda quieto en el primer video.
+
+**Bug real de verificación encontrado y documentado — `document.hidden` en el Browser
+pane de esta sesión**: al probar el auto-cambio, el video no cambiaba después de 6s en la
+pestaña ya abierta de esta sesión. Diagnosticado con evidencia real, no descartado a
+ciegas: un `IntersectionObserver` completamente aislado (creado directo por consola, sin
+relación con el código del componente) tampoco disparaba su callback nunca, ni siquiera
+una vez, en 2 segundos reales de espera — y `document.hidden` devolvía `true` en esa
+pestaña incluso después de traerla al frente. Confirmado que el problema es real y no del
+código: **una pestaña nueva** (`tabs_create` con `foreground: true`) reportó
+`document.hidden = false` de entrada, y ahí el auto-cambio funcionó exactamente como se
+esperaba (verificado con opacidades reales: video 1 → video 2 a los ~7s, de vuelta a video
+1 a los ~13s, ciclo continuo confirmado). Mismo patrón que otros artefactos de este entorno
+ya documentados en este archivo (compositing de capturas, inyección de red de Kaspersky):
+específico de la herramienta de pruebas, no del sitio — un usuario real nunca navega con
+`document.hidden=true`.
+
+**De paso, dos bugs reales encontrados y corregidos mientras se investigaba lo anterior**
+(preexistían desde la iteración del cross-fade, no introducidos ahora — el aviso quedaba
+silencioso en consola y nadie lo había notado):
+- `[data-hero-cta]` (el selector que la animación de entrada usa para el precio+botón) no
+  existía en ningún elemento del JSX — GSAP tiraba `"GSAP target [data-hero-cta] not
+  found"` en cada carga y esa parte de la animación de entrada nunca corría (el precio+botón
+  igual se veían, por el opacity:1 por default del navegador — no eran invisibles, solo les
+  faltaba el fade-in). Se agregó el atributo al div que envuelve precio+botón; verificado
+  que el fade-in ahora sí completa (opacity final en 1, sin quedar pegado en 0).
+- `fetchPriority` en el `<video>` no es un atributo real de ese elemento (el estándar de
+  Priority Hints solo cubre `<img>`/`<link>`/`fetch()`) — React lo advertía en cada render
+  y el navegador lo ignoraba. Se sacó del componente (el poster del primer video sigue
+  precargándose con prioridad alta, pero eso ya vivía aparte en `index.html`).
+
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.

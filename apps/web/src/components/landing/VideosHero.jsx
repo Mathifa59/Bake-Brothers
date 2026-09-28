@@ -1,13 +1,14 @@
 import { useRef } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { SplitText } from 'gsap/SplitText'
 import { videosHero } from '../../config/landing'
 import WhatsAppCTA from './WhatsAppCTA'
 import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
 
-gsap.registerPlugin(ScrollTrigger, SplitText)
+gsap.registerPlugin(SplitText)
+
+const SEGUNDOS_POR_VIDEO = 6
 
 // El loop se maneja a mano, sin el atributo `loop` — reporte real: los
 // clips duran 8-10s, alguien que se queda mirando el hero antes de bajar
@@ -27,11 +28,16 @@ function reiniciarAlTerminar(evento) {
   video.play()
 }
 
-function VideoBackground({ video, videoRef, prioridad = 'auto' }) {
+function VideoBackground({ video, videoRef }) {
   // absolute inset-0: sin esto el <video> queda en el flujo normal del
   // documento (toma 768px reales de alto) y empuja al overlay de texto que
   // viene después fuera de la pantalla — el bug real que se vio al
   // verificar en el navegador, no algo hipotético.
+  //
+  // Sin fetchPriority acá a propósito: no es un atributo real de <video>
+  // (solo de <img>/<link>/fetch), React tiraba un warning en cada render y
+  // el navegador lo ignoraba de todas formas. El poster del primer video sí
+  // se precarga con prioridad alta, pero eso vive en index.html.
   return (
     <video
       ref={videoRef}
@@ -40,7 +46,6 @@ function VideoBackground({ video, videoRef, prioridad = 'auto' }) {
       autoPlay
       preload="auto"
       poster={video.poster}
-      fetchPriority={prioridad}
       onTimeUpdate={manejarLoopManual}
       onEnded={reiniciarAlTerminar}
       className="absolute inset-0 h-full w-full object-cover"
@@ -75,7 +80,7 @@ function ProductoOverlay({ producto, contentRef, tituloRef, subtituloRef }) {
       >
         {producto.subtitulo}
       </p>
-      <div className="mt-7 flex flex-wrap items-center gap-5">
+      <div data-hero-cta className="mt-7 flex flex-wrap items-center gap-5">
         <span className="font-display text-2xl font-semibold sm:text-3xl">
           S/ {producto.precio.toFixed(2)} · {producto.unidades} unidades
         </span>
@@ -91,10 +96,11 @@ function ProductoOverlay({ producto, contentRef, tituloRef, subtituloRef }) {
   )
 }
 
-// Sección 1+2 de la landing, construidas juntas a propósito: el "momento
-// wow" es la transición entre ambas, controlada por el mismo scroll que
-// pinea el video 1 — no tiene sentido partirlas en dos componentes que
-// después tendrían que coordinarse por fuera.
+// Sección 1+2 de la landing, construidas juntas a propósito. El cambio
+// entre videos es automático (por tiempo), NO depende del scroll — pedido
+// real del cliente: la mecánica anterior (pin + scroll-scrub) obligaba a
+// scrollear para ver el segundo video, y no lo quería así. El scroll acá
+// ahora es 100% libre, como cualquier otra sección — solo baja la página.
 //
 // onVisibilidadCambia: cada video trae su propio CTA anclado abajo a la
 // derecha, la misma esquina donde vive el botón flotante — sin esto se
@@ -115,20 +121,6 @@ export default function VideosHero({ onVisibilidadCambia }) {
 
   useGSAP(
     () => {
-      // Ahorro real de batería/datos: el video fuera de pantalla se pausa
-      // (IntersectionObserver, no un listener de scroll a mano).
-      const seccion = sectionRef.current
-      const observer = new IntersectionObserver(
-        ([entry]) => {
-          const accion = entry.isIntersecting ? 'play' : 'pause'
-          video1Ref.current?.[accion]?.()
-          video2Ref.current?.[accion]?.()
-          onVisibilidadCambia?.(entry.isIntersecting)
-        },
-        { threshold: 0.1 }
-      )
-      if (seccion) observer.observe(seccion)
-
       // Reveal de entrada del primer video (por líneas, con máscara) — es
       // lo primero que ve cualquiera al abrir la página, corre una sola vez
       // al montar, no depende del scroll.
@@ -136,12 +128,11 @@ export default function VideosHero({ onVisibilidadCambia }) {
       const splitSubtitulo = SplitText.create(subtitulo1Ref.current, { type: 'lines', mask: 'lines' })
 
       if (reducido) {
-        // Sin pin, sin scrub, sin reveal escalonado: el segundo video queda
-        // simplemente visible debajo, como cualquier sección normal.
-        gsap.set(layer2Ref.current, { opacity: 1 })
-        gsap.set(contenido2Ref.current, { opacity: 1 })
+        // Sin auto-cambio ni reveal escalonado: el hero queda quieto en el
+        // primer video (más simple y predecible para quien pidió menos
+        // movimiento).
         gsap.set('[data-hero-cta]', { opacity: 1 })
-        return () => observer.disconnect()
+        return undefined
       }
 
       gsap.set([splitTitulo.lines, splitSubtitulo.lines], { yPercent: 130 })
@@ -152,70 +143,79 @@ export default function VideosHero({ onVisibilidadCambia }) {
         .to(splitSubtitulo.lines, { yPercent: 0, duration: 0.8, stagger: 0.06, ease: 'expo.out' }, '-=0.6')
         .to('[data-hero-cta]', { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' }, '-=0.4')
 
-      // La transición: el video 1 queda pineado y se desvanece en un simple
-      // cross-fade hacia el video 2, todo atado al mismo scrub (nunca "de
-      // golpe"). Antes esto era un clip-path circular expandiéndose — se
-      // simplificó a pedido real del cliente: el wipe radial (crece en
-      // todas direcciones a la vez) se sentía "raro"/confuso; un fade en
-      // una sola dimensión (opacidad) es más simple de leer y, de paso, más
-      // liviano para el navegador que animar un clip-path sobre video.
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          trigger: seccion,
-          start: 'top top',
-          end: '+=100%',
-          scrub: 1,
-          pin: true,
-          anticipatePin: 1,
-        },
-      })
-      tl.to(contenido1Ref.current, { opacity: 0, yPercent: -8, duration: 0.4, ease: 'power1.in' }, 0)
-        .to(layer1Ref.current, { opacity: 0, duration: 0.5, ease: 'power1.inOut' }, 0.15)
-        .fromTo(layer2Ref.current, { opacity: 0 }, { opacity: 1, duration: 0.5, ease: 'power1.inOut' }, 0.15)
-        .fromTo(
-          contenido2Ref.current,
-          { opacity: 0, yPercent: 8 },
-          { opacity: 1, yPercent: 0, duration: 0.4, ease: 'power1.out' },
-          0.5
-        )
+      // Cross-fade automático entre los dos videos, cada SEGUNDOS_POR_VIDEO
+      // segundos — mismo cross-fade simple de antes, solo que ahora lo
+      // dispara un timer en vez del scroll. El timer se prende/apaga con la
+      // visibilidad real de la sección (mismo IntersectionObserver que ya
+      // pausaba los videos): ahorra trabajo de sobra y evita que el usuario
+      // vuelva a la sección a mitad de una transición vieja.
+      let mostrandoVideo1 = true
+      const alternar = () => {
+        const entra = mostrandoVideo1 ? layer2Ref.current : layer1Ref.current
+        const sale = mostrandoVideo1 ? layer1Ref.current : layer2Ref.current
+        const contenidoEntra = mostrandoVideo1 ? contenido2Ref.current : contenido1Ref.current
+        const contenidoSale = mostrandoVideo1 ? contenido1Ref.current : contenido2Ref.current
+        mostrandoVideo1 = !mostrandoVideo1
 
-      return () => observer.disconnect()
+        gsap.to(contenidoSale, { opacity: 0, yPercent: -8, duration: 0.4, ease: 'power1.in' })
+        gsap.to(sale, { opacity: 0, duration: 0.6, ease: 'power1.inOut' })
+        gsap.fromTo(entra, { opacity: 0 }, { opacity: 1, duration: 0.6, ease: 'power1.inOut' })
+        gsap.fromTo(
+          contenidoEntra,
+          { opacity: 0, yPercent: 8 },
+          { opacity: 1, yPercent: 0, duration: 0.4, ease: 'power1.out', delay: 0.25 }
+        )
+      }
+
+      let intervaloId = null
+
+      // Ahorro real de batería/datos: el video fuera de pantalla se pausa,
+      // y el auto-cambio se detiene con él (IntersectionObserver, no un
+      // listener de scroll a mano).
+      const seccion = sectionRef.current
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          const accion = entry.isIntersecting ? 'play' : 'pause'
+          video1Ref.current?.[accion]?.()
+          video2Ref.current?.[accion]?.()
+          onVisibilidadCambia?.(entry.isIntersecting)
+
+          if (entry.isIntersecting && intervaloId === null) {
+            intervaloId = setInterval(alternar, SEGUNDOS_POR_VIDEO * 1000)
+          } else if (!entry.isIntersecting && intervaloId !== null) {
+            clearInterval(intervaloId)
+            intervaloId = null
+          }
+        },
+        { threshold: 0.1 }
+      )
+      if (seccion) observer.observe(seccion)
+
+      return () => {
+        observer.disconnect()
+        if (intervaloId !== null) clearInterval(intervaloId)
+      }
     },
     { scope: sectionRef, dependencies: [reducido] }
   )
 
-  // La sección mide exactamente 1 viewport (h-svh), NO más — el pin de
-  // GSAP (`end: '+=100%'`) ya agrega los 100vh extra de scroll que necesita
-  // la animación por su cuenta. Bug real encontrado (reporte del cliente:
-  // "se repite la caja de manjar"): con una altura mayor acá (había
-  // `h-[220vh]`, arbitraria) el pin-spacer que arma GSAP mide altura
-  // natural + distancia de pin (confirmado inspeccionando `.pin-spacer` en
-  // producción: 2458px = 1690px + 768px) — al soltar el pin, la sección
-  // volvía a flujo normal con su alto natural sobrante, y el `sticky` del
-  // div de adentro (nativo, independiente de GSAP) se volvía a pegar arriba
-  // durante ese sobrante, mostrando la caja ya transicionada congelada por
-  // un tramo extra de scroll — se leía como "aparece dos veces". Con la
-  // sección exactamente del tamaño del contenido visible, no queda alto
-  // natural sobrante y el `sticky` no tiene dónde pegarse de más.
   return (
-    <section ref={sectionRef} className={`relative ${reducido ? '' : 'h-svh'}`}>
-      <div className="sticky top-0 h-svh w-full overflow-hidden bg-tinta">
-        <div ref={layer1Ref} className="absolute inset-0">
-          <VideoBackground video={videosHero[0].video} videoRef={video1Ref} prioridad="high" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/35" />
-          <ProductoOverlay
-            producto={videosHero[0]}
-            contentRef={contenido1Ref}
-            tituloRef={titulo1Ref}
-            subtituloRef={subtitulo1Ref}
-          />
-        </div>
+    <section ref={sectionRef} className="relative h-svh w-full overflow-hidden bg-tinta">
+      <div ref={layer1Ref} className="absolute inset-0">
+        <VideoBackground video={videosHero[0].video} videoRef={video1Ref} />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/35" />
+        <ProductoOverlay
+          producto={videosHero[0]}
+          contentRef={contenido1Ref}
+          tituloRef={titulo1Ref}
+          subtituloRef={subtitulo1Ref}
+        />
+      </div>
 
-        <div ref={layer2Ref} className="absolute inset-0" style={{ opacity: 0 }}>
-          <VideoBackground video={videosHero[1].video} videoRef={video2Ref} prioridad="low" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/35" />
-          <ProductoOverlay producto={videosHero[1]} contentRef={contenido2Ref} />
-        </div>
+      <div ref={layer2Ref} className="absolute inset-0" style={{ opacity: 0 }}>
+        <VideoBackground video={videosHero[1].video} videoRef={video2Ref} />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/35" />
+        <ProductoOverlay producto={videosHero[1]} contentRef={contenido2Ref} />
       </div>
     </section>
   )
