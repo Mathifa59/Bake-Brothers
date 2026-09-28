@@ -663,6 +663,16 @@ foco de ventana, no reproducible por un usuario real mirando su propia pantalla.
 implementación (`scrollTo` con `duration`+`force:true`) es la forma correcta y documentada
 de usar la API de Lenis — no se cambió por esto, solo queda anotado por si se repite.
 
+**"Desarrollado por DevHorses" — centrado a todo el ancho del footer, no de la columna
+derecha (2026-09-28, mismo día)**: estaba centrado, pero solo dentro del ancho de la
+columna derecha (contacto), que en desktop es más angosta que el footer completo — el
+cliente lo quería centrado respecto al footer entero, como pie de página independiente.
+Se sacó del `<div>` de dos columnas y pasó a ser un `<p>` hermano, fuera del `flex-row`,
+dentro del mismo contenedor `max-w-4xl` pero ocupando su ancho completo. Verificado con
+geometría real: el centro horizontal del texto coincide exacto con el centro del footer
+(507px = 507px en una prueba a 1024px de ancho), y queda por debajo de las dos columnas
+(`pRect.top >= rowRect.bottom`), no metido adentro de ninguna.
+
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.
