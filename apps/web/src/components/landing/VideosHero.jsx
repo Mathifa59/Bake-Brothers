@@ -210,7 +210,7 @@ export default function VideosHero({ onVisibilidadCambia }) {
         loading="eager"
         width={200}
         height={113}
-        className="absolute left-6 top-6 z-20 h-9 w-auto drop-shadow-md sm:left-10 sm:top-8 sm:h-11"
+        className="absolute left-6 top-6 z-20 h-14 w-auto drop-shadow-md sm:left-10 sm:top-8 sm:h-20"
       />
 
       <div ref={layer1Ref} className="absolute inset-0">

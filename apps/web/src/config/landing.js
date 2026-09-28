@@ -45,26 +45,25 @@ export const empanadas = [
   { id: 'jamon-queso-cabanossi', nombre: 'Jamón, queso y cabanossi', precio: 8.9, imagen: '/img/empanadas/jamon-queso-cabanossi.webp' },
 ].map((e) => ({ ...e, mensajeWhatsapp: `Hola Bake Brothers 👋 Quiero pedir empanadas de ${e.nombre.toLowerCase()}` }))
 
-// mapsUrl: link real a Google Maps (formato documentado "Maps URLs",
-// https://developers.google.com/maps/documentation/urls/get-started, sin API
-// key) — abre la ubicación real en una pestaña nueva (o la app de Maps en el
-// celular). Antes se probó embeber el mapa con un <iframe> (tanto el hack
-// `?q=&output=embed` como el oficial `embed?pb=...`) pero AMBOS formatos
-// muestran, a la altura de tarjeta que usa esta sección, un botón "Abrir en
-// Maps" propio de Google encima del mapa — verificado real que no depende de
-// cuál de los dos formatos se use, ni es controlable desde nuestro código
-// (es contenido de google.com, cross-origin). Se reemplazó el embed por una
-// tarjeta estática con este link.
+// mapaSrc: embed oficial de Google ("Compartir > Incorporar un mapa" sobre la
+// ubicación real de cada local en Google Maps, sin API key). Con suficiente
+// alto/ancho, Google muestra la tarjeta completa del negocio (nombre,
+// dirección, botón "cómo llegar" propio) en vez del botón comprimido "Abrir
+// en Maps" — pedido explícito del cliente con un ejemplo real. La sección
+// usa una altura generosa (ver Ubicaciones.jsx) para que esa tarjeta
+// completa entre incluso en la columna angosta de la grilla de 2 columnas.
 export const locales = [
   {
     nombre: 'Cedros',
     direccion: 'Av. Alameda Los Horizontes 820, Chorrillos',
-    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=BakeBrothers%2C+Av.+Alameda+Los+Horizontes+820%2C+Chorrillos%2C+Lima%2C+Per%C3%BA',
+    mapaSrc:
+      'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3899.642744198229!2d-77.00921439999999!3d-12.2046946!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x9105b90b0f511c61%3A0x28ddbd9a3c4fcc00!2sBakeBrothers!5e0!3m2!1ses-419!2spe!4v1790624971087!5m2!1ses-419!2spe',
   },
   {
     nombre: 'Santa Marina',
     direccion: 'Av. Defensores del Morro 2270',
-    mapsUrl: 'https://www.google.com/maps/search/?api=1&query=Av.+Defensores+del+Morro+2270%2C+Chorrillos%2C+Lima%2C+Per%C3%BA',
+    mapaSrc:
+      'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3899.978303909021!2d-77.0125961!3d-12.181879400000001!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x9105b77db00554d9%3A0x62bc17c099226c51!2sMercado%20Santa%20Marina%2C%20Av.%20Defensores%20del%20Morro%202270%2C%20Chorrillos%2015067!5e0!3m2!1ses-419!2spe!4v1790625055996!5m2!1ses-419!2spe',
   },
 ]
 

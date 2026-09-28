@@ -713,6 +713,36 @@ geometría real: el centro horizontal del texto coincide exacto con el centro de
   elemento de Google flotando encima de nuestra tarjeta. `config/landing.js`: `locales`
   cambió su campo `mapaSrc` (embed) por `mapsUrl` (link).
 
+**Mapas: vuelta al embed interactivo de Google, con un ejemplo real del cliente
+(2026-09-28, mismo día)**: el cliente vio la tarjeta estática del punto anterior y pidió
+"algo así" mandando una captura de referencia — el mapa interactivo de Google con su
+propia tarjeta de info completa (nombre, dirección, estrellas, botones), no la tarjeta
+plana que se había construido. Investigado antes de revertir a ciegas: esa tarjeta
+completa de Google (en vez del botón chico "Abrir en Maps") depende del ANCHO del iframe
+además del alto, verificado real con varias combinaciones — a 411px de ancho, con 320px
+de alto ya alcanza; a ~350px de ancho, ni 340px de alto alcanza. Por eso `Ubicaciones.jsx`
+volvió a usar `<iframe>` con el embed oficial `pb=` (guardado de nuevo en
+`config/landing.js` como `mapaSrc`), con `h-[420px]` y el grid en `lg:grid-cols-2` (no
+`sm:grid-cols-2` como antes) — así la sección es de una sola columna a todo el ancho en
+mobile y tablet (donde dos columnas angostas caerían en la zona de ancho insuficiente) y
+recién pasa a dos columnas en `lg` (1024px+, columna ~410px+, ya confirmado que alcanza).
+Verificado real en los tres rangos: 1024px con dos columnas de 411px → tarjeta completa
+con rating; 768px con una sola columna (~672px) → tarjeta completa; **375px (celular, una
+sola columna ~327px) → sigue saliendo el botón chico "Abrir en Maps"**, probado incluso
+forzando el iframe a 600px de alto sin ningún cambio — a ese ancho es un límite duro de
+Google (undocumented, específico de su embed), no resoluble subiendo el alto. Se le explicó
+esto al cliente con evidencia real y eligió mantener el mapa interactivo en todos los
+tamaños (aceptando que en celular Google muestre su botón chico en vez de la tarjeta
+completa) en vez de usar un componente distinto solo para mobile — decisión consciente,
+no un descuido: la mayoría del tráfico de este negocio es mobile, así que el botón chico
+de Google seguirá viéndose ahí, mientras que tablet/desktop ya calzan con el ejemplo que
+pidió el cliente.
+
+**Logo del hero, más grande (mismo día)**: pedido explícito tras ver el logo agregado en
+la iteración anterior — pasó de `h-9 sm:h-11` a `h-14 sm:h-20` (mismo tamaño que ya usa el
+logo del footer en desktop), sigue fijo en la esquina superior izquierda sobre ambas capas
+de video.
+
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.
