@@ -9,6 +9,24 @@ import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
 
 gsap.registerPlugin(ScrollTrigger, SplitText)
 
+// El loop se maneja a mano, sin el atributo `loop` — reporte real: los
+// clips duran 8-10s, alguien que se queda mirando el hero antes de bajar
+// alcanza a ver el reinicio del loop, y en ese reinicio nativo algunos
+// navegadores muestran un parpadeo/flash en blanco. Reiniciar un poco antes
+// del final (en vez de esperar a que termine) evita ese corte.
+function manejarLoopManual(evento) {
+  const video = evento.currentTarget
+  if (video.duration && video.currentTime >= video.duration - 0.15) {
+    video.currentTime = 0
+  }
+}
+
+function reiniciarAlTerminar(evento) {
+  const video = evento.currentTarget
+  video.currentTime = 0
+  video.play()
+}
+
 function VideoBackground({ video, videoRef, prioridad = 'auto' }) {
   // absolute inset-0: sin esto el <video> queda en el flujo normal del
   // documento (toma 768px reales de alto) y empuja al overlay de texto que
@@ -18,12 +36,13 @@ function VideoBackground({ video, videoRef, prioridad = 'auto' }) {
     <video
       ref={videoRef}
       muted
-      loop
       playsInline
       autoPlay
       preload="auto"
       poster={video.poster}
       fetchPriority={prioridad}
+      onTimeUpdate={manejarLoopManual}
+      onEnded={reiniciarAlTerminar}
       className="absolute inset-0 h-full w-full object-cover"
     >
       <source src={video.webm} type="video/webm" />

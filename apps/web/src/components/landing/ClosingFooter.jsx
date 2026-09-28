@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import { MessageCircle } from 'lucide-react'
+import { Facebook, Instagram, MapPin, MessageCircle } from 'lucide-react'
 import WhatsAppCTA from './WhatsAppCTA'
 import { locales, redes, mensajeWhatsappGenerico } from '../../config/landing'
 import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
@@ -66,19 +66,35 @@ export default function ClosingFooter() {
           </WhatsAppCTA>
         </div>
 
-        <div data-cierre-reveal className="mt-16 space-y-3 text-sm text-white/55">
-          <a
-            href={redes.instagram}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block font-semibold tracking-wide text-white/70 transition-colors hover:text-white"
-          >
-            {redes.handle}
-          </a>
-          <div className="flex flex-col gap-1.5 sm:flex-row sm:justify-center sm:gap-10">
+        <div data-cierre-reveal className="mx-auto mt-16 max-w-md border-t border-white/10 pt-10 text-sm text-white/55">
+          <div className="flex items-center justify-center gap-4">
+            <a
+              href={redes.instagram}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Bake Brothers en Instagram"
+              className="grid h-9 w-9 place-items-center rounded-full border border-white/15 text-white/70 transition-colors hover:border-white/40 hover:text-white"
+            >
+              <Instagram size={16} strokeWidth={1.75} />
+            </a>
+            <a
+              href={redes.facebook}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Bake Brothers en Facebook"
+              className="grid h-9 w-9 place-items-center rounded-full border border-white/15 text-white/70 transition-colors hover:border-white/40 hover:text-white"
+            >
+              <Facebook size={16} strokeWidth={1.75} />
+            </a>
+            <span className="font-semibold tracking-wide text-white/70">{redes.handle}</span>
+          </div>
+          <div className="mt-8 flex flex-col gap-2.5 sm:flex-row sm:justify-center sm:gap-10">
             {locales.map((local) => (
-              <p key={local.nombre}>
-                <span className="font-semibold text-white/75">{local.nombre}:</span> {local.direccion}
+              <p key={local.nombre} className="flex items-start justify-center gap-1.5 sm:items-center">
+                <MapPin size={14} className="mt-0.5 shrink-0 text-white/40 sm:mt-0" />
+                <span>
+                  <span className="font-semibold text-white/75">{local.nombre}:</span> {local.direccion}
+                </span>
               </p>
             ))}
           </div>

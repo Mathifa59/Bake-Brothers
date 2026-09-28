@@ -15,6 +15,24 @@
 
 html {
   scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-acento) var(--color-crema);
+}
+
+/* Scrollbar con identidad de marca en vez del gris por defecto del navegador. */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-crema);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-acento);
+  border-radius: 999px;
+  border: 2px solid var(--color-crema);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-acento-oscuro);
 }
 
 body {

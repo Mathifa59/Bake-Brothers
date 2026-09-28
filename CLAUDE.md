@@ -400,6 +400,40 @@ datos/lógica — y es exactamente el tipo de costo que el cambio a cross-fade (
 mucho más barata de componer) reduce de raíz, más allá de la razón estética por la que se
 pidió el cambio.
 
+**Corrección real a esa conclusión, con más feedback del cliente (2026-09-28, mismo día)**:
+el cliente reportó que el hueco en blanco seguía pasando incluso después del cross-fade,
+específicamente "se repite el [video] de los alfajores, eso causa que haya una parte
+totalmente en blanco" — dato nuevo que apunta a una causa real y distinta de la que se
+había documentado arriba. Los clips duran 8-10s (`alfajores-mix.mp4`: 10s,
+`alfajores-manjar.mp4`: 8.17s, medido con `ffprobe`) y ambos usaban el atributo `loop`
+nativo del `<video>` — alguien que se queda mirando el hero antes de scrollear (lo normal:
+el hero es lo primero que se ve) alcanza a ver el video reiniciar solo, y ese reinicio
+nativo puede mostrar un parpadeo en blanco en algunos navegadores. Se reemplazó `loop` por
+un reinicio manual (`onTimeUpdate`: `currentTime = 0` un poco ANTES de llegar al final, en
+vez de esperar el evento `ended`) en `VideosHero.jsx`. Verificado con evidencia real
+—muestreo de `currentTime`/`readyState`/`paused` del video cada 300ms durante 11s
+seguidos—: el reinicio ocurre limpio (`9.81 → 0.09` entre dos muestras), `readyState` se
+mantiene en `4` (HAVE_ENOUGH_DATA) todo el tiempo, nunca se pausa. La conclusión anterior
+("es solo un frame de pintura tardío del navegador, no un bug") queda parcialmente
+corregida: puede que ambas causas coexistieran, pero el reinicio del loop nativo era una
+causa real y evitable, no solo un artefacto de la herramienta de captura — no alcanzaba con
+descartarlo, había que arreglarlo.
+
+**Otros tres ajustes de pulido, mismo día**:
+- **Scrollbar del navegador**: tenía el gris por defecto — ahora usa los colores de marca
+  (`--color-acento` sobre `--color-crema`) vía `scrollbar-color`/`scrollbar-width` (Firefox
+  y Chrome moderno) + `::-webkit-scrollbar-*` (Safari/Chrome/Edge), en `index.css`.
+- **Español neutral, no argentino**: se encontró `"elegí tu sabor"` (voseo) en
+  `EmpanadasGallery.jsx` — único caso real en todo el copy de la landing (se revisó
+  `config/landing.js` completo, sin otro hallazgo). Corregido a `"elige tu sabor"` (tú,
+  neutro, consistente con el resto del copy — ej. "Pídelo por WhatsApp" ya usaba esa forma).
+- **Footer mejorado**: el brief original pedía Instagram **y** Facebook, pero solo
+  Instagram estaba enlazado — se agregaron los dos como íconos (`lucide-react`:
+  `Instagram`, `Facebook`) junto al handle compartido `@bakebrothers.pe`, más un ícono
+  `MapPin` por local y una línea divisoria sutil (`border-t border-white/10`) separando el
+  CTA del bloque de información — mejora la jerarquía visual sin competir con el botón de
+  WhatsApp (la regla original del brief para esta sección sigue intacta).
+
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.
