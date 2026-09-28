@@ -743,6 +743,19 @@ la iteración anterior — pasó de `h-9 sm:h-11` a `h-14 sm:h-20` (mismo tamañ
 logo del footer en desktop), sigue fijo en la esquina superior izquierda sobre ambas capas
 de video.
 
+**Open Graph: descripción más general, sin nombrar productos puntuales (mismo día)**: el
+cliente vio la vista previa real del link (título + descripción + imagen ya se veían bien,
+confirmó que la imagen se solucionó) pero pidió no listar "Alfajores Mix, Alfajores con
+Manjar Blanco y Empanadas BigBro" en el título/descripción — el catálogo real tiene muchos
+más productos (58 productos, no solo esos tres) y anclar el link a esos nombres puntuales
+da una idea incompleta del negocio. `<title>`, `og:title`/`twitter:title` pasaron de
+"Alfajores y Empanadas Artesanales" a "Pastelería Artesanal en Chorrillos"; `description`,
+`og:description`/`twitter:description` pasaron de listar los 3 productos a "Pastelería
+artesanal en Chorrillos, Lima — todo hecho a mano. Pide por WhatsApp [y recíbelo en Cedros
+o Santa Marina]". `og:image:alt` también se generalizó (ya no dice "Caja de Alfajores Mix
+de Bake Brothers"). La imagen (`alfajores-mix-og.jpg`) no se tocó — sigue siendo la misma
+foto real de la caja, el pedido fue solo sobre el texto.
+
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.
