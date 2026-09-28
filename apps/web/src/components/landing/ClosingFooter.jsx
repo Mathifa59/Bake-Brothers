@@ -46,11 +46,18 @@ export default function ClosingFooter({ onVisibilidadCambia }) {
   )
 
   return (
-    // pb más grande que pt en mobile a propósito: el botón flotante de
-    // WhatsApp vive fijo en esa esquina — sin este aire de sobra, el texto
-    // de la última dirección queda tapado por el botón (visto real en el
-    // navegador, no hipotético).
-    <footer ref={seccionRef} className="bg-tinta px-6 pb-32 pt-24 text-center text-white sm:px-12 sm:py-32">
+    // El padding vertical era mucho más grande (pb-32/pt-24, sm:py-32) para
+    // que el botón flotante de WhatsApp no tapara la última dirección —
+    // ya no hace falta, el flotante se oculta solo mientras este footer
+    // está en pantalla (ver onVisibilidadCambia). Bug real encontrado con
+    // ese padding viejo: en una ventana de ~768px de alto (laptop común),
+    // el footer completo medía ~789px — más que la pantalla — así que al
+    // llegar al final real del scroll, su borde superior quedaba cortado
+    // por el límite de la ventana (reportado por el cliente, confirmado
+    // midiendo scrollY contra la altura real del documento: coincidían
+    // exacto, no había "espacio fantasma", el footer solo no entraba
+    // entero). Con este padding más ajustado entra cómodo.
+    <footer ref={seccionRef} className="bg-tinta px-6 py-20 text-center text-white sm:px-12 sm:py-24">
       <div className="mx-auto max-w-2xl">
         <img
           src="/img/logo-landing-blanco.png"
@@ -80,7 +87,7 @@ export default function ClosingFooter({ onVisibilidadCambia }) {
           </WhatsAppCTA>
         </div>
 
-        <div data-cierre-reveal className="mx-auto mt-16 max-w-md border-t border-white/10 pt-10 text-sm text-white/55">
+        <div data-cierre-reveal className="mx-auto mt-12 max-w-md border-t border-white/10 pt-8 text-sm text-white/55">
           <div className="flex items-center justify-center gap-4">
             <a
               href={redes.instagram}
@@ -102,7 +109,7 @@ export default function ClosingFooter({ onVisibilidadCambia }) {
             </a>
             <span className="font-semibold tracking-wide text-white/70">{redes.handle}</span>
           </div>
-          <div className="mt-8 flex flex-col gap-2.5 sm:flex-row sm:justify-center sm:gap-10">
+          <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:justify-center sm:gap-10">
             {locales.map((local) => (
               <p key={local.nombre} className="flex items-start justify-center gap-1.5 sm:items-center">
                 <MapPin size={14} className="mt-0.5 shrink-0 text-white/40 sm:mt-0" />

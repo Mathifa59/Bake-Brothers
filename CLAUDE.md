@@ -477,6 +477,22 @@ ahí, sin ningún tramo muerto de por medio.
   mapa real: se ve la cuadra correcta de Chorrillos, con puntos de referencia reales
   (Innova Schools Chorrillos Villa, junto al local de Cedros).
 
+**Footer cortado al llegar al final del scroll — bug real, no "espacio fantasma"
+(2026-09-28, mismo día)**: el cliente reportó que se podía "bajar de más" y el footer se
+veía cortado arriba. Medido en el navegador real: `scrollY` en el máximo coincidía
+EXACTO con `document.documentElement.scrollHeight - window.innerHeight` (sin espacio de
+sobra) — no era un bug de Lenis/GSAP dejando scrollear más allá del documento real. La
+causa real: el footer con su padding viejo (`pb-32 pt-24` en mobile, `sm:py-32` en
+desktop) medía ~789px de alto propio, más que una ventana de 768px (una altura de laptop
+común) — al llegar al final real del scroll, esos primeros ~21px del footer (el aire sobre
+el logo) quedaban por encima del borde superior de la ventana, imposibles de ver. Ese
+padding grande ya no hacía falta: se había puesto para que el botón flotante no tapara la
+última dirección, pero el flotante ahora se oculta solo en el footer (fix de más arriba,
+mismo día). Reducido a `py-20`/`sm:py-24` (footer bajó a 693px) más los `mt`/`pt` internos
+del bloque de redes/locales achicados (`mt-16`→`mt-12`, `mt-8`→`mt-6`, `pt-10`→`pt-8`).
+Verificado con el mismo método: al scroll máximo, el footer ahora empieza a 75px del borde
+superior (antes -20px) y termina exacto en el borde inferior — entra completo.
+
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.
