@@ -786,6 +786,14 @@ cargar los mapas si el usuario nunca llega a esa parte — se descartó a propó
 `index.html`) y el pedido explícito del cliente prioriza que se vean listos al llegar por
 sobre ese ahorro marginal. Build y los 55+27 tests estructurales de siempre en verde.
 
+**Fondo de la galería de empanadas — al crema de marca, no blanco (mismo día)**: el cliente
+dijo que el fondo blanco de esa sección "no lo convence". `EmpanadasGallery.jsx` usaba
+`bg-hueso` (`#FBF9F7`, casi blanco puro) — se cambió a `bg-crema` (`#F4F1F1`, el tono cálido
+de marca que ya usa `Ubicaciones.jsx` justo debajo). Las tarjetas de empanada no se tocaron
+(ya son `bg-tinta` oscuro con foto, no blancas — el fondo blanco que molestaba era el de la
+sección, no el de las tarjetas). Verificado visualmente en el navegador con la build real.
+Build y los 55+27 tests estructurales de siempre en verde.
+
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.
