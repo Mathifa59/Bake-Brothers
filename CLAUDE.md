@@ -756,6 +756,23 @@ o Santa Marina]". `og:image:alt` también se generalizó (ya no dice "Caja de Al
 de Bake Brothers"). La imagen (`alfajores-mix-og.jpg`) no se tocó — sigue siendo la misma
 foto real de la caja, el pedido fue solo sobre el texto.
 
+**Mapas: precarga anticipada, no recién al llegar (mismo día)**: el cliente reportó que los
+dos mapas de `Ubicaciones.jsx` "demoran mucho en cargar" y preguntó si podían "ir cargando
+antes de bajar" — con `loading="lazy"` nativo, el navegador recién empezaba a pedir el
+iframe (que arma su propio mapa/tiles del lado de Google, no instantáneo) cuando la sección
+ya estaba a punto de entrar en pantalla, así que el usuario veía el placeholder en blanco
+varios segundos justo al llegar. Se reemplazó `loading="lazy"` por un
+`IntersectionObserver` propio con `rootMargin: '1200px'` sobre la sección completa: el
+`src` real del iframe (antes ausente, `undefined`) recién se asigna cuando la sección está
+a ~1200px de distancia de la pantalla — bastante antes de ser visible, mientras el usuario
+todavía está mirando la galería de empanadas más arriba — pero sigue sin cargar nada si el
+usuario nunca llega a bajar hasta ahí (no es `eager` a ciegas). Verificado real: al cargar
+la página (sección a 2948px de distancia) el `src` de ambos iframes es `null`; scrolleando
+a 1400px (sección todavía a 780px de la pantalla, no visible) el `src` real ya está
+asignado — el mapa tiene de sobra ~780px de scroll (la distancia que falta) para terminar
+de cargar antes de que el usuario lo vea. Build y los 55+27 tests estructurales de siempre
+en verde.
+
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.
