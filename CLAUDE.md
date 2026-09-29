@@ -773,6 +773,19 @@ asignado — el mapa tiene de sobra ~780px de scroll (la distancia que falta) pa
 de cargar antes de que el usuario lo vea. Build y los 55+27 tests estructurales de siempre
 en verde.
 
+**Mapas: precarga desde el inicio, no con margen de scroll (mismo día)**: el cliente
+insistió en que igual se veían cargando al llegar — el margen de 1200px del punto anterior
+no alcanzaba en la práctica. Se simplificó al máximo: se sacó el `IntersectionObserver` por
+completo y el `src` de los dos iframes se asigna directo al renderizar la página (como
+cualquier `<img>`/`<iframe>` normal, sin gating de ningún tipo) — mientras el usuario ve el
+hero y la galería de empanadas, los mapas ya se arman de fondo, con todo ese scroll como
+margen real. Verificado: a `scrollY: 0` (la sección todavía a 2430px de distancia) el `src`
+real de ambos iframes ya está asignado. Se evaluó mantener algún tipo de lazy-load para no
+cargar los mapas si el usuario nunca llega a esa parte — se descartó a propósito: son solo
+2 iframes (livianos comparados con los videos del hero, que ya cargan eager desde
+`index.html`) y el pedido explícito del cliente prioriza que se vean listos al llegar por
+sobre ese ahorro marginal. Build y los 55+27 tests estructurales de siempre en verde.
+
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.
