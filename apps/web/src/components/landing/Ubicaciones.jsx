@@ -22,9 +22,9 @@ import { locales } from '../../config/landing'
 // margen.
 export default function Ubicaciones() {
   return (
-    <section className="bg-crema px-6 py-20 sm:px-12 sm:py-28 lg:px-20">
+    <section className="bg-crema px-6 py-16 sm:px-12 sm:py-20 lg:px-20">
       <div className="mb-10">
-        <h2 className="font-display text-4xl font-semibold text-tinta sm:text-5xl">Nuestros locales</h2>
+        <h1 className="font-display text-4xl font-semibold text-tinta sm:text-5xl">Nuestros locales</h1>
         <p className="mt-3 max-w-md text-gris">Visítanos o pide para recojo en cualquiera de las dos sedes.</p>
       </div>
 

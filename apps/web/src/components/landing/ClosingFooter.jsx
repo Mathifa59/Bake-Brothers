@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
@@ -6,7 +7,7 @@ import { Facebook, Instagram, MapPin, MessageCircle } from 'lucide-react'
 import WhatsAppCTA from './WhatsAppCTA'
 import { locales, redes, mensajeWhatsappGenerico } from '../../config/landing'
 import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
-import { scrollTo, scrollToTop } from '../../hooks/useLenisScroll'
+import { scrollToTop } from '../../hooks/useLenisScroll'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -114,24 +115,23 @@ export default function ClosingFooter({ onVisibilidadCambia }) {
               <span className="font-semibold tracking-wide text-white/70">{redes.handle}</span>
             </div>
 
-            {/* Accesos rápidos a las secciones — pedido explícito del
-                cliente, mismo mecanismo que el logo (scrollTo de Lenis, no
-                hash-links: esta app usa HashRouter para las rutas). */}
+            {/* Accesos rápidos a las otras páginas — antes eran anclas de
+                scroll dentro de la misma vista; con el sitio de varias
+                páginas pasan a ser navegación real (el header ya cubre esto
+                también, este es solo un atajo extra desde el footer). */}
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2 lg:justify-start">
-              <button
-                type="button"
-                onClick={() => scrollTo('#alfajores')}
+              <Link
+                to="/menu"
                 className="rounded-full border border-white/15 px-3.5 py-1.5 text-xs font-semibold text-white/70 transition-colors hover:border-white/40 hover:text-white"
               >
-                Caja de Alfajores
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollTo('#empanadas')}
+                Ver el menú
+              </Link>
+              <Link
+                to="/locales"
                 className="rounded-full border border-white/15 px-3.5 py-1.5 text-xs font-semibold text-white/70 transition-colors hover:border-white/40 hover:text-white"
               >
-                Empanadas
-              </button>
+                Nuestros locales
+              </Link>
             </div>
 
             <div className="mt-4 flex flex-col gap-2.5 sm:flex-row sm:justify-center sm:gap-10 lg:flex-col lg:items-start lg:gap-1.5">

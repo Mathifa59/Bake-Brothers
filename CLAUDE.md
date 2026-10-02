@@ -16,11 +16,14 @@ el modelo multi-tenant del plan original (`plan bb.md`) fue descartado.
 
 Tres piezas:
 
-1. **Landing institucional** (`apps/web`) — **desde 2026-09-27, una sola vista** (una
-   landing de una página, no un sitio multi-página), enfocada en los productos estrella y
-   en empujar a WhatsApp. Marca, accesos directos a WhatsApp/Facebook/Instagram. **Sin
-   carrito, sin checkout, sin pasarela de pagos, sin formularios.** Ver el bloque dedicado
-   más abajo (§7, "Landing de una sola vista") para el detalle completo.
+1. **Landing institucional** (`apps/web`) — fue una sola vista entre 2026-09-27 y
+   2026-09-30; **desde 2026-10-01 es un sitio de 3 páginas con navegación real** (Inicio/
+   Menú/Locales, ver §7 "Replanteo a sitio de varias páginas"), a pedido del cliente tras
+   feedback real de una usuaria. Enfocada en empujar a WhatsApp, marca, accesos directos a
+   WhatsApp/Facebook/Instagram. **Sin carrito, sin checkout, sin pasarela de pagos, sin
+   formularios** — eso no cambió con el replanteo. Ver §7 para el detalle completo de
+   ambas etapas (la de una sola vista queda documentada igual, como historia real del
+   proyecto, aunque ya no sea la versión activa).
 2. **Bot omnicanal** (WhatsApp Business, Facebook Messenger, Instagram) sobre un único
    webhook de Meta. RAG sobre catálogo/promos/FAQs + toma de pedidos estructurada.
 3. **Dashboard/CRM** — gestión de pedidos e inventario, roles por sede, atribución de
@@ -243,6 +246,12 @@ Cambios de rutas respecto a antes:
 - **Semana 4 — Inventario + atribución + cierre**: `stock` conectado al flujo real, atribución de marketing (`campana`/`ctwa_clid`), cierre y entrega.
 
 ### Landing de una sola vista en `apps/web` (2026-09-27) — reemplaza el sitio multi-página
+
+> ⚠ **Etapa histórica, ya no es la versión activa.** Esta sección documenta la landing de
+> una sola vista tal como existió entre 2026-09-27 y 2026-09-30 — se deja completa porque
+> es la historia real del proyecto, pero `apps/web` volvió a ser un sitio de varias páginas
+> desde 2026-10-01 (ver "Replanteo a sitio de varias páginas" más abajo, al final de esta
+> misma sección). No uses esto como referencia de la estructura actual.
 
 Tarea aparte del roadmap del bot/dashboard: `apps/web` pasó de sitio multi-página (Home/
 Catálogo/Producto/Ofertas/Catering/Nosotros/Contacto) a **una sola landing**, orientada 100%
@@ -793,6 +802,129 @@ de marca que ya usa `Ubicaciones.jsx` justo debajo). Las tarjetas de empanada no
 (ya son `bg-tinta` oscuro con foto, no blancas — el fondo blanco que molestaba era el de la
 sección, no el de las tarjetas). Verificado visualmente en el navegador con la build real.
 Build y los 55+27 tests estructurales de siempre en verde.
+
+### Replanteo a sitio de varias páginas (2026-10-01) — reemplaza la landing de una sola vista
+
+La landing de una sola vista (2026-09-27) se reemplazó por un **sitio de 3 páginas con
+navegación real**, a partir de feedback real de una usuaria externa (diseñadora) que probó
+el link en producción: *"arriba no hay nada, ni un menú... asumo que no es lo único que
+ofrecen"* y *"si su logo es Sans Serif, lo lógico no sería que su landing tmb tenga una
+tipografía así? Estás usando Serif"*. El cliente confirmó ambos puntos y pidió el
+replanteo completo ("vamos a hacer un sitio web, con pestañas y navegación... solo pocas
+secciones") — se le presentó un plan por escrito (estructura de páginas + tipografía) y
+se esperó su OK explícito antes de tocar código, como pide la regla de este archivo.
+
+**Diagnóstico antes de proponer nada**: el logo real (`logo-landing.png`/`-blanco.png`) es
+un wordmark Sans Serif redondeado/juguetón — confirmado mirando el archivo real, no de
+memoria. La landing usaba **Fraunces** (Serif de alto contraste) para todos los títulos,
+un choque real de identidad. Por otro lado, el catálogo real (`apps/api/migrations/
+0006_catalogo_real.sql`, la misma fuente de la base de datos) tiene mucho más que
+alfajores y empanadas — tortas, cheesecakes, pies, cajitas dulces, bebidas, cuchareables —
+y la landing de una sola vista solo mostraba 2 de esas categorías, sin ningún nav que
+insinuara que había más.
+
+**Estructura nueva**: `Layout.jsx` (nuevo) es el chrome compartido por las 3 rutas reales
+(`/`, `/menu`, `/locales`) — header, footer y botón flotante se montan una sola vez ahí
+(no por página), así Lenis no se reinicia entre rutas. `Outlet context` pasa
+`setHeroEnPantalla` para que `Inicio.jsx` (única página con hero propio) pueda apagar el
+flotante mientras su CTA está a la vista, mismo patrón que ya existía en la landing de una
+sola vista. Reset de scroll **instantáneo** (no animado) al cambiar de ruta
+(`resetScrollInstant`, nuevo en `useLenisScroll.js` — un cambio de página debe aparecer
+arriba de inmediato, no con el mismo scroll suave de 1.2s que usa "volver arriba" dentro de
+una misma página).
+
+- **`Header.jsx`** (nuevo): sticky, logo + nav (Inicio/Menú/Locales) + botón de WhatsApp +
+  menú hamburguesa en mobile. El activo se marca con **texto oscuro + raya inferior**, no
+  con el naranja de marca — ver el hallazgo de contraste más abajo.
+- **`pages/Inicio.jsx`** (nuevo — **no** `pages/Home.jsx`, ver nota de nombres más abajo):
+  el hero de videos (`VideosHero.jsx`, sin tocar su mecánica) + una sección nueva "Hay
+  mucho más" con 4 tarjetas-teaser (Alfajores/Cuchareables/Empanadas/Postres y Tortas, con
+  fotos reales) que linkean a `/menu` — responde directo al "asumo que no es lo único que
+  ofrecen". `VideosHero.jsx` perdió su propio logo fijo en la esquina (quedaba duplicado
+  con el del header nuevo) y pasó de `h-svh` a `h-[calc(100svh-4rem)] sm:h-[calc(100svh-5rem)]`
+  para no exceder un viewport sumado a la altura real del header (mismo tipo de bug de
+  altura que ya se había encontrado y corregido una vez con el pin-spacer, no se quiso
+  repetir a ciegas). `h1` real de la página: oculto visualmente (`sr-only`), porque el
+  `h2` del hero cambia de texto según el video activo — cada página necesita su propio
+  encabezado real para el orden de encabezados.
+- **`pages/Menu.jsx`** (nuevo): catálogo real agrupado en 5 pestañas (Alfajores,
+  Cuchareables, Empanadas BigBro, Postres y Tortas, Bebidas) — `config/menu.js` trae los
+  datos reales (nombres/precios desde `0006_catalogo_real.sql`, no inventados). Bebidas no
+  tiene fotos reales disponibles → se muestra como lista simple (nombre + precio), no se
+  inventó ninguna imagen (mismo criterio que ya usó 0008 para el catálogo: "sin inventar
+  ningún match dudoso").
+- **`pages/Locales.jsx`** (nuevo): envuelve `Ubicaciones.jsx` sin cambios de fondo (su
+  `h2` pasó a `h1`, es ahora el encabezado real de una página propia en vez de una sección
+  a media página).
+- **`ProductCard.jsx`** (nuevo, generaliza la antigua `EmpanadaCard.jsx`, eliminada):
+  misma tarjeta (foto + nombre + precio + badge de WhatsApp) reusada en las 4 categorías
+  con foto. `EmpanadasGallery.jsx` también se eliminó — su contenido (copy + grid) se
+  volvió datos dentro de `config/menu.js` en vez de un componente de sección aparte,
+  porque ahora es una pestaña entre cinco, no una sección fija de la página.
+- **`Landing.jsx`** eliminado — la vista de una sola página queda completamente
+  reemplazada (no comentada: a diferencia del scaffold de tienda de Semana 1, esta sí era
+  la versión activa hasta ayer, sin motivo real para preservarla aparte del historial de
+  git).
+
+**Cuchareables — categoría nueva, pedida por el cliente**: mandó 4 fotos reales
+(`imagenes/cuchareable {fresa,lucuma,nutella}.jpeg`, `cuchareble alfajor.jpeg` — nombre de
+archivo con la falta de ortografía real del cliente, no corregido en el nombre del
+archivo). Precio real S/15.90 confirmado contra `0006_catalogo_real.sql` (slug
+`cuchareable`, "Postre en vaso de 16oz"). Optimizadas igual que el resto del catálogo:
+resize a 780px de ancho + conversión a `.webp` (Pillow, calidad 82) — mismo criterio ya
+establecido para las fotos de empanada.
+
+**Catálogo real con fotos ya existentes, recién usado**: al revisar qué fotos reales había
+disponibles se encontró que `apps/web/public/img/catalogo/` y `.../combos/` ya tenían ~31
++ 7 fotos reales optimizadas (de la migración 0008, "mapeo de confianza alta") que nunca
+se habían mostrado en ningún lugar de la landing de una sola vista (esa landing solo usaba
+2 videos + 10 fotos de empanadas, un subconjunto chico). Se reusaron 25 de esas fotos
+(redimensionadas de nuevo a 780px, las originales en `catalogo/` están a 1086×1448/~2.3MB
+cada una — muy pesadas para una tarjeta de ~260px) para las categorías "Alfajores" y
+"Postres y Tortas" del Menú nuevo, en `apps/web/public/img/menu/`. Los combos/promos
+quedaron fuera del alcance de este replanteo a propósito (el cliente pidió "pocas
+secciones", no se agregó una sexta pestaña sin que se pidiera).
+
+**Nombres de archivo — colisión real evitada**: `pages/Home.jsx` ya existía en el repo —
+es el Home del scaffold de tienda de Semana 1 (comentado en `App.jsx`, preservado "por si
+se retoma", con su propio hero/ofertas/categorías atado a `CatalogContext`). La primera
+versión de este replanteo escribió la página de inicio nueva directo en `pages/Home.jsx`,
+pisando sin querer ese archivo preservado — detectado revisando `git status` antes de
+commitear (apareció como `M`, no `??`, señal real de que ya existía). Corregido: se
+restauró `pages/Home.jsx` a su contenido original (`git checkout HEAD --`) y la página de
+inicio nueva se guardó en `pages/Inicio.jsx` en su lugar — `App.jsx` lo deja documentado
+explícitamente para que no se repita.
+
+**Tipografía — Fredoka reemplaza a Fraunces**: `index.html` (Google Fonts,
+`Fredoka:wght@500;600;700`) e `index.css` (`--font-display`). Fraunces no queda en ningún
+archivo activo del repo (confirmado por grep). El resto del sistema de color/tipografía no
+se tocó — `--font-sans` (Albert Sans) sigue igual para texto normal.
+
+**Hallazgo real de contraste, corregido antes de dar por terminado el replanteo**: el
+primer diseño del estado "activo" (nav del header, pestañas de categoría del Menú) usaba
+`text-acento`/`bg-acento` (el naranja de marca, `#F28C18`) sobre fondos claros — calculado
+a mano: `#F28C18` sobre `#F4F1F1` da ~2.3:1, y blanco sobre `#F28C18` da ~2.5:1, ambos muy
+por debajo del 4.5:1 que exige WCAG AA para texto normal (el mismo tipo de hallazgo que ya
+había obligado a oscurecer el verde de WhatsApp en la landing de una sola vista, documentado
+más arriba en este archivo). Corregido sin esperar a una auditoría Lighthouse: el nav
+activo pasó a texto bien oscuro (`text-tinta`, contraste máximo) + una raya inferior de
+`acento-oscuro` como señal visual extra; las pestañas de categoría del Menú y el link
+activo del menú mobile pasaron a fondo `bg-tinta`/texto blanco (contraste garantizado) en
+vez de naranja. El naranja de marca se deja donde ya se usaba bien — decorativo (scrollbar,
+ícono del pin de mapas), no como color de texto/fondo con texto encima.
+
+**Verificado real con la build de producción, no solo revisado el código**: las 3 rutas
+reales navegadas en el navegador (`/`, `/menu` con las 5 pestañas probadas una por una,
+`/locales`), el menú mobile (hamburguesa) probado a 375px, el teaser de categorías desde
+Inicio linkeando a `/menu`, el footer con los links nuevos ("Ver el menú"/"Nuestros
+locales", ya no scroll-anchors), y el reset de scroll instantáneo al cambiar de página
+(`window.scrollY === 0` justo después de navegar desde el fondo del footer). **Hallazgo de
+entorno, no del código, ya documentado antes en este archivo**: el servidor estático local
+(`serve`) deja cachear `index.html` sin hash de contenido — después de reconstruir, el
+navegador seguía sirviendo el bundle viejo hasta forzar una recarga con un query param
+nuevo (`?v=N`); no es un problema de Vite ni del sitio, es caché de navegador contra un
+archivo sin hash, y no aplica a Vercel (que si versiona `index.html` correctamente en cada
+deploy). Build y los 55+27 tests estructurales de siempre en verde.
 
 ## 8. Reglas de trabajo
 

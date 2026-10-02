@@ -1,5 +1,8 @@
 import { HashRouter, Routes, Route } from 'react-router-dom'
-import Landing from './pages/Landing'
+import Layout from './pages/Layout'
+import Inicio from './pages/Inicio'
+import Menu from './pages/Menu'
+import Locales from './pages/Locales'
 // Landing de una sola página (2026-09-25) reemplaza el sitio de tienda
 // anterior — estas páginas/rutas quedan comentadas, no borradas, por si se
 // retoman más adelante (catálogo con carrito, catering, etc. no son parte
@@ -89,16 +92,27 @@ import Landing from './pages/Landing'
 //   )
 // }
 
-// La landing no depende del catálogo de la API (todo sale de
-// config/landing.js) ni del Header/Footer de la tienda — por eso no lleva
-// CatalogProvider/CatalogGate acá. HashRouter se mantiene igual (nada pide
-// sacarlo) aunque hoy solo haya una ruta real; "*" cae al mismo Landing.
+// Replanteo a varias páginas (2026-10-01) — antes era una sola vista
+// (Landing.jsx, ver el bloque comentado arriba) sin ningún header/nav
+// visible; feedback real de una usuaria ("arriba no hay nada, ni un menú")
+// llevó a este rediseño. Ninguna página depende del catálogo de la API
+// (todo sale de config/landing.js y config/menu.js) — por eso sigue sin
+// CatalogProvider/CatalogGate acá. Layout.jsx trae el header/footer/botón
+// flotante compartidos por las 3 rutas. La página de inicio real es
+// `pages/Inicio.jsx`, NO `pages/Home.jsx` — ese archivo sigue siendo el
+// Home del scaffold viejo de arriba (preservado tal cual, con su propio
+// hero/ofertas/categorías atado a CatalogContext), un nombre nuevo evitó
+// pisarlo por accidente.
 export default function App() {
   return (
     <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="*" element={<Landing />} />
+        <Route element={<Layout />}>
+          <Route path="/" element={<Inicio />} />
+          <Route path="/menu" element={<Menu />} />
+          <Route path="/locales" element={<Locales />} />
+          <Route path="*" element={<Inicio />} />
+        </Route>
       </Routes>
     </HashRouter>
   )

@@ -57,3 +57,16 @@ export function scrollTo(target) {
 export function scrollToTop() {
   scrollTo(0)
 }
+
+// Reset instantáneo (sin animación) al cambiar de página — distinto de
+// scrollToTop(), que anima. Un cambio de ruta debe aparecer arriba de
+// inmediato, no con el mismo scroll suave de 1.2s que usa el botón "volver
+// arriba" dentro de una misma página (se sentiría como un movimiento no
+// pedido, no como una navegación nueva).
+export function resetScrollInstant() {
+  if (lenisInstance) {
+    lenisInstance.scrollTo(0, { immediate: true, force: true })
+  } else {
+    window.scrollTo(0, 0)
+  }
+}
