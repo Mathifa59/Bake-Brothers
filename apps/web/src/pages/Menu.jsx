@@ -45,7 +45,7 @@ export default function Menu() {
       {/* Pestañas de categoría — scroll horizontal en mobile si no entran.
           Activa: fondo bien oscuro (no el naranja de acento — blanco sobre
           acento da solo ~2.5:1, bajo el 4.5:1 que exige WCAG para texto). */}
-      <div className="-mx-6 mb-10 flex gap-2 overflow-x-auto px-6 sm:mx-0 sm:flex-wrap sm:px-0">
+      <div className="-mx-6 mb-7 flex gap-2 overflow-x-auto px-6 pb-4 sm:mx-0 sm:mb-10 sm:flex-wrap sm:px-0 sm:pb-0">
         {categorias.map((categoria) => (
           <button
             key={categoria.id}

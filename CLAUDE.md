@@ -948,6 +948,14 @@ Menú completo, con URL limpia sin `#`. Build y los 55+27 tests estructurales en
 `h-9 sm:h-11` a `h-12 sm:h-16` en `Header.jsx`. Verificado con geometría real: 64px de alto
 dentro de un header de 81px (desktop), sin tocar los bordes.
 
+**Pestañas del Menú en celular: barra de desliz separada (mismo día)**: con feedback real
+(captura desde el celular del cliente), la barra naranja de scroll horizontal de las
+pestañas de categoría quedaba pegada a los botones. Es la scrollbar nativa del contenedor
+`overflow-x-auto` (estilada con los colores de marca en `index.css`), que se dibuja en el
+borde inferior del contenedor — se separó dándole `pb-4` al contenedor solo en mobile
+(`sm:pb-0`, en desktop las pestañas hacen `flex-wrap` y no hay barra). Verificado: 16px
+entre el botón y el borde del contenedor a 375px de ancho.
+
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.
