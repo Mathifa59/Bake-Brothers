@@ -1,4 +1,4 @@
-import { HashRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Layout from './pages/Layout'
 import Inicio from './pages/Inicio'
 import Menu from './pages/Menu'
@@ -105,7 +105,7 @@ import Locales from './pages/Locales'
 // pisarlo por accidente.
 export default function App() {
   return (
-    <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<Inicio />} />
@@ -114,6 +114,6 @@ export default function App() {
           <Route path="*" element={<Inicio />} />
         </Route>
       </Routes>
-    </HashRouter>
+    </BrowserRouter>
   )
 }

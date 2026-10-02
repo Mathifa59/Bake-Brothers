@@ -32,7 +32,7 @@ export default function Header() {
     <header className="sticky top-0 z-40 border-b border-borde/60 bg-crema/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6 sm:h-20 sm:px-12 lg:px-20">
         <Link to="/" className="shrink-0" onClick={() => setAbierto(false)} aria-label="Bake Brothers — Inicio">
-          <img src="/img/logo-landing.png" alt="Bake Brothers" width={160} height={90} className="h-9 w-auto sm:h-11" />
+          <img src="/img/logo-landing.png" alt="Bake Brothers" width={160} height={90} className="h-12 w-auto sm:h-16" />
         </Link>
 
         <nav className="hidden items-center gap-8 sm:flex">

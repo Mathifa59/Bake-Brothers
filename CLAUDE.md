@@ -926,6 +926,28 @@ nuevo (`?v=N`); no es un problema de Vite ni del sitio, es caché de navegador c
 archivo sin hash, y no aplica a Vercel (que si versiona `index.html` correctamente en cada
 deploy). Build y los 55+27 tests estructurales de siempre en verde.
 
+**`HashRouter` → `BrowserRouter`, URLs limpias (mismo día)**: el cliente preguntó por qué
+la URL real mostraba `bake-brothers.com/#/` — el `#` venía de `HashRouter`, elegido en la
+etapa de landing de una sola vista (ver más arriba, "esta app usa HashRouter para las
+rutas") específicamente para que un `scrollTo('#seccion')` no chocara con el router. Esa
+razón ya no aplica: el sitio ahora tiene rutas reales (`/`, `/menu`, `/locales`), no anclas
+de scroll dentro de una sola vista. `App.jsx` pasó a `BrowserRouter` — mismas `future`
+flags, mismas rutas. Para que esto funcione en producción hace falta que Vercel sirva
+`index.html` también en `/menu`/`/locales` (si no, una recarga directa o un link compartido
+a esas rutas daría 404 — Vercel no sabe que son rutas de cliente, no hay un archivo real
+ahí). Se agregó `rewrites: [{ source: "/(.*)", destination: "/index.html" }]` al
+`vercel.json` de la raíz (el mismo que ya usa `apps/web`, sin afectar a `apps/admin` que
+tiene su propio `vercel.json` que lo pisa). `sitemap.xml` ganó `/menu` y `/locales` como
+URLs reales indexables (antes solo tenía la raíz, cuando era una sola vista). Verificado
+real contra la build de producción servida con `serve -s` (mismo comportamiento de
+fallback a `index.html` que usa Vercel): navegar directo a `localhost:4173/menu` (sin pasar
+por `/`, como haría alguien abriendo un link compartido o recargando la página) carga el
+Menú completo, con URL limpia sin `#`. Build y los 55+27 tests estructurales en verde.
+
+**Logo del header, más grande (mismo día)**: pedido explícito del cliente — pasó de
+`h-9 sm:h-11` a `h-12 sm:h-16` en `Header.jsx`. Verificado con geometría real: 64px de alto
+dentro de un header de 81px (desktop), sin tocar los bordes.
+
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.
