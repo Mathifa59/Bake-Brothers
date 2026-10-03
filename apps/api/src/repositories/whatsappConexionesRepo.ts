@@ -47,6 +47,21 @@ export async function conexionActivaPorPhoneNumberId(db: Db, phoneNumberId: stri
   return rows[0] ? filaAConexion(rows[0]) : null
 }
 
+/**
+ * De una lista de phone_number_id, los que tienen una conexión ACTIVA. Es el
+ * criterio de "número conectado": el webhook ignora todo evento de un número
+ * que no esté acá (con una app de Meta compartida por varios clientes de
+ * DevHorses, un número ajeno nunca debe activar al bot de Bake Brothers).
+ */
+export async function phoneNumberIdsConectados(db: Db, phoneNumberIds: string[]): Promise<Set<string>> {
+  if (phoneNumberIds.length === 0) return new Set()
+  const { rows } = await db.query(
+    `select phone_number_id from whatsapp_conexiones where estado = 'activa' and phone_number_id = any($1::text[])`,
+    [phoneNumberIds]
+  )
+  return new Set(rows.map((r) => r.phone_number_id as string))
+}
+
 export interface RegistroConexionWhatsApp {
   sedeId: string
   wabaId: string

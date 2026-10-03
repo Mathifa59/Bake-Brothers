@@ -11,10 +11,18 @@ export interface ConversacionParaResponder {
   estado: EstadoConversacionDb
 }
 
-/** Resuelve sede_id a partir del whatsapp_phone_number_id real que manda Meta — null si ninguna sede lo tiene cargado. */
+/**
+ * Resuelve sede_id a partir del phone_number_id real que manda Meta, usando la
+ * conexión ACTIVA del número (whatsapp_conexiones) — null si ninguna sede lo
+ * tiene conectado. El webhook ya descarta los números no conectados antes de
+ * llegar acá (routes/webhook.ts), así que en el flujo normal nunca es null.
+ */
 export async function sedePorPhoneNumberId(client: pg.PoolClient, phoneNumberId: string): Promise<string | null> {
-  const { rows } = await client.query(`select id from sedes where whatsapp_phone_number_id = $1`, [phoneNumberId])
-  return rows[0]?.id ?? null
+  const { rows } = await client.query(
+    `select sede_id from whatsapp_conexiones where phone_number_id = $1 and estado = 'activa'`,
+    [phoneNumberId]
+  )
+  return rows[0]?.sede_id ?? null
 }
 
 /**

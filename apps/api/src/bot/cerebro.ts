@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type pg from 'pg'
-import { puedeTransicionarConversacion, type EstadoConversacion } from '@bakebrothers/domain'
+import { puedeTransicionarConversacion, debeAutoRetornarAlBot, type EstadoConversacion } from '@bakebrothers/domain'
+import { env } from '../env.js'
 import {
   consultarPrecio,
   consultarDisponibilidad,
@@ -236,6 +237,48 @@ export interface TurnoHistorial {
   rol: 'cliente' | 'bot' | 'operador'
   texto: string
   en: string
+  /**
+   * Mensaje traído de la sincronización de historial de Coexistence (lo que
+   * el negocio y el cliente se escribieron ANTES de conectar el número).
+   * Sirve solo para que un humano lo lea en el dashboard: NUNCA se manda al
+   * modelo (ver construirMensajesParaModelo) — son hasta 20 mensajes por
+   * conversación que solo inflarían el costo de cada turno.
+   */
+  importado?: boolean
+}
+
+/**
+ * Arma los `messages` que se le mandan a Claude a partir del historial real.
+ * Pura y sin I/O (se prueba sin llamar al modelo).
+ *
+ *  - Los mensajes `importado` se EXCLUYEN por completo: son contexto
+ *    histórico para el humano, no para el bot, y cada uno se pagaría en cada
+ *    turno de la conversación.
+ *  - Los mensajes del `operador` (el equipo respondiendo, desde el dashboard o
+ *    desde el celular) SÍ entran, como turnos del asistente: cuando el bot
+ *    retoma una conversación necesita saber qué le dijo el equipo al cliente.
+ *  - La API de Claude exige que la conversación empiece con un turno de
+ *    usuario. Si lo primero que queda es del asistente (típico: el equipo le
+ *    escribió primero al cliente desde el celular), se antepone un turno de
+ *    usuario neutro en vez de descartar ese contexto.
+ */
+export function construirMensajesParaModelo(
+  historialPrevio: TurnoHistorial[],
+  mensajeEntrante: string
+): Anthropic.MessageParam[] {
+  const mensajes: Anthropic.MessageParam[] = historialPrevio
+    .filter((h) => !h.importado)
+    .map(
+      (h): Anthropic.MessageParam => ({
+        role: h.rol === 'cliente' ? 'user' : 'assistant',
+        content: h.texto,
+      })
+    )
+  if (mensajes.length > 0 && mensajes[0].role !== 'user') {
+    mensajes.unshift({ role: 'user', content: '[Inicio de la conversación]' })
+  }
+  mensajes.push({ role: 'user', content: mensajeEntrante })
+  return mensajes
 }
 
 export interface ResultadoTurno {
@@ -422,15 +465,7 @@ export async function evaluarTurno(
 
   const anthropic = new Anthropic({ apiKey: obtenerApiKey() })
 
-  const mensajes: Anthropic.MessageParam[] = [
-    ...historialPrevio.map(
-      (h): Anthropic.MessageParam => ({
-        role: h.rol === 'cliente' ? 'user' : 'assistant',
-        content: h.texto,
-      })
-    ),
-    { role: 'user', content: mensajeEntrante },
-  ]
+  const mensajes = construirMensajesParaModelo(historialPrevio, mensajeEntrante)
 
   const herramientasUsadas: string[] = []
   let debeEscalar = false
@@ -562,14 +597,45 @@ export async function procesarMensajeEntrante(
   mensajeTexto: string
 ): Promise<ResultadoTurno | null> {
   const { rows } = await client.query(
-    `select estado, historial, sede_id, canal from conversaciones where id = $1 and tenant_id = $2`,
+    `select estado, historial, sede_id, canal, pausada_por_echo, ultimo_mensaje_humano_en
+     from conversaciones where id = $1 and tenant_id = $2`,
     [conversacionId, tenantId]
   )
   const fila = rows[0]
   if (!fila) return null
 
   const historialPrevio = (fila.historial ?? []) as TurnoHistorial[]
-  const estadoNormalizado: EstadoConversacion = fila.estado === 'cerrada' ? 'activa' : fila.estado
+
+  // Auto-retorno del bot (Coexistence) — evaluación perezosa, sin cron: solo
+  // ahora, al llegar un mensaje nuevo del cliente. Aplica ÚNICAMENTE a las
+  // conversaciones que quedaron `atendida_por_operador` por un echo (el equipo
+  // respondió desde el celular) y cuyo último mensaje humano ya tiene más de
+  // AUTO_RETORNO_BOT_HORAS. Una escalada del bot que tomó un humano nunca
+  // entra acá (pausada_por_echo = false, ver debeAutoRetornarAlBot). El UPDATE
+  // repite las condiciones: si otro proceso movió la conversación entre el
+  // select y este update (otro echo, un operador), no pisa nada.
+  let estadoActual: EstadoConversacion = fila.estado
+  if (
+    debeAutoRetornarAlBot(
+      {
+        estado: fila.estado,
+        pausadaPorEcho: fila.pausada_por_echo === true,
+        ultimoMensajeHumanoEn: fila.ultimo_mensaje_humano_en ?? null,
+      },
+      new Date(),
+      env.AUTO_RETORNO_BOT_HORAS
+    )
+  ) {
+    const retorno = await client.query(
+      `update conversaciones
+       set estado = 'activa',
+           contexto = contexto || jsonb_build_object('autoRetorno', jsonb_build_object('en', now(), 'horas', $3::numeric))
+       where id = $1 and tenant_id = $2 and estado = 'atendida_por_operador' and pausada_por_echo`,
+      [conversacionId, tenantId, env.AUTO_RETORNO_BOT_HORAS]
+    )
+    if (retorno.rowCount) estadoActual = 'activa'
+  }
+  const estadoNormalizado: EstadoConversacion = estadoActual === 'cerrada' ? 'activa' : estadoActual
 
   const ahora = new Date().toISOString()
   const entradaCliente: TurnoHistorial = { rol: 'cliente', texto: mensajeTexto, en: ahora }

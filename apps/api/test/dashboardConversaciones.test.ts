@@ -27,7 +27,6 @@ const JWT_SM = process.env.TEST_JWT_OPERADOR_SM
 const JWT_ADMIN = process.env.TEST_JWT_ADMIN
 const tieneJwts = !!JWT_ALAMEDA && !!JWT_SM && !!JWT_ADMIN
 
-process.env.META_WHATSAPP_TOKEN ||= 'dummy-token-para-test-fetch-mockeado'
 
 const fetchReal = globalThis.fetch
 const llamadasGraph: Array<[string, RequestInit]> = []

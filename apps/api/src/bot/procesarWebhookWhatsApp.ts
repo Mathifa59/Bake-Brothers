@@ -33,7 +33,7 @@ async function forzarEscaladaDeSeguridad(pool: pg.Pool, conversacionId: string, 
  * quede visible en el dashboard — nunca dejar un mensaje real sin respuesta
  * y sin que nadie se entere. Esto cubre TANTO que el cerebro falle al
  * calcular la respuesta COMO que el envío real por WhatsApp falle después de
- * calcularla bien (ej. sin META_WHATSAPP_TOKEN todavía) — desde el punto de
+ * calcularla bien (ej. el número sin conexión activa en whatsapp_conexiones) — desde el punto de
  * vista del cliente, las dos son "nunca le llegó nada".
  *
  * Dos transacciones separadas a propósito (no una sola) para resolver la

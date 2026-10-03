@@ -5,6 +5,7 @@ import { verificarFirmaWebhook } from '../bot/meta.js'
 import { parsearMensajesWhatsApp, detectarCanalNoWhatsApp } from '../bot/parsearMensajesWhatsApp.js'
 import { procesarMensajeWhatsAppEnBackground } from '../bot/procesarWebhookWhatsApp.js'
 import { marcarMensajeComoProcesado } from '../repositories/conversacionesRepo.js'
+import { phoneNumberIdsConectados } from '../repositories/whatsappConexionesRepo.js'
 import { guardarEventoMetaSinProcesar } from '../repositories/eventosMetaRepo.js'
 import { pool, tenantPorSlug } from '../db.js'
 
@@ -94,7 +95,21 @@ export function webhookRoutes(app: FastifyInstance) {
         return reply.code(200).send()
       }
 
-      const mensajes = parsearMensajesWhatsApp(req.body)
+      // Solo se atienden mensajes de números CONECTADOS (whatsapp_conexiones,
+      // conexión activa). La app de Meta es de DevHorses y puede recibir
+      // eventos de otros números/clientes: ninguno de esos debe activar al
+      // bot de Bake Brothers ni consumir idempotencia. Se loggea y se ignora
+      // (200 igual — Meta no debe reintentar algo que nunca vamos a procesar).
+      const parseados = parsearMensajesWhatsApp(req.body)
+      const conectados = await phoneNumberIdsConectados(pool, [...new Set(parseados.map((m) => m.phoneNumberId))])
+      const mensajes = parseados.filter((m) => {
+        if (conectados.has(m.phoneNumberId)) return true
+        app.log.warn(
+          { phoneNumberId: m.phoneNumberId, mensajeId: m.mensajeId },
+          'Mensaje de WhatsApp de un número NO conectado (sin conexión activa) — ignorado'
+        )
+        return false
+      })
       const mensajesNuevos = []
       for (const mensaje of mensajes) {
         // Síncrono a propósito (ver docstring de arriba) — una sola query rápida.
