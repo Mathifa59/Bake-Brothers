@@ -42,9 +42,6 @@ const hayBaseDeDatosReal =
 // obtenerApiKey() de cerebro.ts exige que la variable exista — el SDK está
 // mockeado abajo, nunca sale un request real.
 process.env.ANTHROPIC_API_KEY ||= 'dummy-para-test-mockeado-nunca-sale-un-request-real'
-// enviarMensajeMeta (bot/meta.ts) exige esta variable para no fallar de
-// entrada — fetch está mockeado abajo, nunca sale un request real a Meta.
-process.env.META_WHATSAPP_TOKEN ||= 'dummy-token-para-test-fetch-mockeado'
 
 const mockCreate = vi.fn()
 vi.mock('@anthropic-ai/sdk', () => ({
@@ -59,6 +56,7 @@ vi.stubGlobal('fetch', mockFetch)
 // vi.mock se hoistea arriba de este import — app.js (y cerebro.ts dentro)
 // ya recibe el SDK mockeado cuando se importa acá.
 const { buildApp } = await import('../src/app.js')
+const { sembrarConexion, quitarConexion, TOKEN_DE_PRUEBA } = await import('./conexionDePrueba.js')
 
 const esperar = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -96,14 +94,24 @@ describe.skipIf(!hayBaseDeDatosReal)('POST /webhook — async + idempotencia rea
   const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL })
   let client: pg.PoolClient
   let tenantId: string
+  let sedeDePruebaId: string
+  const PHONE_ID = 'PHONE_ID_DE_PRUEBA'
 
   beforeAll(async () => {
     client = await pool.connect()
     const { rows } = await client.query(`select id from tenants where slug = 'bake-brothers'`)
     tenantId = rows[0].id
+    // El número de prueba tiene que estar CONECTADO a una sede (token cifrado
+    // en whatsapp_conexiones) para que el envío real pueda salir — ya no hay
+    // un token global por variable de entorno.
+    sedeDePruebaId = (await client.query(`insert into sedes (nombre) values ('TEST webhook whatsapp') returning id`)).rows[0].id
+    await sembrarConexion(client, { sedeId: sedeDePruebaId, phoneNumberId: PHONE_ID })
   })
 
   afterAll(async () => {
+    await quitarConexion(client, { sedeId: sedeDePruebaId, phoneNumberId: PHONE_ID })
+    await client.query(`delete from conversaciones where sede_id = $1`, [sedeDePruebaId])
+    await client.query(`delete from sedes where id = $1`, [sedeDePruebaId])
     client.release()
     await pool.end()
   })
@@ -196,7 +204,7 @@ describe.skipIf(!hayBaseDeDatosReal)('POST /webhook — async + idempotencia rea
         expect(mockFetch).toHaveBeenCalledTimes(1)
         const [url, opciones] = mockFetch.mock.calls[0] as [string, RequestInit]
         expect(url).toBe('https://graph.facebook.com/v21.0/PHONE_ID_DE_PRUEBA/messages')
-        expect((opciones.headers as Record<string, string>).Authorization).toBe('Bearer dummy-token-para-test-fetch-mockeado')
+        expect((opciones.headers as Record<string, string>).Authorization).toBe(`Bearer ${TOKEN_DE_PRUEBA}`)
         const cuerpo = JSON.parse(opciones.body as string)
         expect(cuerpo.to).toBe(telefono)
         expect(cuerpo.text.body).toMatch(/9[.,]90/)

@@ -50,6 +50,7 @@ const mockFetch = vi.fn(async (url: unknown, opciones?: RequestInit) => {
 vi.stubGlobal('fetch', mockFetch)
 
 const { buildApp } = await import('../src/app.js')
+const { sembrarConexion, quitarConexion, TOKEN_DE_PRUEBA } = await import('./conexionDePrueba.js')
 
 const SEDE_CEDROS = '2624c21c-0248-4a88-b234-7fc88005104c'
 const SEDE_SANTA_MARINA = '0638b47f-854b-47d7-aed1-56b0115c5d31'
@@ -64,15 +65,15 @@ describe.skipIf(!hayBaseDeDatosReal || !tieneJwts)('POST /api/dashboard/conversa
     client = await pool.connect()
     const { rows } = await client.query(`select id from tenants where slug = 'bake-brothers'`)
     tenantId = rows[0].id
-    // Ninguna sede real tiene whatsapp_phone_number_id todavía (sin
-    // credenciales reales de Meta) — se fija uno de prueba en Cedros solo
-    // para los tests que necesitan que el envío real "pueda" resolver a
-    // dónde mandar, y se restaura a null al terminar.
-    await client.query(`update sedes set whatsapp_phone_number_id = $1 where id = $2`, [PHONE_ID_TEST, SEDE_CEDROS])
+    // Ninguna sede real tiene una conexión de WhatsApp todavía — se deja una
+    // conexión de prueba (token cifrado de verdad) en Cedros solo para los
+    // tests que necesitan que el envío real "pueda" resolver a dónde mandar
+    // y con qué token, y se quita al terminar.
+    await sembrarConexion(client, { sedeId: SEDE_CEDROS, phoneNumberId: PHONE_ID_TEST })
   })
 
   afterAll(async () => {
-    await client.query(`update sedes set whatsapp_phone_number_id = null where id = $1`, [SEDE_CEDROS])
+    await quitarConexion(client, { sedeId: SEDE_CEDROS, phoneNumberId: PHONE_ID_TEST })
     client.release()
     await pool.end()
   })
@@ -124,7 +125,7 @@ describe.skipIf(!hayBaseDeDatosReal || !tieneJwts)('POST /api/dashboard/conversa
       expect(llamadasGraph.length).toBe(1)
       const [url, opciones] = llamadasGraph[0]
       expect(url).toBe(`https://graph.facebook.com/v21.0/${PHONE_ID_TEST}/messages`)
-      expect((opciones.headers as Record<string, string>).Authorization).toBe('Bearer dummy-token-para-test-fetch-mockeado')
+      expect((opciones.headers as Record<string, string>).Authorization).toBe(`Bearer ${TOKEN_DE_PRUEBA}`)
       const body = JSON.parse(opciones.body as string)
       expect(body).toEqual({
         messaging_product: 'whatsapp',
@@ -232,7 +233,7 @@ describe.skipIf(!hayBaseDeDatosReal || !tieneJwts)('POST /api/dashboard/conversa
     }
   })
 
-  it('una sede sin whatsapp_phone_number_id configurado no se puede responder — 422', async () => {
+  it('una sede sin conexión de WhatsApp activa no se puede responder — 422', async () => {
     // Santa Marina no tiene número de prueba fijado (solo Cedros, en beforeAll).
     const id = await crearConversacionDePrueba(SEDE_SANTA_MARINA, '51999888776')
 

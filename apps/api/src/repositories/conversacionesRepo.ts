@@ -17,10 +17,19 @@ export async function sedePorPhoneNumberId(client: pg.PoolClient, phoneNumberId:
   return rows[0]?.id ?? null
 }
 
-/** Dirección inversa de sedePorPhoneNumberId: el número real desde el que hay que responder por WhatsApp. */
+/**
+ * Dirección inversa de sedePorPhoneNumberId: el número real desde el que hay
+ * que responder por WhatsApp. Sale de la conexión ACTIVA de la sede
+ * (whatsapp_conexiones), no de sedes.whatsapp_phone_number_id: ese campo es
+ * solo un espejo, y sin conexión activa no hay token con el que enviar — la
+ * sede se considera "sin WhatsApp configurado".
+ */
 export async function phoneNumberIdPorSede(client: pg.PoolClient, sedeId: string): Promise<string | null> {
-  const { rows } = await client.query(`select whatsapp_phone_number_id from sedes where id = $1`, [sedeId])
-  return rows[0]?.whatsapp_phone_number_id ?? null
+  const { rows } = await client.query(
+    `select phone_number_id from whatsapp_conexiones where sede_id = $1 and estado = 'activa'`,
+    [sedeId]
+  )
+  return rows[0]?.phone_number_id ?? null
 }
 
 /** Lee una conversación por id, dentro del tenant — para la bandeja del dashboard (routes/dashboardConversaciones.ts). */

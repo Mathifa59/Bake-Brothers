@@ -39,5 +39,8 @@ export {
   esEstadoConversacion,
   puedeTransicionarConversacion,
   estadoConversacionLegible,
+  debeAutoRetornarAlBot,
+  HORAS_AUTO_RETORNO_BOT_POR_DEFECTO,
   type EstadoConversacion,
+  type ConversacionParaAutoRetorno,
 } from './conversationStatus.js'
