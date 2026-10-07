@@ -1,6 +1,64 @@
 export { SIZE_FACTORS, EXTRA_PRICE, type TamanoId } from './constants.js'
 
 export {
+  OFFSET_LIMA,
+  partesLima,
+  fechaLimaISO,
+  sumarDiasISO,
+  inicioDiaLima,
+  diaSemanaLegible,
+  type PartesLima,
+} from './zonaLima.js'
+
+export {
+  cuentaComoIngreso,
+  sumarIngresos,
+  ventasPorHora,
+  ventanasComparacion,
+  variacionPorcentual,
+  type PedidoVenta,
+  type VentaHora,
+  type VentanaComparacion,
+} from './resumenDia.js'
+
+export {
+  tiemposDeRespuesta,
+  resumirAtencion,
+  type TurnoAtencion,
+  type TiemposRespuesta,
+  type ResumenAtencion,
+} from './atencion.js'
+
+export {
+  segmentarClientes,
+  DIAS_SIN_COMPRAR,
+  COMPRAS_FRECUENTE,
+  type ClienteSegmentable,
+  type PedidoDeCliente,
+  type SegmentosClientes,
+} from './segmentosClientes.js'
+
+export {
+  COLUMNAS_PRODUCCION,
+  columnaDeProduccion,
+  accionDeProduccion,
+  armarTablero,
+  type ColumnaProduccion,
+  type AccionProduccion,
+  type TableroProduccion,
+} from './tableroProduccion.js'
+
+export {
+  construirAlertas,
+  antiguedadLegible,
+  type StockAgotado,
+  type PedidoPreProduccion,
+  type ConversacionEscalada,
+  type EntradaAlertas,
+  type AlertasControlTower,
+} from './alertas.js'
+
+export {
   precioPorTamano,
   calcularPrecioLinea,
   calcularSubtotal,

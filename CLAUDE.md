@@ -956,6 +956,64 @@ borde inferior del contenedor — se separó dándole `pb-4` al contenedor solo 
 (`sm:pb-0`, en desktop las pestañas hacen `flex-wrap` y no hay barra). Verificado: 16px
 entre el botón y el borde del contenedor a 375px de ancho.
 
+### Dashboard → "Bake OS" (2026-10-06, rama `feature/bake-os`, sin mergear a `main`)
+
+El dashboard (`apps/admin`) evoluciona hacia la visión "Bake OS" del cliente (prototipo en
+capturas, carpeta `referencia-bake-os`, fuera del repo). **Es la misma app** (mismo login,
+mismos datos, misma URL `HashRouter`): se cambió el diseño y se agregaron secciones; Pedidos,
+Clientes, Stock, Métricas, Conversaciones, Atribución y Nuevo pedido se adaptaron y reubicaron,
+no se reescribieron (salvo Pedidos/Clientes, que ganaron versión de tarjetas para celular).
+
+- **Diseño** (primero celular): paleta muestreada de las capturas en tokens de `index.css`
+  (fondo `#F5F4F0`, tarjetas `#FFFEFA`, hero `#2C2825`, botón `#22211D`, acento `#D86820`). El
+  naranja del prototipo da ~3.5:1 sobre el crema, así que **todo texto/contador naranja usa
+  `acento-oscuro #B4520F`** (~4.6:1, AA). Menú de secciones horizontal arriba (scroll en
+  celular, la activa se centra sola), encabezado "Bake OS" con campana + contador (= alertas
+  activas del Control Tower), fecha en hora de Lima, saludo según la hora de Lima.
+  "Acción rápida" = Nuevo pedido. Divergencias deliberadas con el prototipo: **sin puntajes
+  inventados** (nada de "salud operativa 86/100" ni "producción 82%") y sin cifras de ejemplo.
+- **Nombre en el saludo — migración 0031** (`usuarios_dashboard.nombre`, nullable;
+  `adminbake@` = "Javier"; las cuentas de sede quedan sin nombre → "Equipo Cedros"/"Equipo
+  Santa Marina"). **0031 va junto con la 0030 (rama `feature/coexistencia`) en el deploy final,
+  en orden 0030 → 0031; NO está aplicada al Supabase real.** `AuthContext` reintenta sin la
+  columna si no existe, para que el panel no deje a nadie sin acceso si se despliega antes.
+- **Lógica nueva, pura y con tests, en `packages/domain`** (`zonaLima`, `resumenDia`, `atencion`,
+  `segmentosClientes`, `tableroProduccion`, `alertas`; 25 tests en `bakeOs.test.ts`). Hora de
+  Lima con offset fijo -05:00 (sin horario de verano), nunca la del dispositivo.
+- **Resumen**: KPIs del día desde `metricas_kpis` (existente). **Comparación contra el mismo día
+  de la semana anterior HASTA LA MISMA HORA de Lima, no contra el día completo** —
+  `metricas_kpis` corta por día, no por hora. En vez de duplicar la lógica de ingreso en otra
+  función SQL, ambos cortes (hoy hasta ahora / semana anterior hasta la misma hora) se suman en
+  el dominio con `cuentaComoIngreso`, la misma definición (todo menos `cancelled`) que ya
+  replica `metricas_kpis`, sobre los pedidos de esas dos ventanas. El texto en pantalla lo dice
+  ("vs. martes anterior hasta las 8:30 p. m." + nota al pie). Ventas por hora: pedidos de hoy
+  agrupados por hora de Lima (sin migración). Prioridades del día = las alertas reales.
+- **Producción**: tablero Por iniciar (`confirmed`+`paid`) / En producción / Listo
+  (`out_for_delivery`), con botones que solo ofrecen transiciones válidas del dominio y el
+  trigger de la base; **`payment_pending` es un contador aparte** (la máquina no permite
+  producirlo sin pagar). Realtime sobre `orders`.
+- **Control Tower**: solo alertas reales — productos agotados (`stock.disponible=false`),
+  combos por revisar (`requiere_confirmar_combo` en pedidos que aún no entran a producción: ese
+  flag no tiene "ya revisado", se da por revisado al pasar a producción), conversaciones
+  `escalada` sin atender y pedidos `paid` sin empezar. Pedidos/conversaciones por Realtime;
+  `stock` no está en la publicación de Realtime → refresco cada 60 s y al volver a la pestaña.
+- **Clientes**: segmentos (2+ compras no canceladas / última compra hace más de 30 días / nuevos
+  del mes en Lima) con los datos existentes. De paso se corrigió el tope silencioso de 1000 filas
+  de PostgREST con paginación (`traerTodo`).
+- **Atención**: tiempo de primera respuesta del bot y humana desde `conversaciones.historial`
+  (función pura en el dominio; humana = desde que el bot derivó hasta la primera respuesta de una
+  persona). **Aviso en pantalla: la métrica humana aún no cuenta las respuestas desde el celular**
+  (hasta que los echoes de Coexistence existan, solo cuentan las dadas desde el panel).
+- **"Próximamente"** (sin datos falsos, cada una dice qué falta del cliente): Manifiesto, Modo
+  Equipo, Inventario (valor y merma), Marketing, Contenido, Academia, Resultados, Equipo y
+  Conexiones (aquí vivirá la conexión de WhatsApp de `feature/coexistencia`).
+- **Verificación**: capturas en vista de celular (375×812) contra un entorno local con **RLS
+  real** (Postgres embebido + PostgREST con JWT firmado; Docker Desktop no arrancaba y el MCP de
+  Supabase daba timeout): admin ve 15 pedidos, operador Cedros 13, Santa Marina 2; las cifras de
+  pantalla coinciden con los datos sembrados (ventas S/ 541, +116.4% vs. S/ 250 de la semana
+  anterior hasta la misma hora, 8 alertas = 3 en Cedros por RLS, etc.). No se probó contra el
+  Supabase real ni con Realtime (el entorno local no tiene websocket).
+
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.

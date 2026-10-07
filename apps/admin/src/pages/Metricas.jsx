@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { useMetricas } from '../hooks/useMetricas'
 import { supabase } from '../lib/supabase'
 import GraficoBarras from '../components/GraficoBarras'
+import { Portada } from '../components/bakeos/ui'
 
 const formatoMoneda = (n) => `S/ ${Number(n ?? 0).toFixed(2)}`
 
@@ -132,9 +133,10 @@ export default function Metricas() {
   }, [tendencia, vistaGrafico])
 
   return (
-    <div className="p-6">
+    <>
+      <Portada titulo="Métricas" subtitulo="Ingresos, pedidos y productos más vendidos" />
+      <div className="py-4">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-bold">Métricas</h1>
         {esAdmin ? (
           <select
             value={sedeId ?? ''}
@@ -249,6 +251,7 @@ export default function Metricas() {
           </p>
         </>
       )}
-    </div>
+      </div>
+    </>
   )
 }

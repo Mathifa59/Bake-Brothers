@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 const AuthContext = createContext(null)
 
 // session: la sesión de Supabase Auth (null = no logueado).
-// perfil: { rol, sedeId } leído de usuarios_dashboard tras el login — null
+// perfil: { rol, sedeId, sedeNombre, nombre } leído de usuarios_dashboard tras el login — null
 // mientras carga, o si el usuario se autenticó pero no tiene fila ahí (no
 // tiene acceso al panel, aunque su login en Supabase Auth sea válido).
 export function AuthProvider({ children }) {
@@ -26,22 +26,30 @@ export function AuthProvider({ children }) {
       return
     }
     setCargandoPerfil(true)
-    supabase
-      .from('usuarios_dashboard')
-      .select('rol, sede_id, sedes(nombre)')
-      .eq('id', session.user.id)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (error) {
-          console.error('No se pudo leer usuarios_dashboard', error)
-          setPerfil(null)
-        } else {
-          setPerfil(
-            data ? { rol: data.rol, sedeId: data.sede_id, sedeNombre: data.sedes?.nombre ?? null } : null
-          )
-        }
-        setCargandoPerfil(false)
-      })
+    // `nombre` (migración 0031) es opcional. Si el panel llega a producción
+    // antes que esa migración, la consulta con la columna falla — en vez de
+    // dejar a todo el equipo sin acceso, se reintenta sin ella (saludo
+    // genérico) hasta que la migración esté aplicada.
+    const leerPerfil = async () => {
+      const consulta = (columnas) =>
+        supabase.from('usuarios_dashboard').select(columnas).eq('id', session.user.id).maybeSingle()
+      let { data, error } = await consulta('rol, sede_id, nombre, sedes(nombre)')
+      if (error && /nombre/i.test(error.message) && /column|columna/i.test(error.message)) {
+        ;({ data, error } = await consulta('rol, sede_id, sedes(nombre)'))
+      }
+      if (error) {
+        console.error('No se pudo leer usuarios_dashboard', error)
+        setPerfil(null)
+      } else {
+        setPerfil(
+          data
+            ? { rol: data.rol, sedeId: data.sede_id, sedeNombre: data.sedes?.nombre ?? null, nombre: data.nombre ?? null }
+            : null
+        )
+      }
+      setCargandoPerfil(false)
+    }
+    leerPerfil()
   }, [session])
 
   const login = (email, password) => supabase.auth.signInWithPassword({ email, password })

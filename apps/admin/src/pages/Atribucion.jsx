@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { Portada } from '../components/bakeos/ui'
 
 const NOMBRE_CANAL = { web: 'Web', whatsapp: 'WhatsApp', facebook: 'Facebook', instagram: 'Instagram' }
 
@@ -29,8 +30,9 @@ export default function Atribucion() {
   const total = pedidos?.length ?? 0
 
   return (
-    <div className="p-6">
-      <h1 className="mb-4 text-lg font-bold">Atribución por canal</h1>
+    <>
+      <Portada titulo="Atribución" subtitulo="De qué canal llegan los pedidos" />
+      <div className="py-4">
 
       <div className="mb-6 flex flex-wrap items-end gap-3">
         <div>
@@ -90,6 +92,7 @@ export default function Atribucion() {
           )}
         </>
       )}
-    </div>
+      </div>
+    </>
   )
 }

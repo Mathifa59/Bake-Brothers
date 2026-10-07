@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 const SELECT =
-  'numero, canal, tipo_entrega, fecha_entrega, horario_entrega, estado, total, sede_id, creado_en, requiere_confirmar_combo, sedes(nombre)'
+  'numero, canal, tipo_entrega, fecha_entrega, horario_entrega, estado, total, sede_id, creado_en, requiere_confirmar_combo, sedes(nombre), customers(nombre)'
 
 // Fetch + cambio de estado de pedidos, reusado por la pantalla de Pedidos
 // (todos los que ve el usuario según RLS) y por el historial de un cliente

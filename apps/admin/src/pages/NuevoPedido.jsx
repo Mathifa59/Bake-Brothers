@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { crearPedidoDashboard, obtenerComprobantePdfUrl } from '../lib/apiClient'
+import { Portada } from '../components/bakeos/ui'
 
 // Placeholder simple para productos sin foto_url — a propósito no es la
 // versión con gradiente de apps/web (ProductImage.jsx): es una herramienta
@@ -241,7 +242,7 @@ export default function NuevoPedido() {
 
   if (resultado) {
     return (
-      <div className="p-6">
+      <div className="py-4">
         <div className="mx-auto max-w-md rounded-2xl border border-borde/60 bg-white p-6 text-center">
           <p className="text-3xl">🎉</p>
           <p className="mt-2 text-lg font-bold">Pedido {resultado.numero} registrado</p>
@@ -269,8 +270,9 @@ export default function NuevoPedido() {
   }
 
   return (
-    <div className="p-6">
-      <h1 className="mb-4 text-lg font-bold">Nuevo pedido</h1>
+    <>
+      <Portada titulo="Nuevo pedido" subtitulo="Registra un pedido a mano" accion={false} />
+      <div className="py-4">
 
       {error && (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -574,6 +576,7 @@ export default function NuevoPedido() {
           {enviando ? 'Registrando…' : 'Registrar pedido'}
         </button>
       </div>
-    </div>
+      </div>
+    </>
   )
 }

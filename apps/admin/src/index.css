@@ -1,19 +1,31 @@
 @import "tailwindcss";
 
+/* Paleta Bake OS — muestreada de las capturas del prototipo del cliente
+   (carpeta de referencia, fuera del repo). Los nombres de los tokens se
+   conservan para que las pantallas que ya existían (Stock, Métricas,
+   Atribución, Conversaciones, Nuevo pedido) hereden el diseño nuevo sin
+   reescribirse. */
 @theme {
-  --color-crema: #F4F1F1;
-  --color-hueso: #FBF9F7;
-  --color-tinta: #16110D;
-  --color-acento: #F28C18;
-  --color-acento-oscuro: #D9750B;
-  --color-acento-suave: #FDEFDD;
-  --color-borde: #E7E0DA;
-  --color-gris: #6F675F;
-  /* Caramelo: color real del logo (imagenes/logo/BakeBrothers-caramelo.png,
-     muestreado ~#A96E34) — variedad cromática adicional para la interfaz del
-     dashboard, antes plana en blanco/negro/gris. */
-  --color-caramelo: #A96E34;
-  --color-caramelo-suave: #EBDCCB;
+  --color-crema: #F5F4F0;          /* fondo general */
+  --color-hueso: #FFFEFA;          /* tarjetas */
+  --color-tinta: #22211D;          /* texto y botón principal ("Acción rápida") */
+  --color-hero: #2C2825;           /* tarjetas destacadas (marrón casi negro) */
+  --color-acento: #D86820;         /* naranja del prototipo: gráfico, íconos, bordes */
+  /* Naranja oscuro para TEXTO y fondos con texto blanco: #D86820 sobre el
+     fondo crema da ~3.5:1 (WCAG AA exige 4.5:1 en texto chico); este da ~4.6:1. */
+  --color-acento-oscuro: #B4520F;
+  --color-acento-suave: #FBE8DA;   /* melocotón: pestaña activa, pills "prioridad" */
+  --color-borde: #E8E5DE;
+  --color-gris: #6B665E;
+  /* Compatibilidad con pantallas previas (antes caramelo del logo, ahora la
+     misma familia del acento Bake OS). */
+  --color-caramelo: #B4520F;
+  --color-caramelo-suave: #FBE8DA;
+  /* Pills de estado del prototipo: verde (normal), lila (reponer). */
+  --color-ok: #1F6B3A;
+  --color-ok-suave: #E3F3E7;
+  --color-lila: #5A4BB5;
+  --color-lila-suave: #ECE8FB;
   --font-sans: "Albert Sans", ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -22,4 +34,14 @@ body {
   color: var(--color-tinta);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/* El menú de secciones scrollea en horizontal en celular — sin la barra, el
+   gesto de deslizar alcanza (igual que el prototipo). */
+.sin-barra-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.sin-barra-scroll::-webkit-scrollbar {
+  display: none;
 }
