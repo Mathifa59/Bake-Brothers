@@ -35,6 +35,11 @@ const ORIGENES_PERMITIDOS = [
   // apps/admin — el puente nuevo (POST /api/dashboard/orders) lo llama
   // directo desde el navegador del operador.
   'https://bake-brothers-admin.vercel.app',
+  // Dominio propio del dashboard (Cloudflare → Vercel, ver CLAUDE.md §9). Sin
+  // este origen el navegador bloquea "Nuevo pedido" y la bandeja de
+  // Conversaciones desde dashboard.bake-brothers.com — se encontró al revisar el
+  // despliegue de Bake OS: nunca estuvo en la lista.
+  'https://dashboard.bake-brothers.com',
   'http://localhost:5174',
 ]
 

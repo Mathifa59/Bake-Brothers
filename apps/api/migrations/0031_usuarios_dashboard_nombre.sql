@@ -18,7 +18,7 @@
 -- CLAUDE.md §10: probado, no hay escalada de privilegios).
 -- ============================================================================
 
-alter table usuarios_dashboard add column nombre text;
+alter table usuarios_dashboard add column if not exists nombre text;
 
 update usuarios_dashboard u
 set nombre = 'Javier'

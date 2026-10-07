@@ -1013,6 +1013,17 @@ no se reescribieron (salvo Pedidos/Clientes, que ganaron versión de tarjetas pa
   pantalla coinciden con los datos sembrados (ventas S/ 541, +116.4% vs. S/ 250 de la semana
   anterior hasta la misma hora, 8 alertas = 3 en Cedros por RLS, etc.). No se probó contra el
   Supabase real ni con Realtime (el entorno local no tiene websocket).
+- **Hallazgos al preparar la salida (2026-10-07)**: (1) el **proyecto de Supabase real parece
+  estar PAUSADO** (plan free, 7 días sin actividad): `umyaytrojtbdvdzbrily.supabase.co` da
+  NXDOMAIN en DNS públicos (8.8.8.8 y 1.1.1.1), y el MCP da timeouts de conexión a la base — no es
+  un problema de autenticación. Hay que restaurarlo desde el dashboard de Supabase antes de probar
+  con datos reales; la landing ya no consulta la API, así que nada lo mantiene despierto. (2) El
+  **API desplegado en Coolify está desactualizado**: `POST /api/dashboard/orders` da 404 y el CORS
+  no devuelve `Allow-Origin` ni para `bake-brothers-admin.vercel.app` → "Nuevo pedido" y responder
+  conversaciones no funcionan en producción hasta redesplegar `apps/api`. (3)
+  `dashboard.bake-brothers.com` nunca estuvo en `ORIGENES_PERMITIDOS` (corregido en esta rama, con
+  test). (4) Vista previa de la rama: Vercel la despliega sola; el cliente trae la URL y la anon
+  key reales como valor por defecto, así que no necesita variables en Preview.
 
 ## 8. Reglas de trabajo
 

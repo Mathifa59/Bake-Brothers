@@ -41,3 +41,27 @@ describe('rate-limit — límite por IP en endpoints públicos', () => {
     expect(ultimaRespuesta!.headers['retry-after']).toBeTruthy()
   }, 20_000)
 })
+
+describe('CORS — orígenes de las apps propias', () => {
+  const preflight = (origin: string) =>
+    buildApp().then((app) =>
+      app.inject({
+        method: 'OPTIONS',
+        url: '/api/dashboard/orders',
+        headers: { origin, 'access-control-request-method': 'POST', 'access-control-request-headers': 'authorization,content-type' },
+      })
+    )
+
+  it.each(['https://dashboard.bake-brothers.com', 'https://bake-brothers-admin.vercel.app', 'https://www.bake-brothers.com'])(
+    'permite %s',
+    async (origen) => {
+      const res = await preflight(origen)
+      expect(res.headers['access-control-allow-origin']).toBe(origen)
+    }
+  )
+
+  it('no refleja un origen cualquiera', async () => {
+    const res = await preflight('https://sitio-malicioso.example')
+    expect(res.headers['access-control-allow-origin']).toBeUndefined()
+  })
+})
