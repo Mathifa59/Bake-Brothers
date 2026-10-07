@@ -20,8 +20,14 @@ export function AuthProvider({ children }) {
     return () => sub.subscription.unsubscribe()
   }, [])
 
+  // Depende del ID del usuario, no del objeto `session`: supabase-js emite un
+  // evento (SIGNED_IN/TOKEN_REFRESHED) con una sesión nueva cada vez que la
+  // pestaña vuelve a primer plano, y con el objeto como dependencia eso
+  // volvía a "Cargando…" y reiniciaba TODA la pantalla (y sus consultas) sin
+  // que cambiara nada del usuario.
+  const userId = session?.user?.id
   useEffect(() => {
-    if (!session) {
+    if (!userId) {
       setPerfil(null)
       return
     }
@@ -32,7 +38,7 @@ export function AuthProvider({ children }) {
     // genérico) hasta que la migración esté aplicada.
     const leerPerfil = async () => {
       const consulta = (columnas) =>
-        supabase.from('usuarios_dashboard').select(columnas).eq('id', session.user.id).maybeSingle()
+        supabase.from('usuarios_dashboard').select(columnas).eq('id', userId).maybeSingle()
       let { data, error } = await consulta('rol, sede_id, nombre, sedes(nombre)')
       if (error && /nombre/i.test(error.message) && /column|columna/i.test(error.message)) {
         ;({ data, error } = await consulta('rol, sede_id, sedes(nombre)'))
@@ -50,7 +56,7 @@ export function AuthProvider({ children }) {
       setCargandoPerfil(false)
     }
     leerPerfil()
-  }, [session])
+  }, [userId])
 
   const login = (email, password) => supabase.auth.signInWithPassword({ email, password })
   const logout = () => supabase.auth.signOut()
