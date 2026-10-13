@@ -1056,6 +1056,15 @@ no se reescribieron (salvo Pedidos/Clientes, que ganaron versión de tarjetas pa
   respuestas enlatadas (la prueba contra Claude real se hace en la API desplegada). **Para que
   funcione en producción hace falta**: redesplegar `apps/api` en Coolify con este código (rama
   `feature/bake-os`, sin mergear a `main`) y cargar `ANTHROPIC_API_KEY` en sus variables.
+  **Bug real de producción encontrado al preparar la prueba de "recoger hoy" (y corregido)**: la regla de
+  anticipación (`cumpleAnticipacionMinima`, dominio) mide desde *ahora* hasta las **00:00 del día
+  de entrega**, así que **cualquier pedido "para hoy" daba negativo y se rechazaba siempre**
+  (`ANTICIPACION_INSUFICIENTE` con `horasMinimas: 0`) — también en `POST /api/orders` y "Nuevo
+  pedido" del dashboard, incluso para productos sin ningún mínimo (el catálogo real de tienda tiene
+  `anticipacion_horas` null). Arreglo en `services/pedidosTienda.ts`: sin mínimo (null/0) vale hoy
+  (fecha de Lima) y cualquier día futuro, nunca el pasado ni una fecha que no sea `YYYY-MM-DD`; con
+  un mínimo real (>0) la regla de dominio no cambió. Test: `pedidosTiendaAnticipacion.test.ts`
+  (transacción con rollback). Catering tiene su propio semáforo y no se tocó.
   Docker local: el puerto 54329 del contenedor `bb-pg-test` quedó en un rango reservado por
   Windows y no arranca; se usa `bb-pg-sim` (mismo volumen de datos) en el puerto 55432.
 
