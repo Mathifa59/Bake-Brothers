@@ -69,7 +69,15 @@ export interface CrearPedidoInput {
   // confirmed.
   pagoPorAdelantado: boolean
   nota?: string | null
+  // Pedido de prueba (simulador del bot del dashboard, ver
+  // services/simuladorBot.ts): el cliente y la nota quedan marcados con
+  // MARCA_PRUEBA para que nadie del equipo lo confunda con un pedido real y
+  // se pueda filtrar/borrar después. No cambia nada más del flujo — el pedido
+  // pasa por la misma validación y el mismo precio real que uno de verdad.
+  esPrueba?: boolean
 }
+
+export const MARCA_PRUEBA = '[PRUEBA]'
 
 export type ResultadoCrearPedido =
   | { ok: true; numero: string; estado: EstadoPedido; subtotal: number; total: number }
@@ -158,8 +166,9 @@ export async function crearPedido(
   // completa el operador desde el dashboard.
   const total = subtotal
 
+  const esPrueba = input.esPrueba === true
   const customerId = await findOrCreateCustomer(client, tenantId, {
-    nombre: input.cliente.nombre,
+    nombre: esPrueba ? `${MARCA_PRUEBA} ${input.cliente.nombre}` : input.cliente.nombre,
     telefono: input.cliente.telefono,
   })
   const numero = await siguienteNumeroDePedido(client, tenantId, codigoPrefijo)
@@ -179,7 +188,7 @@ export async function crearPedido(
       referencia: input.referencia ?? null,
       fechaEntrega: input.fechaEntregaISO,
       horario: input.horario,
-      nota: input.nota ?? null,
+      nota: esPrueba ? `${MARCA_PRUEBA} ${input.nota ?? 'Pedido del simulador del bot'}` : (input.nota ?? null),
       metodoPago: input.metodoPago,
       cuponCodigo: null,
       subtotal,

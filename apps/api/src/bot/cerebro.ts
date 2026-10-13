@@ -1,6 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type pg from 'pg'
-import { puedeTransicionarConversacion, type EstadoConversacion } from '@bakebrothers/domain'
+import {
+  puedeTransicionarConversacion,
+  partesLima,
+  diaSemanaLegible,
+  sumarDiasISO,
+  type EstadoConversacion,
+} from '@bakebrothers/domain'
 import {
   consultarPrecio,
   consultarDisponibilidad,
@@ -243,6 +249,27 @@ export interface ResultadoTurno {
   nuevoEstado: EstadoConversacion
   herramientasUsadas: string[]
   motivoEscalacion?: string
+  // Pedidos que crearPedido registró de verdad en este turno (vacío si ninguno)
+  // — el simulador del dashboard los muestra; el webhook real no los necesita.
+  pedidosCreados?: { numero: string; estado: string; total: number }[]
+}
+
+export interface OpcionesTurno {
+  // Simulador del dashboard: los pedidos que cree el bot quedan marcados como
+  // prueba (ver MARCA_PRUEBA en services/crearPedido.ts).
+  esPrueba?: boolean
+}
+
+/**
+ * El modelo no sabe qué día es: sin esto, "para hoy" / "mañana" / "el sábado"
+ * lo obligan a adivinar la fecha de entrega (y crearPedido la valida contra
+ * la anticipación real). Se le da la fecha y hora de Lima en cada turno — es
+ * un dato, no una regla, así que va aparte del SYSTEM_PROMPT fijo.
+ */
+export function contextoFechaActual(ahora: Date = new Date()): string {
+  const { fecha, hora, minuto } = partesLima(ahora)
+  const hhmm = `${String(hora).padStart(2, '0')}:${String(minuto).padStart(2, '0')}`
+  return `FECHA Y HORA ACTUALES (hora de Lima, úsalas para "hoy", "mañana", "el sábado", etc. y para fechaEntregaISO): hoy es ${diaSemanaLegible(fecha)} ${fecha}, son las ${hhmm}. Mañana es ${sumarDiasISO(fecha, 1)}.`
 }
 
 function obtenerApiKey(): string {
@@ -346,10 +373,15 @@ export function decidirEscaladaForzadaPorTool(
 }
 
 /** Traduce el input crudo (JSON del tool call) al tipo fuerte que espera crearPedido. */
-function construirInputCrearPedido(inputCrudo: unknown, sedeId: string | undefined): CrearPedidoInput {
+function construirInputCrearPedido(
+  inputCrudo: unknown,
+  sedeId: string | undefined,
+  esPrueba: boolean
+): CrearPedidoInput {
   const i = (inputCrudo ?? {}) as Record<string, unknown>
   const items = Array.isArray(i.items) ? (i.items as Record<string, unknown>[]) : []
   return {
+    esPrueba,
     cliente: {
       nombre: String(i.clienteNombre ?? ''),
       telefono: String(i.clienteTelefono ?? ''),
@@ -409,7 +441,8 @@ export async function evaluarTurno(
   mensajeEntrante: string,
   estadoActual: EstadoConversacion,
   canal: Canal,
-  sedeId?: string
+  sedeId?: string,
+  opciones: OpcionesTurno = {}
 ): Promise<ResultadoTurno> {
   if (REGEX_ALERGIA.test(mensajeEntrante)) {
     return {
@@ -433,6 +466,7 @@ export async function evaluarTurno(
   ]
 
   const herramientasUsadas: string[] = []
+  const pedidosCreados: NonNullable<ResultadoTurno['pedidosCreados']> = []
   let debeEscalar = false
   let motivoEscalacion: string | undefined
   // Distingue "el modelo mismo decidió escalar" de "el código forzó la
@@ -445,7 +479,7 @@ export async function evaluarTurno(
     const respuesta = await anthropic.messages.create({
       model: MODELO,
       max_tokens: 1024,
-      system: SYSTEM_PROMPT,
+      system: `${SYSTEM_PROMPT}\n\n${contextoFechaActual()}`,
       tools: TOOLS,
       messages: mensajes,
     })
@@ -471,6 +505,7 @@ export async function evaluarTurno(
         nuevoEstado: debeEscalar ? escalarSiCorresponde(estadoActual) : estadoActual,
         herramientasUsadas,
         motivoEscalacion,
+        pedidosCreados,
       }
     }
 
@@ -490,7 +525,15 @@ export async function evaluarTurno(
 
       if (bloque.name === 'crearPedido') {
         try {
-          const resultado = await crearPedido(client, tenantId, canal, construirInputCrearPedido(bloque.input, sedeId))
+          const resultado = await crearPedido(
+            client,
+            tenantId,
+            canal,
+            construirInputCrearPedido(bloque.input, sedeId, opciones.esPrueba === true)
+          )
+          if (resultado.ok) {
+            pedidosCreados.push({ numero: resultado.numero, estado: resultado.estado, total: resultado.total })
+          }
           const decision = decidirEscaladaForzadaPorTool(bloque.name, resultado)
           if (decision.forzar) {
             debeEscalar = true
@@ -545,6 +588,7 @@ export async function evaluarTurno(
     nuevoEstado: escalarSiCorresponde(estadoActual),
     herramientasUsadas,
     motivoEscalacion: motivoEscalacion ?? 'Se alcanzó el límite de iteraciones del loop de tool-use sin una respuesta final.',
+    pedidosCreados,
   }
 }
 

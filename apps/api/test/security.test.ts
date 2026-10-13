@@ -60,6 +60,24 @@ describe('CORS — orígenes de las apps propias', () => {
     }
   )
 
+  // Vistas previas de Vercel de apps/admin (p. ej. la de feature/bake-os).
+  it.each([
+    'https://bake-brothers-admin-a0dv9qekm-mathias-projects-eaced134.vercel.app',
+    'https://bake-brothers-admin-git-feature-bake-os-mathias-projects-eaced134.vercel.app',
+  ])('permite la vista previa de Vercel %s', async (origen) => {
+    const res = await preflight(origen)
+    expect(res.headers['access-control-allow-origin']).toBe(origen)
+  })
+
+  it.each([
+    'https://bake-brothers-admin-evil.vercel.app', // otro equipo: no termina en el slug del equipo
+    'https://bake-brothers-admin-x-mathias-projects-eaced134.vercel.app.evil.example', // sufijo falso
+    'http://bake-brothers-admin-x-mathias-projects-eaced134.vercel.app', // sin https
+  ])('rechaza el origen parecido %s', async (origen) => {
+    const res = await preflight(origen)
+    expect(res.headers['access-control-allow-origin']).toBeUndefined()
+  })
+
   it('no refleja un origen cualquiera', async () => {
     const res = await preflight('https://sitio-malicioso.example')
     expect(res.headers['access-control-allow-origin']).toBeUndefined()

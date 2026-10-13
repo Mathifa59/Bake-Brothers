@@ -1025,6 +1025,40 @@ no se reescribieron (salvo Pedidos/Clientes, que ganaron versión de tarjetas pa
   test). (4) Vista previa de la rama: Vercel la despliega sola; el cliente trae la URL y la anon
   key reales como valor por defecto, así que no necesita variables en Preview.
 
+- **Simulador del bot (2026-10-13, rama `feature/bake-os`, para la presentación al cliente)**:
+  pantalla **"Simulador"** (solo admin; el menú no la muestra a operadores y `/simulador` los
+  redirige a Resumen) donde el admin escribe como si fuera un cliente y ve la respuesta del
+  **cerebro real** (`bot/cerebro.ts`, Claude + tools + catálogo/precios reales), turno a turno, con
+  las herramientas que usó, el motivo si derivó a una persona y una tarjeta por cada pedido creado
+  (link a Producción). Ruta nueva `POST /api/dashboard/simulador/mensaje`
+  (`routes/dashboardSimulador.ts` + `services/simuladorBot.ts`), protegida con
+  `verificarJwtOperador` + rol `admin` (403 `SOLO_ADMIN` si no), límite 30/min. **No envía nada
+  por WhatsApp y no toca `conversaciones`**: la conversación vive en el navegador (se reenvía el
+  historial en cada turno; `sessionStorage` la conserva al ir a Producción y volver), así una prueba
+  nunca ensucia la bandeja real ni las alertas. Reglas que replica de producción: una conversación
+  `escalada` ya no pasa por el bot. **Los pedidos que cree son reales** (misma validación y precio)
+  pero van **marcados `[PRUEBA]`** en el nombre del cliente y en la nota (`MARCA_PRUEBA` en
+  `services/crearPedido.ts`, opción `esPrueba` de `evaluarTurno`) y quedan en la **sede elegida**
+  (selector en la pantalla), así también los ve el operador de esa sede y salen en Producción en
+  vivo (Realtime). Sin `ANTHROPIC_API_KEY` en el servidor responde 503 `SIMULADOR_NO_CONFIGURADO`
+  (mensaje claro en pantalla); un fallo del modelo → 502 `MODELO_NO_DISPONIBLE`, con rollback (nada
+  a medias). Para borrar los pedidos de prueba: clientes con `nombre like '[PRUEBA]%'`.
+  **Bug real corregido de paso en el cerebro**: el prompt del modelo no incluía la fecha, así que
+  "para hoy"/"mañana" lo obligaban a adivinar `fechaEntregaISO` — ahora cada turno recibe la fecha
+  y hora de Lima (`contextoFechaActual`). También: CORS acepta las vistas previas de Vercel de
+  `bake-brothers-admin` (patrón acotado al equipo, el host exacto cambia por deploy y Vercel trunca
+  nombres largos), y `apps/admin/src/lib/apiClient.js` ya no cae a `localhost` en un build de
+  producción/vista previa sin `VITE_API_URL` (usa `https://api.bake-brothers.com`).
+  Probado: 9 tests nuevos (`dashboardSimulador.test.ts`: 401/403/400/404/503/502, precio real,
+  pedido marcado y en la sede elegida, conversación escalada, sin fetch externo ni filas nuevas en
+  `conversaciones`) + 5 de CORS, más los 63 de regresión del cerebro/webhook (SDK mockeado) contra
+  Postgres local; pantalla verificada en celular (375×812) contra una API falsa local con
+  respuestas enlatadas (la prueba contra Claude real se hace en la API desplegada). **Para que
+  funcione en producción hace falta**: redesplegar `apps/api` en Coolify con este código (rama
+  `feature/bake-os`, sin mergear a `main`) y cargar `ANTHROPIC_API_KEY` en sus variables.
+  Docker local: el puerto 54329 del contenedor `bb-pg-test` quedó en un rango reservado por
+  Windows y no arranca; se usa `bb-pg-sim` (mismo volumen de datos) en el puerto 55432.
+
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.

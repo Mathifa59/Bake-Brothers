@@ -18,6 +18,7 @@ import {
   LineChart,
   UserCog,
   Workflow,
+  FlaskConical,
 } from 'lucide-react'
 
 /**
@@ -37,6 +38,8 @@ export const SECCIONES_ACTIVAS = [
   { ruta: '/conversaciones', etiqueta: 'Conversaciones', icono: MessageCircle },
   { ruta: '/metricas', etiqueta: 'Métricas', icono: TrendingUp },
   { ruta: '/atribucion', etiqueta: 'Atribución', icono: PieChart },
+  // Solo admin: prueba el cerebro real del bot sin WhatsApp (ver pages/Simulador.jsx).
+  { ruta: '/simulador', etiqueta: 'Simulador', icono: FlaskConical, soloAdmin: true },
 ]
 
 export const SECCIONES_PROXIMAMENTE = [

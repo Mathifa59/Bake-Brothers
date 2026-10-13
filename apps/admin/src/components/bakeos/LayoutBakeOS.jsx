@@ -39,8 +39,10 @@ function ItemMenu({ seccion, contador }) {
 /** Menú de secciones horizontal, desplazable en celular; la sección activa se centra sola. */
 function MenuSecciones() {
   const { alertas } = useAlertas()
+  const { perfil } = useAuth()
   const { pathname } = useLocation()
   const contenedor = useRef(null)
+  const seccionesVisibles = SECCIONES_ACTIVAS.filter((s) => !s.soloAdmin || perfil?.rol === 'admin')
 
   useEffect(() => {
     const activo = contenedor.current?.querySelector('[aria-current="page"]')
@@ -50,7 +52,7 @@ function MenuSecciones() {
   return (
     <nav aria-label="Secciones" className="sticky top-0 z-30 border-b border-borde bg-crema/95 backdrop-blur">
       <div ref={contenedor} className="sin-barra-scroll mx-auto flex max-w-5xl gap-1 overflow-x-auto px-3 py-2">
-        {SECCIONES_ACTIVAS.map((s) => (
+        {seccionesVisibles.map((s) => (
           <ItemMenu key={s.ruta} seccion={s} contador={s.conAlertas ? alertas?.total : 0} />
         ))}
         {SECCIONES_PROXIMAMENTE.map((s) => (
