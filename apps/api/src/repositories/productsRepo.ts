@@ -1,4 +1,5 @@
 import type pg from 'pg'
+import { construirBusqueda, sqlCoincide, sqlCoincideEstricto } from './busquedaTexto.js'
 
 /**
  * DTO con los MISMOS nombres de campo que usaba `mock.js` en el front:
@@ -120,6 +121,7 @@ export async function productoParaPedidoPorBusqueda(
   tenantId: string,
   busqueda: string
 ): Promise<ProductoParaPedido | null> {
+  const b = construirBusqueda(busqueda)
   const { rows } = await client.query(
     `select p.id, p.slug, p.nombre, p.precio_base, p.disponible, p.anticipacion_horas, p.category_id,
             coalesce(
@@ -128,11 +130,11 @@ export async function productoParaPedidoPorBusqueda(
             ) as tamanos
      from products p
      left join product_sizes ps on ps.product_id = p.id
-     where p.tenant_id = $1 and (p.slug = $2 or p.nombre ilike $3)
+     where p.tenant_id = $1 and (p.slug = $2 or ${sqlCoincide('p.nombre', '$3', '$4')})
      group by p.id
-     order by (p.slug = $2) desc, p.nombre
+     order by (p.slug = $2) desc, ${sqlCoincideEstricto('p.nombre', '$3')} desc, length(p.nombre), p.nombre
      limit 1`,
-    [tenantId, busqueda, `%${busqueda}%`]
+    [tenantId, busqueda, b.estrictos, b.flexibles]
   )
   return rows[0] ?? null
 }

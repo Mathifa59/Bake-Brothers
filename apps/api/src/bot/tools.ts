@@ -1,5 +1,6 @@
 import type pg from 'pg'
 import { evaluarSemaforoCatering, type SemaforoCatering } from '@bakebrothers/domain'
+import { construirBusqueda, sqlCoincide, sqlCoincideEstricto } from '../repositories/busquedaTexto.js'
 
 /**
  * Funciones de solo lectura contra el catálogo real — pensadas para que un
@@ -30,13 +31,14 @@ export async function consultarPrecio(
   tenantId: string,
   busqueda: string
 ): Promise<PrecioProducto | null> {
+  const b = construirBusqueda(busqueda)
   const { rows } = await client.query(
     `select id, slug, nombre, precio_base, disponible
      from products
-     where tenant_id = $1 and (slug = $2 or nombre ilike $3)
-     order by (slug = $2) desc, nombre
+     where tenant_id = $1 and (slug = $2 or ${sqlCoincide('nombre', '$3', '$4')})
+     order by (slug = $2) desc, ${sqlCoincideEstricto('nombre', '$3')} desc, length(nombre), nombre
      limit 1`,
-    [tenantId, busqueda, `%${busqueda}%`]
+    [tenantId, busqueda, b.estrictos, b.flexibles]
   )
   const producto = rows[0]
   if (!producto) return null
@@ -79,13 +81,14 @@ export async function consultarDisponibilidad(
   busqueda: string,
   sedeId?: string
 ): Promise<Disponibilidad | null> {
+  const b = construirBusqueda(busqueda)
   const { rows } = await client.query(
     `select id, slug, nombre, disponible
      from products
-     where tenant_id = $1 and (slug = $2 or nombre ilike $3)
-     order by (slug = $2) desc, nombre
+     where tenant_id = $1 and (slug = $2 or ${sqlCoincide('nombre', '$3', '$4')})
+     order by (slug = $2) desc, ${sqlCoincideEstricto('nombre', '$3')} desc, length(nombre), nombre
      limit 1`,
-    [tenantId, busqueda, `%${busqueda}%`]
+    [tenantId, busqueda, b.estrictos, b.flexibles]
   )
   const producto = rows[0]
   if (!producto) return null
@@ -138,14 +141,15 @@ export async function consultarCombo(
   client: pg.PoolClient,
   busqueda: string
 ): Promise<ComboInfo | null> {
+  const b = construirBusqueda(busqueda)
   const { rows } = await client.query(
     `select c.id, c.nombre, c.precio_normal, c.precio_promo, c.canal_permitido,
             c.permite_cambios, c.condicion_texto
      from combos c
-     where c.activo and (c.id::text = $1 or c.nombre ilike $2)
-     order by c.nombre
+     where c.activo and (c.id::text = $1 or ${sqlCoincide('c.nombre', '$2', '$3')})
+     order by ${sqlCoincideEstricto('c.nombre', '$2')} desc, length(c.nombre), c.nombre
      limit 1`,
-    [busqueda, `%${busqueda}%`]
+    [busqueda, b.estrictos, b.flexibles]
   )
   const combo = rows[0]
   if (!combo) return null
@@ -200,16 +204,17 @@ export async function consultarReglasCatering(
   client: pg.PoolClient,
   busqueda: string
 ): Promise<ReglaCatering | null> {
+  const b = construirBusqueda(busqueda)
   const { rows } = await client.query(
     `select ci.id, ci.nombre, ci.categoria, r.unidades_minimas, r.sale_mismo_dia,
             r.anticipacion_horas, r.requiere_auto_obligatorio, r.consultar_domingo,
             r.necesita_ticket, r.admite_corte_noche_anterior
      from catering_items ci
      join reglas_catering r on r.catering_item_id = ci.id
-     where ci.activo and ci.nombre ilike $1
-     order by ci.nombre
+     where ci.activo and ${sqlCoincide('ci.nombre', '$1', '$2')}
+     order by ${sqlCoincideEstricto('ci.nombre', '$1')} desc, length(ci.nombre), ci.nombre
      limit 1`,
-    [`%${busqueda}%`]
+    [b.estrictos, b.flexibles]
   )
   const regla = rows[0]
   if (!regla) return null

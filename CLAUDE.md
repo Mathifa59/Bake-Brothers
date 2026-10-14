@@ -1065,6 +1065,17 @@ no se reescribieron (salvo Pedidos/Clientes, que ganaron versión de tarjetas pa
   (fecha de Lima) y cualquier día futuro, nunca el pasado ni una fecha que no sea `YYYY-MM-DD`; con
   un mínimo real (>0) la regla de dominio no cambió. Test: `pedidosTiendaAnticipacion.test.ts`
   (transacción con rollback). Catering tiene su propio semáforo y no se tocó.
+  **Tercer bug real, encontrado en la primera prueba con Claude real en producción
+  (2026-10-13)**: el bot respondió que no existía "caja de alfajores mix" porque la búsqueda era
+  `nombre ilike '%<frase completa>%'` — la frase entera tenía que estar dentro del nombre, así que
+  plural ("alfajores"), "caja de" o una cantidad ("1") la rompían ("Alfajor Mix" no matcheaba).
+  Nuevo `repositories/busquedaTexto.ts`: parte el texto en palabras y exige TODAS dentro del nombre
+  (sin tildes/mayúsculas, singularizadas, sin relleno como "de/la/por favor"), con un segundo juego
+  sin cantidades ni "caja" para cuando el cliente las agrega; las coincidencias que incluyen todo
+  salen primero ("Pack 12 empanadas" no se confunde con "Pack 6"). Es un superconjunto de la búsqueda
+  anterior. Aplicado a productos (`consultarPrecio`, `consultarDisponibilidad`,
+  `productoParaPedidoPorBusqueda` → también los pedidos), combos y catering. Test:
+  `busquedaTexto.test.ts`.
   Docker local: el puerto 54329 del contenedor `bb-pg-test` quedó en un rango reservado por
   Windows y no arranca; se usa `bb-pg-sim` (mismo volumen de datos) en el puerto 55432.
 
