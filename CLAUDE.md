@@ -956,7 +956,17 @@ borde inferior del contenedor — se separó dándole `pb-4` al contenedor solo 
 (`sm:pb-0`, en desktop las pestañas hacen `flex-wrap` y no hay barra). Verificado: 16px
 entre el botón y el borde del contenedor a 375px de ancho.
 
-### Dashboard → "Bake OS" (2026-10-06, rama `feature/bake-os`, sin mergear a `main`)
+### Dashboard → "Bake OS" (2026-10-06; **mergeado a `main` el 2026-10-13**, en producción en `dashboard.bake-brothers.com`)
+
+> **Estado de salida (2026-10-13)**: `feature/bake-os` se fusionó a `main` por fast-forward (a pedido
+> del cliente, porque las vistas previas de Vercel exigen login de Vercel). La migración **0031 ya
+> está aplicada** en el Supabase real (`adminbake` = "Javier"); la **0030 (WhatsApp) sigue sin
+> aplicarse**. Coolify desplegó `apps/api` desde la rama `feature/bake-os` (idéntica a `main`) con
+> `ANTHROPIC_API_KEY` cargada: conviene devolver el Branch de esa app a `main`. Lo que sigue más
+> abajo se escribió antes del merge; donde diga "sin mergear" o "no está aplicada", léase con este
+> estado. Los datos de prueba de la presentación llevan `[PRUEBA]` (clientes `nombre like
+> '[PRUEBA]%'`, notas `nota like '[PRUEBA]%'`, conversación `external_id like 'PRUEBA-%'`): borrarlos
+> al terminar con `order_items` → `orders` → `customers` → `conversaciones`.
 
 El dashboard (`apps/admin`) evoluciona hacia la visión "Bake OS" del cliente (prototipo en
 capturas, carpeta `referencia-bake-os`, fuera del repo). **Es la misma app** (mismo login,
