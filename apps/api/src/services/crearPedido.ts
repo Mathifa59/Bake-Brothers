@@ -75,6 +75,9 @@ export interface CrearPedidoInput {
   // se pueda filtrar/borrar después. No cambia nada más del flujo — el pedido
   // pasa por la misma validación y el mismo precio real que uno de verdad.
   esPrueba?: boolean
+  // Referencia de campaña de la conversación ("tt-halloween"): se guarda en
+  // orders.campana para la atribución del dashboard.
+  campana?: string | null
 }
 
 export const MARCA_PRUEBA = '[PRUEBA]'
@@ -196,6 +199,7 @@ export async function crearPedido(
       delivery: 0,
       total,
       requiereConfirmarCombo,
+      campana: input.campana ?? null,
     },
     itemsParaInsertar
   )

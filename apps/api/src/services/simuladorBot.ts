@@ -1,5 +1,5 @@
 import type pg from 'pg'
-import type { EstadoConversacion } from '@bakebrothers/domain'
+import { extraerReferencia, type EstadoConversacion } from '@bakebrothers/domain'
 import { evaluarTurno, type ResultadoTurno, type TurnoHistorial } from '../bot/cerebro.js'
 
 /**
@@ -26,6 +26,8 @@ export interface EntradaSimulador {
   historial: TurnoHistorial[]
   estado: EstadoConversacion
   mensaje: string
+  /** Referencia de campaña vigente de esta conversación simulada (la conversación vive en el navegador). */
+  campana?: string | null
 }
 
 export type SalidaSimulador =
@@ -40,6 +42,8 @@ export type SalidaSimulador =
       pedidosCreados: NonNullable<ResultadoTurno['pedidosCreados']>
       /** Historial completo actualizado (el cliente lo reenvía en el siguiente turno). */
       historial: TurnoHistorial[]
+      /** Referencia de campaña vigente tras este turno (la última "(ref: …)" que escribió el cliente). */
+      campana: string | null
     }
   | { ok: false; error: 'SEDE_NO_ENCONTRADA' }
 
@@ -52,7 +56,10 @@ export async function simularTurno(
   const { rows } = await client.query(`select id from sedes where id = $1`, [entrada.sedeId])
   if (!rows[0]) return { ok: false, error: 'SEDE_NO_ENCONTRADA' }
 
-  const entradaCliente: TurnoHistorial = { rol: 'cliente', texto: entrada.mensaje, en: new Date().toISOString() }
+  // Igual que el webhook real: la "(ref: …)" se saca del texto y queda como campaña de la conversación.
+  const { texto: mensaje, referencia } = extraerReferencia(entrada.mensaje)
+  const campana = referencia ?? entrada.campana ?? null
+  const entradaCliente: TurnoHistorial = { rol: 'cliente', texto: mensaje, en: new Date().toISOString() }
 
   if (entrada.estado === 'escalada' || entrada.estado === 'atendida_por_operador') {
     return {
@@ -63,6 +70,7 @@ export async function simularTurno(
       herramientasUsadas: [],
       pedidosCreados: [],
       historial: [...entrada.historial, entradaCliente],
+      campana,
     }
   }
 
@@ -70,11 +78,11 @@ export async function simularTurno(
     client,
     tenantId,
     entrada.historial,
-    entrada.mensaje,
+    mensaje,
     entrada.estado,
     'whatsapp',
     entrada.sedeId,
-    { esPrueba: true }
+    { esPrueba: true, campana }
   )
 
   const entradaBot: TurnoHistorial = { rol: 'bot', texto: resultado.textoRespuesta, en: new Date().toISOString() }
@@ -87,5 +95,6 @@ export async function simularTurno(
     motivoEscalacion: resultado.motivoEscalacion,
     pedidosCreados: resultado.pedidosCreados ?? [],
     historial: [...entrada.historial, entradaCliente, entradaBot],
+    campana,
   }
 }

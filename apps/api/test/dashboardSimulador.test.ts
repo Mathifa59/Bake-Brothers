@@ -229,6 +229,36 @@ describe.skipIf(!hayBaseDeDatosReal)('POST /api/dashboard/simulador/mensaje', ()
     for (const nombre of ['Alfajor Mix', 'Alfajor con Manjar', 'Alfajor con Nutella']) expect(resultado).toContain(nombre)
   })
 
+  it('una "(ref: …)" en el mensaje se comporta como en WhatsApp: no llega al modelo, queda como campaña de la conversación y el pedido la guarda', async () => {
+    mockCreate.mockResolvedValueOnce({ content: [{ type: 'text', text: '¡Hola! ¿Qué te provoca? 😊' }] })
+    const r1 = await enviar({ mensaje: 'Hola Bake Brothers 👋 quiero hacer un pedido (ref: tt-halloween)', sedeId })
+    expect(r1.statusCode).toBe(200)
+    expect(r1.json().campana).toBe('tt-halloween')
+    expect(r1.json().historial[0].texto).toBe('Hola Bake Brothers 👋 quiero hacer un pedido')
+    expect(JSON.stringify(mockCreate.mock.calls[0][0].messages)).not.toMatch(/ref:/i)
+
+    // La campaña viaja con la conversación: el siguiente turno la reenvía y el pedido la lleva.
+    const mañana = new Date(Date.now() + 36 * 3600_000).toISOString().slice(0, 10)
+    mockCreate.mockResolvedValueOnce({
+      content: [
+        {
+          type: 'tool_use',
+          id: 'toolu_camp',
+          name: 'crearPedido',
+          input: {
+            clienteNombre: 'Ana Campaña', clienteTelefono: TEL_PRUEBA, tipoEntrega: 'tienda', fechaEntregaISO: mañana, horario: '4pm',
+            items: [{ tipo: 'producto', busqueda: 'alfajor mix', tamano: 'Caja x10', cantidad: 1 }], metodoPago: 'yape', pagoPorAdelantado: false,
+          },
+        },
+      ],
+    })
+    mockCreate.mockResolvedValueOnce({ content: [{ type: 'text', text: '¡Listo! 🎉' }] })
+    const r2 = await enviar({ mensaje: 'sí, confírmalo', sedeId, historial: r1.json().historial, campana: r1.json().campana })
+    expect(r2.json().campana).toBe('tt-halloween')
+    const { rows } = await pool.query(`select campana from orders where numero = $1`, [r2.json().pedidosCreados[0].numero])
+    expect(rows[0].campana).toBe('tt-halloween')
+  })
+
   it('una conversación ya escalada no vuelve a pasar por el bot (igual que en producción)', async () => {
     const historial = [
       { rol: 'cliente', texto: 'quiero un reembolso', en: '2026-10-13T10:00:00.000Z' },

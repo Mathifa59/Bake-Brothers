@@ -99,3 +99,22 @@ export {
   estadoConversacionLegible,
   type EstadoConversacion,
 } from './conversationStatus.js'
+
+export {
+  referenciaDeUtm,
+  agregarReferenciaAlMensaje,
+  extraerReferencia,
+  limpiarReferencia,
+} from './campana.js'
+
+export {
+  filasDesdeMatriz,
+  parsearPrecio,
+  compararCatalogoMifact,
+  type FilaMifact,
+  type LecturaExcelMifact,
+  type ItemCatalogo,
+  type Coincidencia,
+  type AmbiguaMifact,
+  type ComparacionMifact,
+} from './mifact.js'

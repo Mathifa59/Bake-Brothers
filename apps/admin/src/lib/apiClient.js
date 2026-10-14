@@ -62,12 +62,12 @@ export async function responderConversacion(conversacionId, texto) {
  * y devuelve su respuesta. No envía nada por WhatsApp. La conversación vive en el
  * navegador: se reenvía el historial en cada turno. Lanza un Error con .codigo/.detalle si falla.
  */
-export async function simularMensajeBot({ mensaje, sedeId, estado, historial }) {
+export async function simularMensajeBot({ mensaje, sedeId, estado, historial, campana }) {
   let res
   try {
     res = await pedirConAuth('/api/dashboard/simulador/mensaje', {
       method: 'POST',
-      body: JSON.stringify({ mensaje, sedeId, estado, historial }),
+      body: JSON.stringify({ mensaje, sedeId, estado, historial, campana: campana ?? null }),
     })
   } catch (e) {
     // fetch lanza TypeError ante CORS bloqueado, API caída o sin red.
