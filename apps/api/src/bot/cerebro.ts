@@ -9,6 +9,7 @@ import {
 } from '@bakebrothers/domain'
 import {
   consultarPrecio,
+  listarCatalogo,
   consultarDisponibilidad,
   consultarCombo,
   consultarReglasCatering,
@@ -93,6 +94,8 @@ REGLAS DURAS, sin excepción:
    - Si el combo SÍ tiene composición (fija o con cambios), podés cerrarlo con crearPedido con total naturalidad — nunca hagas esperar al cliente "por si acaso" ni le digas que "alguien lo va a revisar".
    - Si además admite cambios (permiteCambios=true) y el cliente pidió una sustitución (ej. cambiar un sabor, elegir entre opciones), identificá bien qué eligió y pasalo en el campo "seleccion" de ese ítem al llamar a crearPedido — nunca lo dejes solo en el mensaje de texto.
 
+7. Pedidos genéricos y preguntas de "qué hay": si el cliente no nombra un producto concreto ("quiero alfajores", "un postre dulce", "¿qué tipo de empanadas hay?", "¿qué tortas tienen?", "¿qué venden?"), llamá a listarCatalogo y mostrale las opciones reales de forma breve (nombre y precio desde; si tiene varios tamaños, decile que hay varios) y preguntale cuál prefiere. Nunca elijas un producto por él ni uses consultarPrecio para adivinar de entre varios. Si hay muchas opciones, mostrá las más representativas y ofrecele acotar (por sabor, por tamaño, para cuántas personas). Si listarCatalogo no encuentra nada, contale qué categorías sí hay. Una vez que elige uno concreto, seguí con consultarPrecio/crearPedido.
+
 Respondé siempre en español, breve y natural, como un mensaje real de WhatsApp — no un párrafo largo.`
 
 const TOOLS: Anthropic.Tool[] = [
@@ -109,6 +112,22 @@ const TOOLS: Anthropic.Tool[] = [
         },
       },
       required: ['busqueda'],
+    },
+  },
+  {
+    name: 'listarCatalogo',
+    description:
+      'Lista los productos disponibles de una categoría o tipo, con su precio "desde". Úsala cuando el cliente pide algo GENÉRICO o pregunta qué hay: "quiero alfajores", "¿qué empanadas tienen?", "un postre dulce", "¿qué tortas hay?", "¿qué venden?". Sin texto devuelve las categorías que existen. Para un producto concreto ya nombrado usá consultarPrecio.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        busqueda: {
+          type: 'string',
+          description:
+            'Categoría o tipo que pide el cliente (ej. "alfajores", "empanadas", "postre dulce", "tortas", "bebidas"). Vacío para ver todas las categorías.',
+        },
+      },
+      required: [],
     },
   },
   {
@@ -288,6 +307,7 @@ function escalarSiCorresponde(actual: EstadoConversacion): EstadoConversacion {
 
 type NombreToolDeDatos =
   | 'consultarPrecio'
+  | 'listarCatalogo'
   | 'consultarDisponibilidad'
   | 'consultarCombo'
   | 'consultarReglasCatering'
@@ -304,6 +324,8 @@ async function ejecutarToolDeDatos(
   switch (nombre) {
     case 'consultarPrecio':
       return consultarPrecio(client, tenantId, String(i.busqueda ?? ''))
+    case 'listarCatalogo':
+      return listarCatalogo(client, tenantId, String(i.busqueda ?? ''))
     case 'consultarDisponibilidad':
       return consultarDisponibilidad(client, tenantId, String(i.busqueda ?? ''), sedeId)
     case 'consultarCombo':
@@ -321,6 +343,7 @@ async function ejecutarToolDeDatos(
 function esNombreToolDeDatos(nombre: string): nombre is NombreToolDeDatos {
   return (
     nombre === 'consultarPrecio' ||
+    nombre === 'listarCatalogo' ||
     nombre === 'consultarDisponibilidad' ||
     nombre === 'consultarCombo' ||
     nombre === 'consultarReglasCatering' ||

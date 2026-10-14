@@ -5,7 +5,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import pg from 'pg'
 import { DATABASE_URL_PLACEHOLDER } from './testEnv.js'
 import { construirBusqueda } from '../src/repositories/busquedaTexto.js'
-import { consultarPrecio, consultarDisponibilidad, consultarCombo, consultarReglasCatering } from '../src/bot/tools.js'
+import {
+  consultarPrecio,
+  consultarDisponibilidad,
+  consultarCombo,
+  consultarReglasCatering,
+  listarCatalogo,
+} from '../src/bot/tools.js'
 import { productoParaPedidoPorBusqueda } from '../src/repositories/productsRepo.js'
 
 const hayBaseDeDatosReal =
@@ -89,5 +95,63 @@ describe.skipIf(!hayBaseDeDatosReal)('búsqueda real contra el catálogo', () =>
   it('catering: tolera plural y tildes ("tequeños")', async () => {
     expect((await consultarReglasCatering(client, 'tequeños'))?.itemNombre).toMatch(/tequ/i)
     expect((await consultarReglasCatering(client, 'tequenos'))?.itemNombre).toMatch(/tequ/i)
+  })
+  // Pedidos genéricos: "quiero alfajores", "¿qué empanadas hay?", "un postre dulce".
+  describe('listarCatalogo', () => {
+    const nombres = (r: Awaited<ReturnType<typeof listarCatalogo>>) => r.grupos.flatMap((g) => g.productos.map((p) => p.nombre))
+
+    it('"alfajores" lista todos los alfajores disponibles, no solo uno', async () => {
+      const r = await listarCatalogo(client, tenantId, 'alfajores')
+      expect(nombres(r)).toEqual(expect.arrayContaining(['Alfajor Mix', 'Alfajor con Manjar', 'Alfajor con Nutella', 'Alfajor con Pistacho', 'Alfajor con Lúcuma']))
+      expect(r.total).toBeGreaterThanOrEqual(5)
+    })
+
+    it('"¿qué tipo de empanadas hay?" lista las empanadas con su precio y ninguna otra cosa', async () => {
+      const r = await listarCatalogo(client, tenantId, 'qué tipo de empanadas hay')
+      const lista = nombres(r)
+      expect(lista.length).toBeGreaterThanOrEqual(10)
+      expect(lista.every((n) => /empanada/i.test(n))).toBe(true)
+      expect(r.grupos.flatMap((g) => g.productos).every((p) => p.precioDesde > 0)).toBe(true)
+    })
+
+    it('"un postre dulce" trae postres (por categoría y rubro) y no empanadas ni sándwiches', async () => {
+      const r = await listarCatalogo(client, tenantId, 'un postre dulce')
+      const lista = nombres(r)
+      expect(lista).toEqual(expect.arrayContaining(['Cheesecake de Fresa', 'Crema Volteada']))
+      expect(lista.some((n) => /empanada|croissant|ciabatta/i.test(n))).toBe(false)
+    })
+
+    it('un producto con varios tamaños lo avisa y da el precio desde del más barato', async () => {
+      const r = await listarCatalogo(client, tenantId, 'alfajor mix')
+      const mix = r.grupos.flatMap((g) => g.productos).find((p) => p.nombre === 'Alfajor Mix')
+      expect(mix).toEqual({ nombre: 'Alfajor Mix', precioDesde: 12.9, variosTamanos: true })
+    })
+
+    it('un rubro amplio ("dulces") se acota al tope y avisa que hay más', async () => {
+      const r = await listarCatalogo(client, tenantId, 'dulces')
+      expect(r.truncado).toBe(true)
+      expect(nombres(r).length).toBe(24)
+      expect(r.total).toBeGreaterThan(24)
+    })
+
+    it('sin texto, o sin coincidencias, devuelve las categorías que existen y no inventa productos', async () => {
+      for (const texto of ['', 'pizza hawaiana']) {
+        const r = await listarCatalogo(client, tenantId, texto)
+        expect(r.grupos).toEqual([])
+        expect(r.total).toBe(0)
+        expect(r.categoriasDisponibles?.map((c) => c.categoria)).toEqual(expect.arrayContaining(['Alfajores', 'Empanadas', 'Postres']))
+      }
+    })
+
+    it('no lista productos no disponibles', async () => {
+      await client.query('begin')
+      try {
+        await client.query(`update products set disponible = false where slug = 'alfajor-mix'`)
+        const r = await listarCatalogo(client, tenantId, 'alfajores')
+        expect(nombres(r)).not.toContain('Alfajor Mix')
+      } finally {
+        await client.query('rollback')
+      }
+    })
   })
 })

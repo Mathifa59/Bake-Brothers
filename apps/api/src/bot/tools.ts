@@ -119,6 +119,93 @@ export async function consultarDisponibilidad(
   }
 }
 
+export interface ProductoListado {
+  nombre: string
+  /** Precio más bajo: el del tamaño más barato, o el precio base si no tiene tamaños. */
+  precioDesde: number
+  /** true si tiene varios tamaños/presentaciones (hay que preguntar cuál). */
+  variosTamanos: boolean
+}
+
+export interface CatalogoListado {
+  busqueda: string
+  /** Productos disponibles que coinciden (puede ser mayor que los listados). */
+  total: number
+  truncado: boolean
+  grupos: { categoria: string; productos: ProductoListado[] }[]
+  /** Solo si no hubo búsqueda o no coincidió nada: qué categorías existen, para orientar al cliente. */
+  categoriasDisponibles?: { categoria: string; cantidad: number }[]
+}
+
+// Tope de productos que se le devuelven al modelo en una sola consulta: más que
+// esto no se puede leer en un mensaje de WhatsApp; el modelo pide acotar.
+const MAX_PRODUCTOS_LISTADOS = 24
+
+/**
+ * Para pedidos genéricos o preguntas de "qué hay": "quiero alfajores", "¿qué
+ * empanadas tienen?", "un postre dulce". `consultarPrecio` devuelve UN producto
+ * (el que mejor calza con un nombre), así que con estas frases elegiría uno por
+ * el cliente o no tendría cómo mostrar las opciones. Acá se listan los
+ * productos disponibles cuyo nombre, categoría o rubro (dulces/salados/bebidas)
+ * coinciden con TODAS las palabras del texto — "postre dulce" → los postres,
+ * "empanadas" → las 10 empanadas. Sin texto, o si nada coincide, devuelve las
+ * categorías que existen. Solo lectura, nunca inventa.
+ */
+export async function listarCatalogo(
+  client: pg.PoolClient,
+  tenantId: string,
+  busqueda: string
+): Promise<CatalogoListado> {
+  const texto = busqueda.trim()
+
+  const categorias = async () => {
+    const { rows } = await client.query(
+      `select coalesce(c.nombre, 'Otros') as categoria, count(*)::int as cantidad
+       from products p left join categories c on c.id = p.category_id
+       where p.tenant_id = $1 and p.disponible
+       group by 1 order by 1`,
+      [tenantId]
+    )
+    return rows.map((r) => ({ categoria: r.categoria as string, cantidad: r.cantidad as number }))
+  }
+
+  if (!texto) {
+    return { busqueda: texto, total: 0, truncado: false, grupos: [], categoriasDisponibles: await categorias() }
+  }
+
+  const b = construirBusqueda(texto)
+  const { rows } = await client.query(
+    `select p.nombre, coalesce(c.nombre, 'Otros') as categoria,
+            coalesce(min(ps.precio), p.precio_base) as precio_desde,
+            count(ps.id) > 1 as varios_tamanos
+     from products p
+     left join categories c on c.id = p.category_id
+     left join product_sizes ps on ps.product_id = p.id and ps.precio is not null
+     where p.tenant_id = $1 and p.disponible
+       and ${sqlCoincide(`(p.nombre || ' ' || coalesce(c.nombre, '') || ' ' || coalesce(p.categoria_negocio, ''))`, '$2', '$3')}
+     group by p.id, c.id
+     order by coalesce(c.nombre, 'Otros'), p.nombre`,
+    [tenantId, b.estrictos, b.flexibles]
+  )
+
+  if (rows.length === 0) {
+    return { busqueda: texto, total: 0, truncado: false, grupos: [], categoriasDisponibles: await categorias() }
+  }
+
+  const grupos = new Map<string, ProductoListado[]>()
+  for (const r of rows.slice(0, MAX_PRODUCTOS_LISTADOS)) {
+    const lista = grupos.get(r.categoria) ?? []
+    lista.push({ nombre: r.nombre, precioDesde: Number(r.precio_desde), variosTamanos: r.varios_tamanos })
+    grupos.set(r.categoria, lista)
+  }
+  return {
+    busqueda: texto,
+    total: rows.length,
+    truncado: rows.length > MAX_PRODUCTOS_LISTADOS,
+    grupos: [...grupos].map(([categoria, productos]) => ({ categoria, productos })),
+  }
+}
+
 export interface ItemCombo {
   productoNombre: string
   tamano: string | null

@@ -23,6 +23,10 @@ const RELLENO = new Set([
   'de', 'del', 'la', 'el', 'los', 'las', 'un', 'una', 'unos', 'unas', 'y', 'con', 'para', 'por', 'en', 'al',
   'mi', 'me', 'quiero', 'quisiera', 'necesito', 'pedir', 'pido', 'dame', 'hay',
   'favor', 'porfa', 'gracias', 'hola', 'buenas', 'buenos', 'dias', 'tardes', 'noches',
+  // Preguntas de catálogo: "¿qué tipo de empanadas hay?", "¿qué sabores tienen?"
+  'que', 'cual', 'cuales', 'como', 'cuanto', 'cuanta', 'cuantos', 'tipo', 'tipos', 'sabor', 'sabores',
+  'opcion', 'opciones', 'variedad', 'variedades', 'tienen', 'tienes', 'venden', 'ofrecen', 'manejan',
+  'algun', 'alguna', 'algo', 'otro', 'otra', 'busco', 'buscando',
 ])
 
 // Palabras de empaque/cantidad que el cliente agrega pero que no suelen ser parte del nombre.

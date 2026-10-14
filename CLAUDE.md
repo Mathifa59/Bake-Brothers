@@ -1076,6 +1076,15 @@ no se reescribieron (salvo Pedidos/Clientes, que ganaron versión de tarjetas pa
   anterior. Aplicado a productos (`consultarPrecio`, `consultarDisponibilidad`,
   `productoParaPedidoPorBusqueda` → también los pedidos), combos y catering. Test:
   `busquedaTexto.test.ts`.
+  **Pedidos genéricos / "qué hay" (2026-10-13)**: `consultarPrecio` devuelve UN producto, así que
+  "quiero alfajores" elegía uno por el cliente y "¿qué empanadas hay?" no tenía respuesta. Nueva tool
+  del bot `listarCatalogo` (`bot/tools.ts`): lista los productos disponibles cuyo nombre, categoría
+  o rubro (dulces/salados/bebidas) coinciden con todas las palabras ("un postre dulce" → los
+  postres; "empanadas" → las 10), con precio "desde" y aviso de varios tamaños, agrupados por
+  categoría, tope de 24 (avisa `truncado`); sin texto o sin coincidencias devuelve las categorías que
+  existen. Regla 7 en el prompt: ante un pedido genérico llama a `listarCatalogo`, muestra opciones
+  y pregunta cuál; nunca elige por el cliente. La búsqueda ignora además palabras de pregunta
+  ("qué", "tipo", "tienen", "sabores"…).
   Docker local: el puerto 54329 del contenedor `bb-pg-test` quedó en un rango reservado por
   Windows y no arranca; se usa `bb-pg-sim` (mismo volumen de datos) en el puerto 55432.
 

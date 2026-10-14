@@ -209,6 +209,26 @@ describe.skipIf(!hayBaseDeDatosReal)('POST /api/dashboard/simulador/mensaje', ()
     expect(rows[0].canal).toBe('whatsapp')
   })
 
+  it('el cerebro expone listarCatalogo y le devuelve al modelo las opciones reales ("quiero alfajores")', async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: 'tool_use', id: 'toolu_l1', name: 'listarCatalogo', input: { busqueda: 'alfajores' } }],
+    })
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: 'text', text: 'Tenemos Alfajor Mix, con Manjar, Nutella, Pistacho y Lúcuma 😊 ¿Cuál te gusta?' }],
+    })
+
+    const res = await enviar({ mensaje: 'quiero alfajores', sedeId })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().herramientasUsadas).toEqual(['listarCatalogo'])
+
+    // La tool está declarada para el modelo, la regla 7 está en el prompt, y el modelo recibió la lista real.
+    const primera = mockCreate.mock.calls[0][0]
+    expect(primera.tools.map((t: { name: string }) => t.name)).toContain('listarCatalogo')
+    expect(primera.system).toMatch(/listarCatalogo/)
+    const resultado = mockCreate.mock.calls[1][0].messages.at(-1).content[0].content as string
+    for (const nombre of ['Alfajor Mix', 'Alfajor con Manjar', 'Alfajor con Nutella']) expect(resultado).toContain(nombre)
+  })
+
   it('una conversación ya escalada no vuelve a pasar por el bot (igual que en producción)', async () => {
     const historial = [
       { rol: 'cliente', texto: 'quiero un reembolso', en: '2026-10-13T10:00:00.000Z' },
