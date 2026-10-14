@@ -1,7 +1,7 @@
 // Aviso sonoro corto para escaladas nuevas en /conversaciones — dos tonos
 // breves generados con Web Audio API, sin ningún archivo de audio ni
 // librería nueva. Un solo AudioContext reusado (crear uno por aviso es
-// innecesario y algunos navegadores limitan cuántos podés tener vivos).
+// innecesario y algunos navegadores limitan cuántos puedes tener vivos).
 let audioContext = null
 
 function obtenerAudioContext() {

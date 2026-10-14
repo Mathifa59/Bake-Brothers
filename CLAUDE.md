@@ -1098,6 +1098,13 @@ no se reescribieron (salvo Pedidos/Clientes, que ganaron versión de tarjetas pa
   existen. Regla 7 en el prompt: ante un pedido genérico llama a `listarCatalogo`, muestra opciones
   y pregunta cuál; nunca elige por el cliente. La búsqueda ignora además palabras de pregunta
   ("qué", "tipo", "tienen", "sabores"…).
+  **Tuteo peruano (2026-10-13)**: el prompt del bot estaba escrito con voseo argentino ("Sos", "podés",
+  "llamá"…) y el modelo lo imitaba con el cliente ("pagás", "podés"). Todo el prompt y las descripciones
+  de herramientas pasaron a "tú", se agregó la instrucción explícita de tutear y la regla de formato de
+  WhatsApp (un solo asterisco para resaltar, nunca `**doble**`), y se corrigieron los textos del
+  dashboard ("Elige una conversación", "Escribe una respuesta", "No tienes permiso…"). Test
+  `tuteo.test.ts`: recorre `apps/api/src` y `apps/admin/src` y falla si reaparece una forma voseante
+  (ojo: en JS `` no entiende tildes — usa lookarounds de letras).
   Docker local: el puerto 54329 del contenedor `bb-pg-test` quedó en un rango reservado por
   Windows y no arranca; se usa `bb-pg-sim` (mismo volumen de datos) en el puerto 55432.
 
