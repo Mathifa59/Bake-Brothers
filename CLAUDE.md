@@ -1004,9 +1004,12 @@ no se reescribieron (salvo Pedidos/Clientes, que ganaron versión de tarjetas pa
   (función pura en el dominio; humana = desde que el bot derivó hasta la primera respuesta de una
   persona). **Aviso en pantalla: la métrica humana aún no cuenta las respuestas desde el celular**
   (hasta que los echoes de Coexistence existan, solo cuentan las dadas desde el panel).
-- **"Próximamente"** (sin datos falsos, cada una dice qué falta del cliente): Manifiesto, Modo
-  Equipo, Inventario (valor y merma), Marketing, Contenido, Academia, Resultados, Equipo y
-  Conexiones (aquí vivirá la conexión de WhatsApp de `feature/coexistencia`).
+- **"Próximamente" — QUITADO (2026-10-13, decisión del cliente)**: las 9 secciones marcadas "Pronto"
+  (Manifiesto, Modo Equipo, Inventario, Marketing, Contenido, Academia, Resultados, Equipo y
+  Conexiones) ya no aparecen en el menú ni tienen ruta (se borró la pantalla `Proximamente`); la URL
+  vieja cae en Resumen. `config/secciones.js` conserva la lista como `SECCIONES_PENDIENTES`
+  (documenta qué falta del cliente para cada una) pero no se muestra. La conexión de WhatsApp de
+  `feature/coexistencia` tendrá que agregar su propia pantalla cuando llegue.
 - **Verificación**: capturas en vista de celular (375×812) contra un entorno local con **RLS
   real** (Postgres embebido + PostgREST con JWT firmado; Docker Desktop no arrancaba y el MCP de
   Supabase daba timeout): admin ve 15 pedidos, operador Cedros 13, Santa Marina 2; las cifras de

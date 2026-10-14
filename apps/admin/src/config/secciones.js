@@ -22,10 +22,8 @@ import {
 } from 'lucide-react'
 
 /**
- * Menú de secciones de Bake OS, en dos grupos: las que ya funcionan con datos
- * reales, y las del prototipo del cliente que necesitan información suya
- * antes de poder construirse — esas llevan un lugar en el menú marcado
- * "Pronto" y una pantalla que dice QUÉ falta, sin ningún dato inventado.
+ * Menú de secciones de Bake OS: solo las que funcionan con datos reales.
+ * `soloAdmin` las oculta a los operadores de sede.
  */
 export const SECCIONES_ACTIVAS = [
   { ruta: '/resumen', etiqueta: 'Resumen', icono: LayoutGrid },
@@ -42,7 +40,12 @@ export const SECCIONES_ACTIVAS = [
   { ruta: '/simulador', etiqueta: 'Simulador', icono: FlaskConical, soloAdmin: true },
 ]
 
-export const SECCIONES_PROXIMAMENTE = [
+/**
+ * NO se muestran en el panel (decisión del cliente, 2026-10-13: quitar todo lo que decía
+ * "Pronto"). Se conserva la lista porque documenta qué falta del cliente para construir cada
+ * una; para volver a mostrarlas hay que reponer la pantalla `Proximamente` y sus rutas.
+ */
+export const SECCIONES_PENDIENTES = [
   {
     ruta: '/manifiesto',
     etiqueta: 'Manifiesto',

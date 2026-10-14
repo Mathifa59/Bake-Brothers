@@ -3,7 +3,7 @@ import { Link, NavLink, useLocation } from 'react-router-dom'
 import { Bell, LogOut } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { AlertasProvider, useAlertas } from '../../context/AlertasContext'
-import { SECCIONES_ACTIVAS, SECCIONES_PROXIMAMENTE } from '../../config/secciones'
+import { SECCIONES_ACTIVAS } from '../../config/secciones'
 
 /** Contador naranja (el naranja oscuro, para que el número blanco se lea: contraste AA). */
 function Contador({ n, className = '' }) {
@@ -24,13 +24,12 @@ function ItemMenu({ seccion, contador }) {
       to={seccion.ruta}
       className={({ isActive }) =>
         `relative flex w-[76px] shrink-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-center transition-colors ${
-          isActive ? 'bg-acento-suave text-acento-oscuro' : seccion.proximamente ? 'text-gris/80' : 'text-gris hover:bg-borde/50'
+          isActive ? 'bg-acento-suave text-acento-oscuro' : 'text-gris hover:bg-borde/50'
         }`
       }
     >
       <Icono size={19} aria-hidden="true" />
       <span className="text-[10.5px] font-semibold leading-tight">{seccion.etiqueta}</span>
-      {seccion.proximamente && <span className="-mt-0.5 text-[9px] font-medium uppercase tracking-wide text-gris/70">Pronto</span>}
       <Contador n={contador} className="absolute right-1.5 top-0.5" />
     </NavLink>
   )
@@ -54,9 +53,6 @@ function MenuSecciones() {
       <div ref={contenedor} className="sin-barra-scroll mx-auto flex max-w-5xl gap-1 overflow-x-auto px-3 py-2">
         {seccionesVisibles.map((s) => (
           <ItemMenu key={s.ruta} seccion={s} contador={s.conAlertas ? alertas?.total : 0} />
-        ))}
-        {SECCIONES_PROXIMAMENTE.map((s) => (
-          <ItemMenu key={s.ruta} seccion={{ ...s, proximamente: true }} />
         ))}
       </div>
     </nav>

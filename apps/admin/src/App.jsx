@@ -1,6 +1,5 @@
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
-import { SECCIONES_PROXIMAMENTE } from './config/secciones'
 import LayoutBakeOS from './components/bakeos/LayoutBakeOS'
 import Login from './pages/Login'
 import Resumen from './pages/Resumen'
@@ -15,7 +14,6 @@ import Atribucion from './pages/Atribucion'
 import Conversaciones from './pages/Conversaciones'
 import Metricas from './pages/Metricas'
 import Simulador from './pages/Simulador'
-import Proximamente from './pages/Proximamente'
 
 // Espera a saber si hay sesión y, si la hay, a leer el perfil (rol/sede) en
 // usuarios_dashboard antes de decidir qué mostrar.
@@ -66,9 +64,6 @@ export default function App() {
           <Route path="/metricas" element={protegida(<Metricas />)} />
           <Route path="/atribucion" element={protegida(<Atribucion />)} />
           <Route path="/simulador" element={protegida(<Simulador />)} />
-          {SECCIONES_PROXIMAMENTE.map((s) => (
-            <Route key={s.ruta} path={s.ruta} element={protegida(<Proximamente />)} />
-          ))}
           <Route path="*" element={<Navigate to="/resumen" replace />} />
         </Routes>
       </HashRouter>
