@@ -27,7 +27,7 @@ export default function Inicio() {
       <h1 className="sr-only">Bake Brothers — Pastelería artesanal en Chorrillos</h1>
       <VideosHero onVisibilidadCambia={setHeroEnPantalla} />
 
-      <section className="bg-crema px-6 py-20 sm:px-12 sm:py-28 lg:px-20">
+      <section className="page-container py-16 sm:py-24">
         <div className="mb-10 flex items-end justify-between gap-4">
           <div>
             <h2 className="font-display text-4xl font-semibold text-tinta sm:text-5xl">Hay mucho más</h2>
@@ -46,7 +46,7 @@ export default function Inicio() {
           {categoriasDestacadas.map((categoria) => (
             <Link
               key={categoria.id}
-              to="/menu"
+              to={`/menu?categoria=${categoria.id}`}
               className="group relative block overflow-hidden rounded-[24px] shadow-md transition-all duration-500 hover:-translate-y-1 hover:shadow-xl"
             >
               <div className="aspect-[3/4] overflow-hidden bg-tinta">

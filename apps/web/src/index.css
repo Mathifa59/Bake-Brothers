@@ -42,6 +42,44 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Una misma guía para el logo, el hero y el contenido de las tres páginas. */
+.page-container {
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
+  padding-inline: 1.5rem;
+}
+
+.hero-shade {
+  background:
+    linear-gradient(90deg, rgba(22, 17, 13, .87) 0%, rgba(22, 17, 13, .8) 32%, rgba(22, 17, 13, .74) 52%, rgba(22, 17, 13, .22) 72%, rgba(22, 17, 13, .04) 100%),
+    linear-gradient(0deg, rgba(22, 17, 13, .7), transparent 38%);
+}
+
+.hero-copy {
+  animation: fade-up .65s ease-out both;
+}
+
+@media (min-width: 640px) {
+  .page-container { padding-inline: 3rem; }
+}
+
+@media (min-width: 1024px) {
+  .page-container { padding-inline: 5rem; }
+}
+
+@media (max-width: 639px) {
+  .hero-shade {
+    background:
+      linear-gradient(90deg, rgba(22, 17, 13, .86), rgba(22, 17, 13, .78) 75%, rgba(22, 17, 13, .74)),
+      linear-gradient(0deg, rgba(22, 17, 13, .7), transparent 60%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-copy { animation: none; }
+}
+
 ::selection {
   background: var(--color-acento);
   color: white;
