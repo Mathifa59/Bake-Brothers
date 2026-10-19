@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, ChevronLeft, ChevronRight, MessageCircle, Pause, Play } from 'lucide-react'
+import { ArrowRight, MessageCircle } from 'lucide-react'
 import { videosHero } from '../../config/landing'
 import WhatsAppCTA from './WhatsAppCTA'
 import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
@@ -56,12 +56,11 @@ export default function VideosHero({ onVisibilidadCambia }) {
   const sectionRef = useRef(null)
   const videoRefs = useRef([])
   const [activa, setActiva] = useState(0)
-  const [pausado, setPausado] = useState(false)
   const [enPantalla, setEnPantalla] = useState(false)
   const [pestanaVisible, setPestanaVisible] = useState(() => !document.hidden)
   const [interactuando, setInteractuando] = useState(false)
   const [conFoco, setConFoco] = useState(false)
-  const reproducir = enPantalla && pestanaVisible && !pausado && !reducido
+  const reproducir = enPantalla && pestanaVisible && !reducido
 
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => {
@@ -92,9 +91,6 @@ export default function VideosHero({ onVisibilidadCambia }) {
     const intervalo = setInterval(() => setActiva((actual) => (actual + 1) % videosHero.length), SEGUNDOS_POR_VIDEO * 1000)
     return () => clearInterval(intervalo)
   }, [activa, reproducir, interactuando, conFoco])
-
-  const cambiar = (paso) => setActiva((actual) => (actual + paso + videosHero.length) % videosHero.length)
-  const claseControl = 'grid h-11 w-11 shrink-0 place-items-center rounded-full text-white transition-colors hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento'
 
   return (
     <section
@@ -141,27 +137,7 @@ export default function VideosHero({ onVisibilidadCambia }) {
         </div>
       ))}
 
-      <div className="page-container pointer-events-none absolute inset-x-0 bottom-6 z-20 flex items-center justify-between gap-4 sm:bottom-7">
-        <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-white/20 bg-tinta/30 p-1 backdrop-blur-md">
-          <button type="button" onClick={() => cambiar(-1)} aria-label="Producto anterior" className={claseControl}>
-            <ChevronLeft size={18} aria-hidden="true" />
-          </button>
-          <div className="flex items-center">
-            {videosHero.map((producto, indice) => (
-              <button key={producto.id} type="button" onClick={() => setActiva(indice)} aria-label={`Mostrar ${producto.nombre}`} aria-pressed={activa === indice} className={`${claseControl} w-9`}>
-                <span aria-hidden="true" className={`h-1.5 rounded-full transition-all ${activa === indice ? 'w-5 bg-acento' : 'w-1.5 bg-white/55'}`} />
-              </button>
-            ))}
-          </div>
-          <button type="button" onClick={() => cambiar(1)} aria-label="Producto siguiente" className={claseControl}>
-            <ChevronRight size={18} aria-hidden="true" />
-          </button>
-          {!reducido && (
-            <button type="button" onClick={() => setPausado((actual) => !actual)} aria-label={pausado ? 'Reanudar presentación' : 'Pausar presentación'} aria-pressed={pausado} className={`${claseControl} border-l border-white/15`}>
-              {pausado ? <Play size={15} aria-hidden="true" /> : <Pause size={15} aria-hidden="true" />}
-            </button>
-          )}
-        </div>
+      <div className="page-container pointer-events-none absolute inset-x-0 bottom-6 z-20 flex justify-end sm:bottom-7">
         <span className="hidden text-xs font-medium tracking-wider text-white/75 sm:block" aria-hidden="true">
           {String(activa + 1).padStart(2, '0')} <span className="mx-2 text-white/35">/</span> {String(videosHero.length).padStart(2, '0')}
         </span>
