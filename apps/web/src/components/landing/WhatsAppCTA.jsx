@@ -5,7 +5,7 @@ import { whatsappUrl } from '../../utils/whatsapp'
 // pide la tarea — un data-attribute y un CustomEvent 'whatsapp_click' con el
 // nombre del producto — sin integrar ninguna herramienta todavía: quien
 // conecte GTM/analítica después puede escuchar cualquiera de los dos.
-export default function WhatsAppCTA({ mensaje, producto, className, children, onClick, ariaLabel }) {
+export default function WhatsAppCTA({ mensaje, producto, className, children, onClick, ariaLabel, ariaHidden, tabIndex }) {
   const dispararEvento = () => {
     window.dispatchEvent(new CustomEvent('whatsapp_click', { detail: { producto } }))
     onClick?.()
@@ -19,6 +19,8 @@ export default function WhatsAppCTA({ mensaje, producto, className, children, on
       data-whatsapp-click={producto}
       onClick={dispararEvento}
       aria-label={ariaLabel}
+      aria-hidden={ariaHidden}
+      tabIndex={tabIndex}
       className={className}
     >
       {children}
