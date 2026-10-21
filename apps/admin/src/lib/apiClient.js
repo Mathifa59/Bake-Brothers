@@ -4,7 +4,10 @@ import { supabase } from './supabase'
 // habla directo con Supabase), la creación de un pedido pasa por acá:
 // apps/api verifica el JWT real del operador y recalcula todo del lado del
 // servidor, nunca confía en lo que arme el navegador.
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+// Sin VITE_API_URL: en un build de producción/vista previa se usa la API real
+// (antes caía a localhost aunque el panel estuviera publicado); en desarrollo
+// sigue siendo la API local.
+const BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://api.bake-brothers.com' : 'http://localhost:3001')
 
 async function pedirConAuth(path, options = {}) {
   const {
@@ -49,6 +52,35 @@ export async function responderConversacion(conversacionId, texto) {
     const err = new Error(data.error || `Error del servidor (${res.status})`)
     err.codigo = data.error
     err.detalle = data.detalle
+    throw err
+  }
+  return data
+}
+
+/**
+ * Simulador del bot (solo admin): manda un mensaje "como cliente" al cerebro real
+ * y devuelve su respuesta. No envía nada por WhatsApp. La conversación vive en el
+ * navegador: se reenvía el historial en cada turno. Lanza un Error con .codigo/.detalle si falla.
+ */
+export async function simularMensajeBot({ mensaje, sedeId, estado, historial }) {
+  let res
+  try {
+    res = await pedirConAuth('/api/dashboard/simulador/mensaje', {
+      method: 'POST',
+      body: JSON.stringify({ mensaje, sedeId, estado, historial }),
+    })
+  } catch (e) {
+    // fetch lanza TypeError ante CORS bloqueado, API caída o sin red.
+    const err = new Error(e?.message === 'No hay sesión activa' ? e.message : 'No se pudo conectar con la API')
+    err.codigo = e?.message === 'No hay sesión activa' ? 'SIN_SESION' : 'SIN_CONEXION'
+    throw err
+  }
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.error || `Error del servidor (${res.status})`)
+    err.codigo = data.error
+    err.detalle = data.detalle
+    err.status = res.status
     throw err
   }
   return data

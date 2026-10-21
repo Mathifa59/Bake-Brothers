@@ -3,6 +3,7 @@ import {
   calcularPrecioLinea,
   calcularSubtotal,
   cumpleAnticipacionMinima,
+  fechaLimaISO,
   hayCupoDisponible,
   cupoRestante,
 } from '@bakebrothers/domain'
@@ -75,14 +76,21 @@ export async function validarYValorizarItemsTienda(
 
   // 3. Anticipación mínima por producto (catálogo real: la mayoría no tiene
   // anticipación documentada — null se trata como "sin mínimo conocido").
+  const hoyLima = fechaLimaISO()
   const violaciones = items
     .map((item) => {
       const producto = porBusqueda.get(item.productoId)!
       const anticipacionHorasMinima = producto.anticipacion_horas ?? 0
-      const cumple = cumpleAnticipacionMinima({
-        fechaEntregaISO,
-        anticipacionHorasMinima,
-      })
+      // `cumpleAnticipacionMinima` mide desde ahora hasta las 00:00 del día de
+      // entrega, así que un pedido "para hoy" siempre daba negativo — incluso
+      // sin ningún mínimo, y el cliente que pide "para recoger hoy" se
+      // rechazaba siempre. Sin mínimo documentado (null/0) no hay anticipación
+      // que medir: vale hoy (hora de Lima) y cualquier día futuro, nunca el
+      // pasado. Con un mínimo real (>0) la regla de dominio sigue igual.
+      const cumple =
+        anticipacionHorasMinima === 0
+          ? /^\d{4}-\d{2}-\d{2}$/.test(fechaEntregaISO) && fechaEntregaISO >= hoyLima
+          : cumpleAnticipacionMinima({ fechaEntregaISO, anticipacionHorasMinima })
       return cumple ? null : { productoId: producto.slug, horasMinimas: anticipacionHorasMinima }
     })
     .filter(Boolean)

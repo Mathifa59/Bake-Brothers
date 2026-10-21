@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 const SELECT =
-  'numero, canal, tipo_entrega, fecha_entrega, horario_entrega, estado, total, sede_id, creado_en, requiere_confirmar_combo, sedes(nombre)'
+  'numero, canal, tipo_entrega, fecha_entrega, horario_entrega, estado, total, sede_id, creado_en, requiere_confirmar_combo, sedes(nombre), customers(nombre)'
 
 // Fetch + cambio de estado de pedidos, reusado por la pantalla de Pedidos
 // (todos los que ve el usuario según RLS) y por el historial de un cliente
@@ -25,7 +25,7 @@ export function usePedidos({ customerId } = {}) {
   useEffect(cargar, [customerId])
 
   // Tiempo real: cuando cualquier pedido cambia (el propio usuario en otra
-  // pestaña, un operador de otra sede si sos admin, etc.) se vuelve a
+  // pestaña, un operador de otra sede si eres admin, etc.) se vuelve a
   // cargar. Realtime respeta la RLS de 0011 — solo llegan eventos de filas
   // que igual podrías leer. Re-fetch simple en vez de parchear el estado a
   // mano: más robusto ante inserts/deletes/cambios de sede que afectan qué
@@ -55,7 +55,7 @@ export function usePedidos({ customerId } = {}) {
     if (!data || data.length === 0) {
       // RLS bloqueó la fila (no es de tu sede) sin lanzar error — PostgREST
       // simplemente no devuelve nada. Se distingue de un error real.
-      alert(`No tenés permiso para editar el pedido ${numero} (no es de tu sede).`)
+      alert(`No tienes permiso para editar el pedido ${numero} (no es de tu sede).`)
       return
     }
     cargar()

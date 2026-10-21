@@ -1,5 +1,6 @@
 import type pg from 'pg'
 import { evaluarSemaforoCatering, type SemaforoCatering } from '@bakebrothers/domain'
+import { construirBusqueda, sqlCoincide, sqlCoincideEstricto } from '../repositories/busquedaTexto.js'
 
 /**
  * Funciones de solo lectura contra el catálogo real — pensadas para que un
@@ -30,13 +31,14 @@ export async function consultarPrecio(
   tenantId: string,
   busqueda: string
 ): Promise<PrecioProducto | null> {
+  const b = construirBusqueda(busqueda)
   const { rows } = await client.query(
     `select id, slug, nombre, precio_base, disponible
      from products
-     where tenant_id = $1 and (slug = $2 or nombre ilike $3)
-     order by (slug = $2) desc, nombre
+     where tenant_id = $1 and (slug = $2 or ${sqlCoincide('nombre', '$3', '$4')})
+     order by (slug = $2) desc, ${sqlCoincideEstricto('nombre', '$3')} desc, length(nombre), nombre
      limit 1`,
-    [tenantId, busqueda, `%${busqueda}%`]
+    [tenantId, busqueda, b.estrictos, b.flexibles]
   )
   const producto = rows[0]
   if (!producto) return null
@@ -79,13 +81,14 @@ export async function consultarDisponibilidad(
   busqueda: string,
   sedeId?: string
 ): Promise<Disponibilidad | null> {
+  const b = construirBusqueda(busqueda)
   const { rows } = await client.query(
     `select id, slug, nombre, disponible
      from products
-     where tenant_id = $1 and (slug = $2 or nombre ilike $3)
-     order by (slug = $2) desc, nombre
+     where tenant_id = $1 and (slug = $2 or ${sqlCoincide('nombre', '$3', '$4')})
+     order by (slug = $2) desc, ${sqlCoincideEstricto('nombre', '$3')} desc, length(nombre), nombre
      limit 1`,
-    [tenantId, busqueda, `%${busqueda}%`]
+    [tenantId, busqueda, b.estrictos, b.flexibles]
   )
   const producto = rows[0]
   if (!producto) return null
@@ -116,6 +119,93 @@ export async function consultarDisponibilidad(
   }
 }
 
+export interface ProductoListado {
+  nombre: string
+  /** Precio más bajo: el del tamaño más barato, o el precio base si no tiene tamaños. */
+  precioDesde: number
+  /** true si tiene varios tamaños/presentaciones (hay que preguntar cuál). */
+  variosTamanos: boolean
+}
+
+export interface CatalogoListado {
+  busqueda: string
+  /** Productos disponibles que coinciden (puede ser mayor que los listados). */
+  total: number
+  truncado: boolean
+  grupos: { categoria: string; productos: ProductoListado[] }[]
+  /** Solo si no hubo búsqueda o no coincidió nada: qué categorías existen, para orientar al cliente. */
+  categoriasDisponibles?: { categoria: string; cantidad: number }[]
+}
+
+// Tope de productos que se le devuelven al modelo en una sola consulta: más que
+// esto no se puede leer en un mensaje de WhatsApp; el modelo pide acotar.
+const MAX_PRODUCTOS_LISTADOS = 24
+
+/**
+ * Para pedidos genéricos o preguntas de "qué hay": "quiero alfajores", "¿qué
+ * empanadas tienen?", "un postre dulce". `consultarPrecio` devuelve UN producto
+ * (el que mejor calza con un nombre), así que con estas frases elegiría uno por
+ * el cliente o no tendría cómo mostrar las opciones. Acá se listan los
+ * productos disponibles cuyo nombre, categoría o rubro (dulces/salados/bebidas)
+ * coinciden con TODAS las palabras del texto — "postre dulce" → los postres,
+ * "empanadas" → las 10 empanadas. Sin texto, o si nada coincide, devuelve las
+ * categorías que existen. Solo lectura, nunca inventa.
+ */
+export async function listarCatalogo(
+  client: pg.PoolClient,
+  tenantId: string,
+  busqueda: string
+): Promise<CatalogoListado> {
+  const texto = busqueda.trim()
+
+  const categorias = async () => {
+    const { rows } = await client.query(
+      `select coalesce(c.nombre, 'Otros') as categoria, count(*)::int as cantidad
+       from products p left join categories c on c.id = p.category_id
+       where p.tenant_id = $1 and p.disponible
+       group by 1 order by 1`,
+      [tenantId]
+    )
+    return rows.map((r) => ({ categoria: r.categoria as string, cantidad: r.cantidad as number }))
+  }
+
+  if (!texto) {
+    return { busqueda: texto, total: 0, truncado: false, grupos: [], categoriasDisponibles: await categorias() }
+  }
+
+  const b = construirBusqueda(texto)
+  const { rows } = await client.query(
+    `select p.nombre, coalesce(c.nombre, 'Otros') as categoria,
+            coalesce(min(ps.precio), p.precio_base) as precio_desde,
+            count(ps.id) > 1 as varios_tamanos
+     from products p
+     left join categories c on c.id = p.category_id
+     left join product_sizes ps on ps.product_id = p.id and ps.precio is not null
+     where p.tenant_id = $1 and p.disponible
+       and ${sqlCoincide(`(p.nombre || ' ' || coalesce(c.nombre, '') || ' ' || coalesce(p.categoria_negocio, ''))`, '$2', '$3')}
+     group by p.id, c.id
+     order by coalesce(c.nombre, 'Otros'), p.nombre`,
+    [tenantId, b.estrictos, b.flexibles]
+  )
+
+  if (rows.length === 0) {
+    return { busqueda: texto, total: 0, truncado: false, grupos: [], categoriasDisponibles: await categorias() }
+  }
+
+  const grupos = new Map<string, ProductoListado[]>()
+  for (const r of rows.slice(0, MAX_PRODUCTOS_LISTADOS)) {
+    const lista = grupos.get(r.categoria) ?? []
+    lista.push({ nombre: r.nombre, precioDesde: Number(r.precio_desde), variosTamanos: r.varios_tamanos })
+    grupos.set(r.categoria, lista)
+  }
+  return {
+    busqueda: texto,
+    total: rows.length,
+    truncado: rows.length > MAX_PRODUCTOS_LISTADOS,
+    grupos: [...grupos].map(([categoria, productos]) => ({ categoria, productos })),
+  }
+}
+
 export interface ItemCombo {
   productoNombre: string
   tamano: string | null
@@ -138,14 +228,15 @@ export async function consultarCombo(
   client: pg.PoolClient,
   busqueda: string
 ): Promise<ComboInfo | null> {
+  const b = construirBusqueda(busqueda)
   const { rows } = await client.query(
     `select c.id, c.nombre, c.precio_normal, c.precio_promo, c.canal_permitido,
             c.permite_cambios, c.condicion_texto
      from combos c
-     where c.activo and (c.id::text = $1 or c.nombre ilike $2)
-     order by c.nombre
+     where c.activo and (c.id::text = $1 or ${sqlCoincide('c.nombre', '$2', '$3')})
+     order by ${sqlCoincideEstricto('c.nombre', '$2')} desc, length(c.nombre), c.nombre
      limit 1`,
-    [busqueda, `%${busqueda}%`]
+    [busqueda, b.estrictos, b.flexibles]
   )
   const combo = rows[0]
   if (!combo) return null
@@ -200,16 +291,17 @@ export async function consultarReglasCatering(
   client: pg.PoolClient,
   busqueda: string
 ): Promise<ReglaCatering | null> {
+  const b = construirBusqueda(busqueda)
   const { rows } = await client.query(
     `select ci.id, ci.nombre, ci.categoria, r.unidades_minimas, r.sale_mismo_dia,
             r.anticipacion_horas, r.requiere_auto_obligatorio, r.consultar_domingo,
             r.necesita_ticket, r.admite_corte_noche_anterior
      from catering_items ci
      join reglas_catering r on r.catering_item_id = ci.id
-     where ci.activo and ci.nombre ilike $1
-     order by ci.nombre
+     where ci.activo and ${sqlCoincide('ci.nombre', '$1', '$2')}
+     order by ${sqlCoincideEstricto('ci.nombre', '$1')} desc, length(ci.nombre), ci.nombre
      limit 1`,
-    [`%${busqueda}%`]
+    [b.estrictos, b.flexibles]
   )
   const regla = rows[0]
   if (!regla) return null

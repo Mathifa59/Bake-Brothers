@@ -1,68 +1,19 @@
-import { HashRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import LayoutBakeOS from './components/bakeos/LayoutBakeOS'
 import Login from './pages/Login'
+import Resumen from './pages/Resumen'
+import ControlTower from './pages/ControlTower'
 import Pedidos from './pages/Pedidos'
 import NuevoPedido from './pages/NuevoPedido'
+import Produccion from './pages/Produccion'
 import Stock from './pages/Stock'
 import Clientes from './pages/Clientes'
+import Atencion from './pages/Atencion'
 import Atribucion from './pages/Atribucion'
 import Conversaciones from './pages/Conversaciones'
 import Metricas from './pages/Metricas'
-
-function Layout({ children }) {
-  const { perfil, logout } = useAuth()
-  const location = useLocation()
-  const enlace = (ruta, texto) => (
-    <Link
-      to={ruta}
-      className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
-        location.pathname === ruta ? 'bg-caramelo text-white' : 'text-tinta/70 hover:bg-caramelo-suave'
-      }`}
-    >
-      {texto}
-    </Link>
-  )
-  const saludo =
-    perfil?.rol === 'admin'
-      ? 'Bienvenido/a al panel de Bake Brothers.'
-      : `Bienvenido/a, Administrador/a de ${perfil?.sedeNombre ?? 'tu sede'}`
-  return (
-    <div className="min-h-screen">
-      <header className="flex items-center justify-between border-b border-borde/60 bg-white px-6 py-3">
-        <div className="flex items-center gap-2">
-          <Link to="/pedidos" className="mr-2" aria-label="Bake Brothers — Panel">
-            <img
-              src="/img/logo-bakebrothers.png"
-              alt="Bake Brothers"
-              width={64}
-              height={36}
-              className="h-9 w-16"
-            />
-          </Link>
-          {enlace('/pedidos', 'Pedidos')}
-          {enlace('/nuevo-pedido', 'Nuevo pedido')}
-          {enlace('/stock', 'Stock')}
-          {enlace('/clientes', 'Clientes')}
-          {enlace('/metricas', 'Métricas')}
-          {enlace('/atribucion', 'Atribución')}
-          {enlace('/conversaciones', 'Conversaciones')}
-        </div>
-        <div className="flex items-center gap-3 text-sm text-gris">
-          <span className="capitalize">{perfil?.rol}</span>
-          <button onClick={logout} className="rounded-full border border-borde px-3 py-1.5 font-semibold hover:bg-borde/30">
-            Salir
-          </button>
-        </div>
-      </header>
-      {perfil && (
-        <div className="border-b border-borde/60 bg-caramelo-suave/60 px-6 py-2 text-sm font-semibold text-caramelo">
-          {saludo}
-        </div>
-      )}
-      {children}
-    </div>
-  )
-}
+import Simulador from './pages/Simulador'
 
 // Espera a saber si hay sesión y, si la hay, a leer el perfil (rol/sede) en
 // usuarios_dashboard antes de decidir qué mostrar.
@@ -78,20 +29,22 @@ function ConGuardia({ children }) {
       <div className="grid min-h-screen place-items-center px-4 text-center">
         <div>
           <p className="font-bold">Tu cuenta no tiene acceso al panel.</p>
-          <p className="mt-1 text-sm text-gris">Pedile a un admin que te dé de alta en usuarios_dashboard.</p>
+          <p className="mt-1 text-sm text-gris">Pídele a un admin que te dé de alta en usuarios_dashboard.</p>
         </div>
       </div>
     )
   }
-  return <Layout>{children}</Layout>
+  return <LayoutBakeOS>{children}</LayoutBakeOS>
 }
 
 function RutaLogin() {
   const { session, cargando } = useAuth()
   if (cargando) return null
-  if (session) return <Navigate to="/pedidos" replace />
+  if (session) return <Navigate to="/resumen" replace />
   return <Login />
 }
+
+const protegida = (elemento) => <ConGuardia>{elemento}</ConGuardia>
 
 export default function App() {
   return (
@@ -99,14 +52,19 @@ export default function App() {
       <HashRouter>
         <Routes>
           <Route path="/login" element={<RutaLogin />} />
-          <Route path="/pedidos" element={<ConGuardia><Pedidos /></ConGuardia>} />
-          <Route path="/nuevo-pedido" element={<ConGuardia><NuevoPedido /></ConGuardia>} />
-          <Route path="/stock" element={<ConGuardia><Stock /></ConGuardia>} />
-          <Route path="/clientes" element={<ConGuardia><Clientes /></ConGuardia>} />
-          <Route path="/metricas" element={<ConGuardia><Metricas /></ConGuardia>} />
-          <Route path="/atribucion" element={<ConGuardia><Atribucion /></ConGuardia>} />
-          <Route path="/conversaciones" element={<ConGuardia><Conversaciones /></ConGuardia>} />
-          <Route path="*" element={<Navigate to="/pedidos" replace />} />
+          <Route path="/resumen" element={protegida(<Resumen />)} />
+          <Route path="/control-tower" element={protegida(<ControlTower />)} />
+          <Route path="/pedidos" element={protegida(<Pedidos />)} />
+          <Route path="/nuevo-pedido" element={protegida(<NuevoPedido />)} />
+          <Route path="/produccion" element={protegida(<Produccion />)} />
+          <Route path="/stock" element={protegida(<Stock />)} />
+          <Route path="/clientes" element={protegida(<Clientes />)} />
+          <Route path="/atencion" element={protegida(<Atencion />)} />
+          <Route path="/conversaciones" element={protegida(<Conversaciones />)} />
+          <Route path="/metricas" element={protegida(<Metricas />)} />
+          <Route path="/atribucion" element={protegida(<Atribucion />)} />
+          <Route path="/simulador" element={protegida(<Simulador />)} />
+          <Route path="*" element={<Navigate to="/resumen" replace />} />
         </Routes>
       </HashRouter>
     </AuthProvider>

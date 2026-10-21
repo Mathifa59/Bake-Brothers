@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
+import { Portada } from '../components/bakeos/ui'
 
 // Arma la lista plana de SKUs: un producto sin tamaños es un solo SKU
 // (product_size_id null); un producto con tamaños es un SKU por tamaño —
@@ -134,9 +135,10 @@ export default function Stock() {
   if (error) return <p className="p-6 text-sm text-red-600">Error: {error}</p>
 
   return (
-    <div className="p-6">
+    <>
+      <Portada titulo="Stock" subtitulo="Disponibilidad de productos por sede" />
+      <div className="py-4">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-lg font-bold">Stock</h1>
         {esAdmin ? (
           <select
             value={sedeId ?? ''}
@@ -203,6 +205,7 @@ export default function Stock() {
           </table>
         </div>
       )}
-    </div>
+      </div>
+    </>
   )
 }

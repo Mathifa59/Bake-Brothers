@@ -956,6 +956,158 @@ borde inferior del contenedor — se separó dándole `pb-4` al contenedor solo 
 (`sm:pb-0`, en desktop las pestañas hacen `flex-wrap` y no hay barra). Verificado: 16px
 entre el botón y el borde del contenedor a 375px de ancho.
 
+### Dashboard → "Bake OS" (2026-10-06; **mergeado a `main` el 2026-10-13**, en producción en `dashboard.bake-brothers.com`)
+
+> **Estado de salida (2026-10-13)**: `feature/bake-os` se fusionó a `main` por fast-forward (a pedido
+> del cliente, porque las vistas previas de Vercel exigen login de Vercel). La migración **0031 ya
+> está aplicada** en el Supabase real (`adminbake` = "Javier"); la **0030 (WhatsApp) sigue sin
+> aplicarse**. Coolify desplegó `apps/api` desde la rama `feature/bake-os` (idéntica a `main`) con
+> `ANTHROPIC_API_KEY` cargada: conviene devolver el Branch de esa app a `main`. Lo que sigue más
+> abajo se escribió antes del merge; donde diga "sin mergear" o "no está aplicada", léase con este
+> estado. Los datos de prueba de la presentación llevan `[PRUEBA]` (clientes `nombre like
+> '[PRUEBA]%'`, notas `nota like '[PRUEBA]%'`, conversación `external_id like 'PRUEBA-%'`): borrarlos
+> al terminar con `order_items` → `orders` → `customers` → `conversaciones`.
+
+El dashboard (`apps/admin`) evoluciona hacia la visión "Bake OS" del cliente (prototipo en
+capturas, carpeta `referencia-bake-os`, fuera del repo). **Es la misma app** (mismo login,
+mismos datos, misma URL `HashRouter`): se cambió el diseño y se agregaron secciones; Pedidos,
+Clientes, Stock, Métricas, Conversaciones, Atribución y Nuevo pedido se adaptaron y reubicaron,
+no se reescribieron (salvo Pedidos/Clientes, que ganaron versión de tarjetas para celular).
+
+- **Diseño** (primero celular): paleta muestreada de las capturas en tokens de `index.css`
+  (fondo `#F5F4F0`, tarjetas `#FFFEFA`, hero `#2C2825`, botón `#22211D`, acento `#D86820`). El
+  naranja del prototipo da ~3.5:1 sobre el crema, así que **todo texto/contador naranja usa
+  `acento-oscuro #B4520F`** (~4.6:1, AA). Menú de secciones horizontal arriba (scroll en
+  celular, la activa se centra sola), encabezado "Bake OS" con campana + contador (= alertas
+  activas del Control Tower), fecha en hora de Lima, saludo según la hora de Lima.
+  "Acción rápida" = Nuevo pedido. Divergencias deliberadas con el prototipo: **sin puntajes
+  inventados** (nada de "salud operativa 86/100" ni "producción 82%") y sin cifras de ejemplo.
+- **Nombre en el saludo — migración 0031** (`usuarios_dashboard.nombre`, nullable;
+  `adminbake@` = "Javier"; las cuentas de sede quedan sin nombre → "Equipo Cedros"/"Equipo
+  Santa Marina"). **0031 va junto con la 0030 (rama `feature/coexistencia`) en el deploy final,
+  en orden 0030 → 0031; NO está aplicada al Supabase real.** `AuthContext` reintenta sin la
+  columna si no existe, para que el panel no deje a nadie sin acceso si se despliega antes.
+- **Lógica nueva, pura y con tests, en `packages/domain`** (`zonaLima`, `resumenDia`, `atencion`,
+  `segmentosClientes`, `tableroProduccion`, `alertas`; 25 tests en `bakeOs.test.ts`). Hora de
+  Lima con offset fijo -05:00 (sin horario de verano), nunca la del dispositivo.
+- **Resumen**: KPIs del día desde `metricas_kpis` (existente). **Comparación contra el mismo día
+  de la semana anterior HASTA LA MISMA HORA de Lima, no contra el día completo** —
+  `metricas_kpis` corta por día, no por hora. En vez de duplicar la lógica de ingreso en otra
+  función SQL, ambos cortes (hoy hasta ahora / semana anterior hasta la misma hora) se suman en
+  el dominio con `cuentaComoIngreso`, la misma definición (todo menos `cancelled`) que ya
+  replica `metricas_kpis`, sobre los pedidos de esas dos ventanas. El texto en pantalla lo dice
+  ("vs. martes anterior hasta las 8:30 p. m." + nota al pie). Ventas por hora: pedidos de hoy
+  agrupados por hora de Lima (sin migración). Prioridades del día = las alertas reales.
+- **Producción**: tablero Por iniciar (`confirmed`+`paid`) / En producción / Listo
+  (`out_for_delivery`), con botones que solo ofrecen transiciones válidas del dominio y el
+  trigger de la base; **`payment_pending` es un contador aparte** (la máquina no permite
+  producirlo sin pagar). Realtime sobre `orders`.
+- **Control Tower**: solo alertas reales — productos agotados (`stock.disponible=false`),
+  combos por revisar (`requiere_confirmar_combo` en pedidos que aún no entran a producción: ese
+  flag no tiene "ya revisado", se da por revisado al pasar a producción), conversaciones
+  `escalada` sin atender y pedidos `paid` sin empezar. Pedidos/conversaciones por Realtime;
+  `stock` no está en la publicación de Realtime → refresco cada 60 s y al volver a la pestaña.
+- **Clientes**: segmentos (2+ compras no canceladas / última compra hace más de 30 días / nuevos
+  del mes en Lima) con los datos existentes. De paso se corrigió el tope silencioso de 1000 filas
+  de PostgREST con paginación (`traerTodo`).
+- **Atención**: tiempo de primera respuesta del bot y humana desde `conversaciones.historial`
+  (función pura en el dominio; humana = desde que el bot derivó hasta la primera respuesta de una
+  persona). **Aviso en pantalla: la métrica humana aún no cuenta las respuestas desde el celular**
+  (hasta que los echoes de Coexistence existan, solo cuentan las dadas desde el panel).
+- **"Próximamente" — QUITADO (2026-10-13, decisión del cliente)**: las 9 secciones marcadas "Pronto"
+  (Manifiesto, Modo Equipo, Inventario, Marketing, Contenido, Academia, Resultados, Equipo y
+  Conexiones) ya no aparecen en el menú ni tienen ruta (se borró la pantalla `Proximamente`); la URL
+  vieja cae en Resumen. `config/secciones.js` conserva la lista como `SECCIONES_PENDIENTES`
+  (documenta qué falta del cliente para cada una) pero no se muestra. La conexión de WhatsApp de
+  `feature/coexistencia` tendrá que agregar su propia pantalla cuando llegue.
+- **Verificación**: capturas en vista de celular (375×812) contra un entorno local con **RLS
+  real** (Postgres embebido + PostgREST con JWT firmado; Docker Desktop no arrancaba y el MCP de
+  Supabase daba timeout): admin ve 15 pedidos, operador Cedros 13, Santa Marina 2; las cifras de
+  pantalla coinciden con los datos sembrados (ventas S/ 541, +116.4% vs. S/ 250 de la semana
+  anterior hasta la misma hora, 8 alertas = 3 en Cedros por RLS, etc.). No se probó contra el
+  Supabase real ni con Realtime (el entorno local no tiene websocket).
+- **Hallazgos al preparar la salida (2026-10-07)**: (1) el **proyecto de Supabase real parece
+  estar PAUSADO** (plan free, 7 días sin actividad): `umyaytrojtbdvdzbrily.supabase.co` da
+  NXDOMAIN en DNS públicos (8.8.8.8 y 1.1.1.1), y el MCP da timeouts de conexión a la base — no es
+  un problema de autenticación. Hay que restaurarlo desde el dashboard de Supabase antes de probar
+  con datos reales; la landing ya no consulta la API, así que nada lo mantiene despierto. (2) El
+  **API desplegado en Coolify está desactualizado**: `POST /api/dashboard/orders` da 404 y el CORS
+  no devuelve `Allow-Origin` ni para `bake-brothers-admin.vercel.app` → "Nuevo pedido" y responder
+  conversaciones no funcionan en producción hasta redesplegar `apps/api`. (3)
+  `dashboard.bake-brothers.com` nunca estuvo en `ORIGENES_PERMITIDOS` (corregido en esta rama, con
+  test). (4) Vista previa de la rama: Vercel la despliega sola; el cliente trae la URL y la anon
+  key reales como valor por defecto, así que no necesita variables en Preview.
+
+- **Simulador del bot (2026-10-13, rama `feature/bake-os`, para la presentación al cliente)**:
+  pantalla **"Simulador"** (solo admin; el menú no la muestra a operadores y `/simulador` los
+  redirige a Resumen) donde el admin escribe como si fuera un cliente y ve la respuesta del
+  **cerebro real** (`bot/cerebro.ts`, Claude + tools + catálogo/precios reales), turno a turno, con
+  las herramientas que usó, el motivo si derivó a una persona y una tarjeta por cada pedido creado
+  (link a Producción). Ruta nueva `POST /api/dashboard/simulador/mensaje`
+  (`routes/dashboardSimulador.ts` + `services/simuladorBot.ts`), protegida con
+  `verificarJwtOperador` + rol `admin` (403 `SOLO_ADMIN` si no), límite 30/min. **No envía nada
+  por WhatsApp y no toca `conversaciones`**: la conversación vive en el navegador (se reenvía el
+  historial en cada turno; `sessionStorage` la conserva al ir a Producción y volver), así una prueba
+  nunca ensucia la bandeja real ni las alertas. Reglas que replica de producción: una conversación
+  `escalada` ya no pasa por el bot. **Los pedidos que cree son reales** (misma validación y precio)
+  pero van **marcados `[PRUEBA]`** en el nombre del cliente y en la nota (`MARCA_PRUEBA` en
+  `services/crearPedido.ts`, opción `esPrueba` de `evaluarTurno`) y quedan en la **sede elegida**
+  (selector en la pantalla), así también los ve el operador de esa sede y salen en Producción en
+  vivo (Realtime). Sin `ANTHROPIC_API_KEY` en el servidor responde 503 `SIMULADOR_NO_CONFIGURADO`
+  (mensaje claro en pantalla); un fallo del modelo → 502 `MODELO_NO_DISPONIBLE`, con rollback (nada
+  a medias). Para borrar los pedidos de prueba: clientes con `nombre like '[PRUEBA]%'`.
+  **Bug real corregido de paso en el cerebro**: el prompt del modelo no incluía la fecha, así que
+  "para hoy"/"mañana" lo obligaban a adivinar `fechaEntregaISO` — ahora cada turno recibe la fecha
+  y hora de Lima (`contextoFechaActual`). También: CORS acepta las vistas previas de Vercel de
+  `bake-brothers-admin` (patrón acotado al equipo, el host exacto cambia por deploy y Vercel trunca
+  nombres largos), y `apps/admin/src/lib/apiClient.js` ya no cae a `localhost` en un build de
+  producción/vista previa sin `VITE_API_URL` (usa `https://api.bake-brothers.com`).
+  Probado: 9 tests nuevos (`dashboardSimulador.test.ts`: 401/403/400/404/503/502, precio real,
+  pedido marcado y en la sede elegida, conversación escalada, sin fetch externo ni filas nuevas en
+  `conversaciones`) + 5 de CORS, más los 63 de regresión del cerebro/webhook (SDK mockeado) contra
+  Postgres local; pantalla verificada en celular (375×812) contra una API falsa local con
+  respuestas enlatadas (la prueba contra Claude real se hace en la API desplegada). **Para que
+  funcione en producción hace falta**: redesplegar `apps/api` en Coolify con este código (rama
+  `feature/bake-os`, sin mergear a `main`) y cargar `ANTHROPIC_API_KEY` en sus variables.
+  **Bug real de producción encontrado al preparar la prueba de "recoger hoy" (y corregido)**: la regla de
+  anticipación (`cumpleAnticipacionMinima`, dominio) mide desde *ahora* hasta las **00:00 del día
+  de entrega**, así que **cualquier pedido "para hoy" daba negativo y se rechazaba siempre**
+  (`ANTICIPACION_INSUFICIENTE` con `horasMinimas: 0`) — también en `POST /api/orders` y "Nuevo
+  pedido" del dashboard, incluso para productos sin ningún mínimo (el catálogo real de tienda tiene
+  `anticipacion_horas` null). Arreglo en `services/pedidosTienda.ts`: sin mínimo (null/0) vale hoy
+  (fecha de Lima) y cualquier día futuro, nunca el pasado ni una fecha que no sea `YYYY-MM-DD`; con
+  un mínimo real (>0) la regla de dominio no cambió. Test: `pedidosTiendaAnticipacion.test.ts`
+  (transacción con rollback). Catering tiene su propio semáforo y no se tocó.
+  **Tercer bug real, encontrado en la primera prueba con Claude real en producción
+  (2026-10-13)**: el bot respondió que no existía "caja de alfajores mix" porque la búsqueda era
+  `nombre ilike '%<frase completa>%'` — la frase entera tenía que estar dentro del nombre, así que
+  plural ("alfajores"), "caja de" o una cantidad ("1") la rompían ("Alfajor Mix" no matcheaba).
+  Nuevo `repositories/busquedaTexto.ts`: parte el texto en palabras y exige TODAS dentro del nombre
+  (sin tildes/mayúsculas, singularizadas, sin relleno como "de/la/por favor"), con un segundo juego
+  sin cantidades ni "caja" para cuando el cliente las agrega; las coincidencias que incluyen todo
+  salen primero ("Pack 12 empanadas" no se confunde con "Pack 6"). Es un superconjunto de la búsqueda
+  anterior. Aplicado a productos (`consultarPrecio`, `consultarDisponibilidad`,
+  `productoParaPedidoPorBusqueda` → también los pedidos), combos y catering. Test:
+  `busquedaTexto.test.ts`.
+  **Pedidos genéricos / "qué hay" (2026-10-13)**: `consultarPrecio` devuelve UN producto, así que
+  "quiero alfajores" elegía uno por el cliente y "¿qué empanadas hay?" no tenía respuesta. Nueva tool
+  del bot `listarCatalogo` (`bot/tools.ts`): lista los productos disponibles cuyo nombre, categoría
+  o rubro (dulces/salados/bebidas) coinciden con todas las palabras ("un postre dulce" → los
+  postres; "empanadas" → las 10), con precio "desde" y aviso de varios tamaños, agrupados por
+  categoría, tope de 24 (avisa `truncado`); sin texto o sin coincidencias devuelve las categorías que
+  existen. Regla 7 en el prompt: ante un pedido genérico llama a `listarCatalogo`, muestra opciones
+  y pregunta cuál; nunca elige por el cliente. La búsqueda ignora además palabras de pregunta
+  ("qué", "tipo", "tienen", "sabores"…).
+  **Tuteo peruano (2026-10-13)**: el prompt del bot estaba escrito con voseo argentino ("Sos", "podés",
+  "llamá"…) y el modelo lo imitaba con el cliente ("pagás", "podés"). Todo el prompt y las descripciones
+  de herramientas pasaron a "tú", se agregó la instrucción explícita de tutear y la regla de formato de
+  WhatsApp (un solo asterisco para resaltar, nunca `**doble**`), y se corrigieron los textos del
+  dashboard ("Elige una conversación", "Escribe una respuesta", "No tienes permiso…"). Test
+  `tuteo.test.ts`: recorre `apps/api/src` y `apps/admin/src` y falla si reaparece una forma voseante
+  (ojo: en JS `` no entiende tildes — usa lookarounds de letras).
+  Docker local: el puerto 54329 del contenedor `bb-pg-test` quedó en un rango reservado por
+  Windows y no arranca; se usa `bb-pg-sim` (mismo volumen de datos) en el puerto 55432.
+
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useConversaciones } from '../hooks/useConversaciones'
+import { Portada } from '../components/bakeos/ui'
 
 const NOMBRE_CANAL = { whatsapp: 'WhatsApp', facebook: 'Facebook', instagram: 'Instagram' }
 
@@ -45,9 +46,9 @@ export default function Conversaciones() {
   if (!conversaciones) return <p className="p-6 text-sm text-gris">Cargando conversaciones…</p>
 
   return (
-    <div className="p-6">
-      <h1 className="mb-1 text-lg font-bold">Conversaciones</h1>
-      <p className="mb-4 text-sm text-gris">Chats escalados por el bot, esperando un operador.</p>
+    <>
+      <Portada titulo="Conversaciones" subtitulo="Chats escalados por el bot, esperando a una persona" />
+      <div className="py-4">
 
       {conversaciones.length === 0 ? (
         <p className="text-sm text-gris">No hay conversaciones escaladas para tu alcance ahora mismo.</p>
@@ -82,7 +83,7 @@ export default function Conversaciones() {
 
           <div>
             {!seleccionado ? (
-              <p className="text-sm text-gris">Elegí una conversación para ver el historial y responder.</p>
+              <p className="text-sm text-gris">Elige una conversación para ver el historial y responder.</p>
             ) : (
               <div className="flex h-full flex-col rounded-2xl border border-borde/60 bg-white">
                 <div className="border-b border-borde/60 px-5 py-3">
@@ -112,7 +113,7 @@ export default function Conversaciones() {
                   <input
                     value={texto}
                     onChange={(e) => setTexto(e.target.value)}
-                    placeholder="Escribí una respuesta…"
+                    placeholder="Escribe una respuesta…"
                     disabled={enviando === seleccionado.id}
                     className="flex-1 rounded-full border border-borde bg-white px-4 py-2.5 text-sm outline-none focus:border-acento focus:ring-2 focus:ring-acento/20"
                   />
@@ -129,6 +130,7 @@ export default function Conversaciones() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   )
 }

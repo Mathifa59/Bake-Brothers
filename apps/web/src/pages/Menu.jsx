@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { MessageCircle } from 'lucide-react'
 import ProductCard from '../components/landing/ProductCard'
 import WhatsAppCTA from '../components/landing/WhatsAppCTA'
@@ -32,11 +32,11 @@ function ListaSinFoto({ productos }) {
 }
 
 export default function Menu() {
-  const [activaId, setActivaId] = useState(categorias[0].id)
-  const activa = categorias.find((c) => c.id === activaId)
+  const [parametros, setParametros] = useSearchParams()
+  const activa = categorias.find((categoria) => categoria.id === parametros.get('categoria')) || categorias[0]
 
   return (
-    <section className="bg-crema px-6 py-16 sm:px-12 sm:py-20 lg:px-20">
+    <section className="page-container py-16 sm:py-20">
       <div className="mb-10">
         <h1 className="font-display text-4xl font-semibold text-tinta sm:text-5xl">Nuestro menú</h1>
         <p className="mt-3 max-w-lg text-gris">Todo lo que preparamos, en un solo lugar — elige una categoría y pide directo por WhatsApp.</p>
@@ -50,9 +50,14 @@ export default function Menu() {
           <button
             key={categoria.id}
             type="button"
-            onClick={() => setActivaId(categoria.id)}
+            onClick={() => setParametros((actuales) => {
+              const siguientes = new URLSearchParams(actuales)
+              siguientes.set('categoria', categoria.id)
+              return siguientes
+            })}
+            aria-pressed={categoria.id === activa.id}
             className={`shrink-0 rounded-full border px-5 py-2.5 text-sm font-semibold transition-colors ${
-              categoria.id === activaId
+              categoria.id === activa.id
                 ? 'border-tinta bg-tinta text-white'
                 : 'border-borde bg-white text-tinta/70 hover:border-tinta/30'
             }`}

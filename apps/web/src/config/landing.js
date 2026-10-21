@@ -7,6 +7,9 @@ export const videosHero = [
   {
     id: 'mix',
     nombre: 'Caja de Alfajores Mix',
+    tituloPrincipal: 'Caja de',
+    tituloSecundario: 'Alfajores',
+    tituloAcento: 'Mix',
     subtitulo: 'Un poco de cada capricho, en una sola caja',
     precio: 22.9,
     unidades: 18,
@@ -20,6 +23,9 @@ export const videosHero = [
   {
     id: 'manjar',
     nombre: 'Caja de Alfajores con Manjar Blanco',
+    tituloPrincipal: 'Caja de Alfajores',
+    tituloSecundario: 'con',
+    tituloAcento: 'Manjar Blanco',
     subtitulo: 'El clásico de siempre, manjar hasta el borde',
     precio: 11.9,
     unidades: 18,
@@ -56,12 +62,19 @@ export const locales = [
   {
     nombre: 'Cedros',
     direccion: 'Av. Alameda Los Horizontes 820, Chorrillos',
+    horarios: [
+      { dias: 'Lunes a sábado', horas: '7:30 a. m. – 8:30 p. m.' },
+      { dias: 'Domingo', horas: '10:00 a. m. – 8:30 p. m.' },
+    ],
+    mapaUrl: 'https://www.google.com/maps/dir/?api=1&destination=Av.%20Alameda%20Los%20Horizontes%20820%2C%20Chorrillos%2C%20Lima',
     mapaSrc:
       'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3899.642744198229!2d-77.00921439999999!3d-12.2046946!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x9105b90b0f511c61%3A0x28ddbd9a3c4fcc00!2sBakeBrothers!5e0!3m2!1ses-419!2spe!4v1790624971087!5m2!1ses-419!2spe',
   },
   {
     nombre: 'Santa Marina',
     direccion: 'Av. Defensores del Morro 2270',
+    horarios: [{ dias: 'Lunes a domingo', horas: '12:00 p. m. – 10:00 p. m.' }],
+    mapaUrl: 'https://www.google.com/maps/dir/?api=1&destination=Av.%20Defensores%20del%20Morro%202270%2C%20Chorrillos%2C%20Lima',
     mapaSrc:
       'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3899.978303909021!2d-77.0125961!3d-12.181879400000001!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x9105b77db00554d9%3A0x62bc17c099226c51!2sMercado%20Santa%20Marina%2C%20Av.%20Defensores%20del%20Morro%202270%2C%20Chorrillos%2015067!5e0!3m2!1ses-419!2spe!4v1790625055996!5m2!1ses-419!2spe',
   },

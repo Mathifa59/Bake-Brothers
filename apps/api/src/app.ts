@@ -13,6 +13,7 @@ import { webhookRoutes } from './routes/webhook.js'
 import { dashboardOrdersRoutes } from './routes/dashboardOrders.js'
 import { dashboardConversacionesRoutes } from './routes/dashboardConversaciones.js'
 import { dashboardWhatsAppRoutes } from './routes/dashboardWhatsApp.js'
+import { dashboardSimuladorRoutes } from './routes/dashboardSimulador.js'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -36,7 +37,20 @@ const ORIGENES_PERMITIDOS = [
   // apps/admin — el puente nuevo (POST /api/dashboard/orders) lo llama
   // directo desde el navegador del operador.
   'https://bake-brothers-admin.vercel.app',
+  // Dominio propio del dashboard (Cloudflare → Vercel, ver CLAUDE.md §9). Sin
+  // este origen el navegador bloquea "Nuevo pedido" y la bandeja de
+  // Conversaciones desde dashboard.bake-brothers.com — se encontró al revisar el
+  // despliegue de Bake OS: nunca estuvo en la lista.
+  'https://dashboard.bake-brothers.com',
   'http://localhost:5174',
+  // Vistas previas de apps/admin que Vercel genera por rama/commit (p. ej. la
+  // de feature/bake-os, antes de mergear a main). El host exacto cambia en
+  // cada deploy y Vercel trunca los nombres largos, así que no se puede
+  // listar uno por uno: se acepta el patrón <proyecto>-<...>-<equipo>.vercel.app
+  // del proyecto bake-brothers-admin en el equipo de Bake Brothers. La API se
+  // autentica con el JWT en el header Authorization (no con cookies), así que
+  // un origen ajeno no podría usar CORS para actuar en nombre de nadie.
+  /^https:\/\/bake-brothers-admin-[a-z0-9-]+-mathias-projects-eaced134\.vercel\.app$/,
 ]
 
 export async function buildApp() {
@@ -98,6 +112,7 @@ export async function buildApp() {
   dashboardOrdersRoutes(app)
   dashboardConversacionesRoutes(app)
   dashboardWhatsAppRoutes(app)
+  dashboardSimuladorRoutes(app)
 
   return app
 }

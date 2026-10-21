@@ -1,225 +1,146 @@
-import { useRef } from 'react'
-import { useGSAP } from '@gsap/react'
-import gsap from 'gsap'
-import { SplitText } from 'gsap/SplitText'
+import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { ArrowRight, MessageCircle } from 'lucide-react'
 import { videosHero } from '../../config/landing'
 import WhatsAppCTA from './WhatsAppCTA'
 import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
 
-gsap.registerPlugin(SplitText)
-
 const SEGUNDOS_POR_VIDEO = 6
 
-// El loop se maneja a mano, sin el atributo `loop` — reporte real: los
-// clips duran 8-10s, alguien que se queda mirando el hero antes de bajar
-// alcanza a ver el reinicio del loop, y en ese reinicio nativo algunos
-// navegadores muestran un parpadeo/flash en blanco. Reiniciar un poco antes
-// del final (en vez de esperar a que termine) evita ese corte.
 function manejarLoopManual(evento) {
   const video = evento.currentTarget
-  if (video.duration && video.currentTime >= video.duration - 0.15) {
-    video.currentTime = 0
-  }
+  if (video.duration && video.currentTime >= video.duration - 0.15) video.currentTime = 0
 }
 
-function reiniciarAlTerminar(evento) {
-  const video = evento.currentTarget
-  video.currentTime = 0
-  video.play()
-}
-
-function VideoBackground({ video, videoRef }) {
-  // absolute inset-0: sin esto el <video> queda en el flujo normal del
-  // documento (toma 768px reales de alto) y empuja al overlay de texto que
-  // viene después fuera de la pantalla — el bug real que se vio al
-  // verificar en el navegador, no algo hipotético.
-  //
-  // Sin fetchPriority acá a propósito: no es un atributo real de <video>
-  // (solo de <img>/<link>/fetch), React tiraba un warning en cada render y
-  // el navegador lo ignoraba de todas formas. El poster del primer video sí
-  // se precarga con prioridad alta, pero eso vive en index.html.
+function ProductoOverlay({ producto, activo }) {
   return (
-    <video
-      ref={videoRef}
-      muted
-      playsInline
-      autoPlay
-      preload="auto"
-      poster={video.poster}
-      onTimeUpdate={manejarLoopManual}
-      onEnded={reiniciarAlTerminar}
-      className="absolute inset-0 h-full w-full object-cover"
-    >
-      <source src={video.webm} type="video/webm" />
-      <source src={video.mp4} type="video/mp4" />
-    </video>
-  )
-}
-
-function ProductoOverlay({ producto, contentRef, tituloRef, subtituloRef }) {
-  return (
-    <div
-      ref={contentRef}
-      className="relative z-10 flex h-full flex-col justify-end px-6 pb-24 text-white sm:px-12 sm:pb-28 lg:px-20"
-    >
-      <p className="mb-3 font-sans text-xs font-bold uppercase tracking-[0.35em] text-white/80">Bake Brothers</p>
-      <h2
-        ref={tituloRef}
-        className="max-w-2xl font-display text-4xl font-semibold leading-[1.05] sm:text-6xl lg:text-7xl"
-      >
-        {producto.nombre}
-      </h2>
-      {/* role="text": SplitText le inyecta un aria-label con el texto completo
-          al hacer el reveal por líneas — un <p> normal no acepta nombre por
-          aria-label según ARIA-in-HTML (hallado por Lighthouse), role="text"
-          es la corrección recomendada por la propia documentación de GSAP. */}
-      <p
-        ref={subtituloRef}
-        role="text"
-        className="mt-4 max-w-md font-sans text-base text-white/85 sm:text-lg"
-      >
-        {producto.subtitulo}
-      </p>
-      <div data-hero-cta className="mt-7 flex flex-wrap items-center gap-5">
-        <span className="font-display text-2xl font-semibold sm:text-3xl">
-          S/ {producto.precio.toFixed(2)} · {producto.unidades} unidades
-        </span>
-        <WhatsAppCTA
-          mensaje={producto.mensajeWhatsapp}
-          producto={producto.id}
-          className="rounded-full bg-[#0F7B3F] px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-black/25 transition-transform hover:scale-105 active:scale-95 sm:text-base"
-        >
-          Pídelo por WhatsApp
-        </WhatsAppCTA>
+    <div className="page-container relative z-10 flex h-full flex-col justify-center pb-28 pt-10 text-white sm:pb-32">
+      <div key={activo ? 'visible' : 'oculto'} className={activo ? 'hero-copy' : undefined}>
+        <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.25em] text-white/85 sm:text-xs">
+          Bake Brothers <span className="mx-2 text-acento" aria-hidden="true">·</span> Chorrillos
+        </p>
+        <h2 aria-label={producto.nombre} className="max-w-[44rem] font-display text-[clamp(2rem,10vw,2.5rem)] font-semibold leading-[1.05] tracking-[-0.025em] sm:text-[clamp(2.5rem,5.2vw,4.5rem)]">
+          <span className="block">{producto.tituloPrincipal}</span>
+          <span className="block">{producto.tituloSecundario} <span className="text-acento">{producto.tituloAcento}</span></span>
+        </h2>
+        <p className="mt-5 max-w-sm text-base leading-relaxed text-white/90 sm:max-w-md sm:text-lg">
+          {producto.subtitulo}
+        </p>
+        <div className="mt-6 sm:mt-7">
+          <p className="text-sm font-medium text-white/85">Caja de {producto.unidades} unidades</p>
+          <p className="mt-1 font-sans text-4xl font-bold tracking-tight sm:text-[2.75rem]">
+            <span className="mr-1.5 text-xl font-medium text-white/85">S/</span>{producto.precio.toFixed(2)}
+          </p>
+        </div>
+        <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-4 sm:mt-6">
+          <WhatsAppCTA
+            mensaje={producto.mensajeWhatsapp}
+            producto={producto.id}
+            ariaLabel={`Pedir ${producto.nombre} por WhatsApp`}
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#0F7B3F] px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-black/20 transition-colors hover:bg-[#096331] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-acento sm:px-7 sm:text-base"
+          >
+            <MessageCircle size={18} aria-hidden="true" />
+            Pídelo por WhatsApp
+          </WhatsAppCTA>
+          <Link to="/menu" className="inline-flex min-h-11 items-center gap-2 border-b border-white/45 py-2 text-sm font-semibold text-white transition-colors hover:border-acento hover:text-acento focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-acento">
+            Ver todo el menú <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+        </div>
       </div>
     </div>
   )
 }
 
-// Sección 1+2 de la landing, construidas juntas a propósito. El cambio
-// entre videos es automático (por tiempo), NO depende del scroll — pedido
-// real del cliente: la mecánica anterior (pin + scroll-scrub) obligaba a
-// scrollear para ver el segundo video, y no lo quería así. El scroll acá
-// ahora es 100% libre, como cualquier otra sección — solo baja la página.
-//
-// onVisibilidadCambia: cada video trae su propio CTA anclado abajo a la
-// derecha, la misma esquina donde vive el botón flotante — sin esto se
-// superponen. Landing.jsx lo usa para ocultar el flotante mientras esta
-// sección está en pantalla (ya hay un CTA visible, no hace falta el
-// segundo) y mostrarlo recién cuando el usuario sigue bajando.
 export default function VideosHero({ onVisibilidadCambia }) {
   const reducido = usePrefersReducedMotion()
   const sectionRef = useRef(null)
-  const layer1Ref = useRef(null)
-  const layer2Ref = useRef(null)
-  const video1Ref = useRef(null)
-  const video2Ref = useRef(null)
-  const contenido1Ref = useRef(null)
-  const contenido2Ref = useRef(null)
-  const titulo1Ref = useRef(null)
-  const subtitulo1Ref = useRef(null)
+  const videoRefs = useRef([])
+  const [activa, setActiva] = useState(0)
+  const [enPantalla, setEnPantalla] = useState(false)
+  const [pestanaVisible, setPestanaVisible] = useState(() => !document.hidden)
+  const [interactuando, setInteractuando] = useState(false)
+  const [conFoco, setConFoco] = useState(false)
+  const reproducir = enPantalla && pestanaVisible && !reducido
 
-  useGSAP(
-    () => {
-      // Reveal de entrada del primer video (por líneas, con máscara) — es
-      // lo primero que ve cualquiera al abrir la página, corre una sola vez
-      // al montar, no depende del scroll.
-      const splitTitulo = SplitText.create(titulo1Ref.current, { type: 'lines', mask: 'lines' })
-      const splitSubtitulo = SplitText.create(subtitulo1Ref.current, { type: 'lines', mask: 'lines' })
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      setEnPantalla(entry.isIntersecting)
+      onVisibilidadCambia?.(entry.isIntersecting)
+    }, { threshold: 0.1 })
+    if (sectionRef.current) observer.observe(sectionRef.current)
+    return () => observer.disconnect()
+  }, [onVisibilidadCambia])
 
-      if (reducido) {
-        // Sin auto-cambio ni reveal escalonado: el hero queda quieto en el
-        // primer video (más simple y predecible para quien pidió menos
-        // movimiento).
-        gsap.set('[data-hero-cta]', { opacity: 1 })
-        return undefined
-      }
+  useEffect(() => {
+    const actualizar = () => setPestanaVisible(!document.hidden)
+    document.addEventListener('visibilitychange', actualizar)
+    return () => document.removeEventListener('visibilitychange', actualizar)
+  }, [])
 
-      gsap.set([splitTitulo.lines, splitSubtitulo.lines], { yPercent: 130 })
-      gsap.set('[data-hero-cta]', { opacity: 0, y: 16 })
-      gsap
-        .timeline({ delay: 0.3 })
-        .to(splitTitulo.lines, { yPercent: 0, duration: 1, stagger: 0.08, ease: 'expo.out' })
-        .to(splitSubtitulo.lines, { yPercent: 0, duration: 0.8, stagger: 0.06, ease: 'expo.out' }, '-=0.6')
-        .to('[data-hero-cta]', { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' }, '-=0.4')
+  useEffect(() => {
+    videoRefs.current.forEach((video, indice) => {
+      if (!video) return
+      if (indice === activa && reproducir) video.play()?.catch(() => {})
+      else video.pause()
+    })
+  }, [activa, reproducir])
 
-      // Cross-fade automático entre los dos videos, cada SEGUNDOS_POR_VIDEO
-      // segundos — mismo cross-fade simple de antes, solo que ahora lo
-      // dispara un timer en vez del scroll. El timer se prende/apaga con la
-      // visibilidad real de la sección (mismo IntersectionObserver que ya
-      // pausaba los videos): ahorra trabajo de sobra y evita que el usuario
-      // vuelva a la sección a mitad de una transición vieja.
-      let mostrandoVideo1 = true
-      const alternar = () => {
-        const entra = mostrandoVideo1 ? layer2Ref.current : layer1Ref.current
-        const sale = mostrandoVideo1 ? layer1Ref.current : layer2Ref.current
-        const contenidoEntra = mostrandoVideo1 ? contenido2Ref.current : contenido1Ref.current
-        const contenidoSale = mostrandoVideo1 ? contenido1Ref.current : contenido2Ref.current
-        mostrandoVideo1 = !mostrandoVideo1
-
-        gsap.to(contenidoSale, { opacity: 0, yPercent: -8, duration: 0.4, ease: 'power1.in' })
-        gsap.to(sale, { opacity: 0, duration: 0.6, ease: 'power1.inOut' })
-        gsap.fromTo(entra, { opacity: 0 }, { opacity: 1, duration: 0.6, ease: 'power1.inOut' })
-        gsap.fromTo(
-          contenidoEntra,
-          { opacity: 0, yPercent: 8 },
-          { opacity: 1, yPercent: 0, duration: 0.4, ease: 'power1.out', delay: 0.25 }
-        )
-      }
-
-      let intervaloId = null
-
-      // Ahorro real de batería/datos: el video fuera de pantalla se pausa,
-      // y el auto-cambio se detiene con él (IntersectionObserver, no un
-      // listener de scroll a mano).
-      const seccion = sectionRef.current
-      const observer = new IntersectionObserver(
-        ([entry]) => {
-          const accion = entry.isIntersecting ? 'play' : 'pause'
-          video1Ref.current?.[accion]?.()
-          video2Ref.current?.[accion]?.()
-          onVisibilidadCambia?.(entry.isIntersecting)
-
-          if (entry.isIntersecting && intervaloId === null) {
-            intervaloId = setInterval(alternar, SEGUNDOS_POR_VIDEO * 1000)
-          } else if (!entry.isIntersecting && intervaloId !== null) {
-            clearInterval(intervaloId)
-            intervaloId = null
-          }
-        },
-        { threshold: 0.1 }
-      )
-      if (seccion) observer.observe(seccion)
-
-      return () => {
-        observer.disconnect()
-        if (intervaloId !== null) clearInterval(intervaloId)
-      }
-    },
-    { scope: sectionRef, dependencies: [reducido] }
-  )
+  // La rotación se detiene mientras se lee o se enfoca un enlace de compra.
+  useEffect(() => {
+    if (!reproducir || interactuando || conFoco) return undefined
+    const intervalo = setInterval(() => setActiva((actual) => (actual + 1) % videosHero.length), SEGUNDOS_POR_VIDEO * 1000)
+    return () => clearInterval(intervalo)
+  }, [activa, reproducir, interactuando, conFoco])
 
   return (
     <section
       id="alfajores"
       ref={sectionRef}
-      className="relative h-[calc(100svh-4rem)] w-full overflow-hidden bg-tinta sm:h-[calc(100svh-5rem)]"
+      role="region"
+      aria-roledescription="carrusel"
+      aria-label="Productos destacados"
+      onMouseEnter={() => setInteractuando(true)}
+      onMouseLeave={() => setInteractuando(false)}
+      onFocusCapture={() => setConFoco(true)}
+      onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setConFoco(false) }}
+      className="hero-section relative isolate h-[calc(100svh-4rem)] min-h-[640px] w-full overflow-hidden bg-tinta sm:h-[calc(100svh-5rem)] sm:min-h-[600px] lg:min-h-[560px]"
     >
-      <div ref={layer1Ref} className="absolute inset-0">
-        <VideoBackground video={videosHero[0].video} videoRef={video1Ref} />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/35" />
-        <ProductoOverlay
-          producto={videosHero[0]}
-          contentRef={contenido1Ref}
-          tituloRef={titulo1Ref}
-          subtituloRef={subtitulo1Ref}
-        />
-      </div>
+      {videosHero.map((producto, indice) => (
+        <div
+          key={producto.id}
+          role="group"
+          aria-roledescription="diapositiva"
+          aria-label={`${indice + 1} de ${videosHero.length}`}
+          aria-hidden={indice !== activa}
+          inert={indice !== activa ? '' : undefined}
+          className={`absolute inset-0 isolate transition-opacity duration-700 motion-reduce:transition-none ${indice === activa ? 'z-10 opacity-100' : 'pointer-events-none z-0 opacity-0'}`}
+        >
+          <video
+            ref={(elemento) => { videoRefs.current[indice] = elemento }}
+            muted
+            playsInline
+            preload={indice === 0 ? 'auto' : 'metadata'}
+            poster={producto.video.poster}
+            aria-hidden="true"
+            onTimeUpdate={manejarLoopManual}
+            onEnded={(evento) => {
+              evento.currentTarget.currentTime = 0
+              if (indice === activa && reproducir) evento.currentTarget.play()?.catch(() => {})
+            }}
+            className="absolute inset-0 h-full w-full object-cover"
+          >
+            <source src={producto.video.webm} type="video/webm" />
+            <source src={producto.video.mp4} type="video/mp4" />
+          </video>
+          <div className="hero-shade pointer-events-none absolute inset-0" />
+          <ProductoOverlay producto={producto} activo={indice === activa} />
+        </div>
+      ))}
 
-      <div ref={layer2Ref} className="absolute inset-0" style={{ opacity: 0 }}>
-        <VideoBackground video={videosHero[1].video} videoRef={video2Ref} />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/35" />
-        <ProductoOverlay producto={videosHero[1]} contentRef={contenido2Ref} />
+      <div className="page-container pointer-events-none absolute inset-x-0 bottom-6 z-20 flex justify-end sm:bottom-7">
+        <span className="hidden text-xs font-medium tracking-wider text-white/75 sm:block" aria-hidden="true">
+          {String(activa + 1).padStart(2, '0')} <span className="mx-2 text-white/35">/</span> {String(videosHero.length).padStart(2, '0')}
+        </span>
       </div>
     </section>
   )
