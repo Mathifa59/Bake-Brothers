@@ -113,4 +113,18 @@ describe.skipIf(!hayBaseDeDatosReal)('0032 — RLS del catálogo con roles reale
   it.each(TABLAS)('anon (sin sesión) no entra a %s', async (t) => {
     await expect(como('anon', null, () => contar(t))).rejects.toThrow(/permission denied/)
   })
+
+  // 0033: tabla nueva con los códigos de Mifact — misma regla que el catálogo (0032).
+  it('mifact_codigos: RLS activa; app_api y el personal leen; una sesión sin panel ve 0; anon no entra; nadie escribe desde el navegador', async () => {
+    const prod = (await client.query(`select id from products limit 1`)).rows[0].id
+    await client.query(`insert into mifact_codigos (product_id, almacen, codigo) values ($1, 'central', 'RLS-TEST-MIFACT')`, [prod])
+    expect((await client.query(`select relrowsecurity from pg_class where relname = 'mifact_codigos'`)).rows[0].relrowsecurity).toBe(true)
+    expect(await como('app_api', null, () => contar('mifact_codigos'))).toBeGreaterThan(0)
+    expect(await como('authenticated', personalAdmin, () => contar('mifact_codigos'))).toBeGreaterThan(0)
+    expect(await como('authenticated', sesionSinPanel, () => contar('mifact_codigos'))).toBe(0)
+    await expect(como('anon', null, () => contar('mifact_codigos'))).rejects.toThrow(/permission denied/)
+    for (const sql of ['delete from mifact_codigos', `update mifact_codigos set almacen = 'x'`]) {
+      await expect(como('authenticated', personalAdmin, () => client.query(sql)), sql).rejects.toThrow(/permission denied/)
+    }
+  })
 })

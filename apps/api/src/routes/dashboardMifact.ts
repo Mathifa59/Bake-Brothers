@@ -11,13 +11,15 @@ const bodySchema = z.object({
       z.object({
         tipo: z.enum(['producto', 'tamano']),
         id: z.string().uuid(),
-        // Código de Mifact: texto corto sin saltos de línea ni caracteres de control.
+        // Texto corto sin saltos de línea ni caracteres de control (se guarda tal cual lo escribe Mifact).
+        almacen: z.string().trim().min(1).max(40).regex(/^[^\x00-\x1f\x7f]+$/),
         codigo: z
           .string()
           .trim()
           .min(1)
           .max(60)
           .regex(/^[^\x00-\x1f\x7f]+$/, 'el código no puede traer saltos de línea ni caracteres de control'),
+        codigoBarras: z.string().trim().max(60).nullish(),
       })
     )
     .min(1)

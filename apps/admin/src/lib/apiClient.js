@@ -87,6 +87,26 @@ export async function simularMensajeBot({ mensaje, sedeId, estado, historial, ca
 }
 
 /**
+ * Importador de Mifact (solo admin): guarda los códigos de Mifact de las coincidencias que el admin dejó
+ * marcadas — uno por unidad vendible y almacén. Solo guarda códigos: jamás un precio ni un nombre. Lanza un
+ * Error con .codigo/.detalle si falla.
+ */
+export async function guardarCodigosMifact(asignaciones) {
+  const res = await pedirConAuth('/api/dashboard/mifact/codigos', {
+    method: 'POST',
+    body: JSON.stringify({ asignaciones }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.error || `Error del servidor (${res.status})`)
+    err.codigo = data.error
+    err.detalle = data.detalle ?? (data.detalles ? data.detalles.map((d) => `${d.campo}: ${d.mensaje}`).join('; ') : undefined)
+    throw err
+  }
+  return data
+}
+
+/**
  * Trae el comprobante como blob (no como link directo: el navegador no
  * manda el header de Authorization en una navegación normal) y devuelve una
  * URL de objeto lista para abrir/imprimir. Quien la use debe revocarla

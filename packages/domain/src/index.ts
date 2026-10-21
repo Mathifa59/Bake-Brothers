@@ -110,11 +110,16 @@ export {
 export {
   filasDesdeMatriz,
   parsearPrecio,
+  agruparPorProducto,
   compararCatalogoMifact,
   type FilaMifact,
   type LecturaExcelMifact,
+  type CodigoGuardado,
   type ItemCatalogo,
+  type ProductoMifact,
+  type VarianteCruzada,
   type Coincidencia,
   type AmbiguaMifact,
+  type SoloMifact,
   type ComparacionMifact,
 } from './mifact.js'

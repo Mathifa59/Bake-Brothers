@@ -1,16 +1,19 @@
 import type pg from 'pg'
 
 /**
- * Guarda el código de Mifact en productos / tamaños de nuestro catálogo (importador
- * de catálogo de Mifact, solo admin). NUNCA toca un precio ni un nombre: solo la
- * columna `codigo_mifact` (0033), y solo si el producto no tenía ya otro código y el
- * código no está en uso por otro — un cruce equivocado nunca pisa uno anterior.
+ * Guarda los códigos de Mifact de nuestro catálogo (importador de catálogo de Mifact,
+ * solo admin). NUNCA toca un precio ni un nombre: solo inserta en `mifact_codigos`
+ * (0033), y solo si esa unidad no tenía ya OTRO código para ese almacén y el código no
+ * está en uso por otra cosa — un cruce equivocado nunca pisa uno anterior.
  */
 
 export interface AsignacionCodigo {
   tipo: 'producto' | 'tamano'
   id: string
+  /** Almacén tal cual lo escribe Mifact ("CENTRAL", "santa marina", "TODOS"). */
+  almacen: string
   codigo: string
+  codigoBarras?: string | null
 }
 
 export type EstadoCodigo = 'guardado' | 'igual' | 'no_encontrado' | 'item_con_otro_codigo' | 'codigo_en_uso'
@@ -21,7 +24,7 @@ export interface ResultadoCodigo extends AsignacionCodigo {
   detalle?: string
 }
 
-const TABLA = { producto: 'products', tamano: 'product_sizes' } as const
+export const normalizarAlmacen = (a: string) => a.trim().replace(/\s+/g, ' ').toLowerCase()
 
 export async function guardarCodigosMifact(
   client: pg.PoolClient,
@@ -31,44 +34,55 @@ export async function guardarCodigosMifact(
   const resultados: ResultadoCodigo[] = []
 
   for (const a of asignaciones) {
-    const tabla = TABLA[a.tipo]
-    // product_sizes no tiene tenant_id (cuelga de products); products sí.
-    const { rows } = await client.query<{ id: string; codigo_mifact: string | null }>(
+    const almacen = normalizarAlmacen(a.almacen)
+    const columna = a.tipo === 'producto' ? 'product_id' : 'product_size_id'
+
+    // ¿Existe la unidad? (product_sizes no tiene tenant_id: cuelga de products.)
+    const { rows: existe } = await client.query(
       a.tipo === 'producto'
-        ? `select id, codigo_mifact from products where id = $1 and tenant_id = $2`
-        : `select id, codigo_mifact from product_sizes where id = $1`,
-      a.tipo === 'producto' ? [a.id, tenantId] : [a.id]
+        ? `select id from products where id = $1 and tenant_id = $2`
+        : `select ps.id from product_sizes ps join products p on p.id = ps.product_id where ps.id = $1 and p.tenant_id = $2`,
+      [a.id, tenantId]
     )
-    const actual = rows[0]
-    if (!actual) {
-      resultados.push({ ...a, resultado: 'no_encontrado' })
-      continue
-    }
-    if (actual.codigo_mifact === a.codigo) {
-      resultados.push({ ...a, resultado: 'igual' })
-      continue
-    }
-    if (actual.codigo_mifact) {
-      resultados.push({ ...a, resultado: 'item_con_otro_codigo', detalle: `ya tiene el código ${actual.codigo_mifact}` })
+    if (!existe[0]) {
+      resultados.push({ ...a, almacen, resultado: 'no_encontrado' })
       continue
     }
 
-    // ¿Lo usa otro producto o tamaño (en cualquiera de las dos tablas)?
+    // ¿Esa unidad ya tiene un código para ese almacén?
+    const { rows: actual } = await client.query<{ codigo: string }>(
+      `select codigo from mifact_codigos where ${columna} = $1 and almacen = $2`,
+      [a.id, almacen]
+    )
+    if (actual[0]) {
+      resultados.push(
+        actual[0].codigo === a.codigo
+          ? { ...a, almacen, resultado: 'igual' }
+          : { ...a, almacen, resultado: 'item_con_otro_codigo', detalle: `ya tiene el código ${actual[0].codigo} en ${almacen}` }
+      )
+      continue
+    }
+
+    // ¿Ese código ya lo usa otra cosa (producto, tamaño o la misma unidad en otro almacén)?
     const { rows: enUso } = await client.query<{ nombre: string }>(
-      `select p.nombre from products p where p.codigo_mifact = $1 and p.id <> $2
-       union all
-       select p.nombre || ' ' || ps.tamano from product_sizes ps join products p on p.id = ps.product_id
-       where ps.codigo_mifact = $1 and ps.id <> $2
-       limit 1`,
-      [a.codigo, a.id]
+      `select coalesce(p.nombre, p2.nombre || ' ' || ps.tamano) as nombre
+       from mifact_codigos m
+       left join products p on p.id = m.product_id
+       left join product_sizes ps on ps.id = m.product_size_id
+       left join products p2 on p2.id = ps.product_id
+       where m.codigo = $1`,
+      [a.codigo]
     )
     if (enUso[0]) {
-      resultados.push({ ...a, resultado: 'codigo_en_uso', detalle: `lo usa ${enUso[0].nombre}` })
+      resultados.push({ ...a, almacen, resultado: 'codigo_en_uso', detalle: `lo usa ${enUso[0].nombre}` })
       continue
     }
 
-    await client.query(`update ${tabla} set codigo_mifact = $2 where id = $1`, [a.id, a.codigo])
-    resultados.push({ ...a, resultado: 'guardado' })
+    await client.query(
+      `insert into mifact_codigos (${columna}, almacen, codigo, codigo_barras) values ($1, $2, $3, $4)`,
+      [a.id, almacen, a.codigo, a.codigoBarras ?? null]
+    )
+    resultados.push({ ...a, almacen, resultado: 'guardado' })
   }
   return resultados
 }
