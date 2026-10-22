@@ -4,6 +4,7 @@ import { pool, withTenantTx } from '../db.js'
 import { sedePorPhoneNumberId, encontrarOCrearConversacion } from '../repositories/conversacionesRepo.js'
 import { procesarMensajeEntrante } from './cerebro.js'
 import { enviarMensajeMeta } from './meta.js'
+import { extraerReferencia } from '@bakebrothers/domain'
 import type { MensajeWhatsAppEntrante } from './parsearMensajesWhatsApp.js'
 
 /**
@@ -62,9 +63,27 @@ export async function procesarMensajeWhatsAppEnBackground(
     return
   }
 
+  // Atribución de campañas: la landing agrega "(ref: tt-halloween)" al mensaje
+  // prellenado de WhatsApp. Se saca del texto (el modelo nunca la ve ni queda en
+  // el historial) y se guarda en la conversación; el pedido que cree el bot la
+  // lleva en orders.campana. La referencia MÁS RECIENTE gana: si la misma persona
+  // vuelve por otra campaña, sus pedidos nuevos se atribuyen a esa.
+  const { texto, referencia } = extraerReferencia(mensaje.texto)
+  if (referencia) {
+    await pool
+      .query(
+        `update conversaciones set contexto = contexto || jsonb_build_object('campana', $2::text) where id = $1`,
+        [conversacionId, referencia]
+      )
+      .catch((err) => {
+        // Perder la atribución no justifica dejar sin respuesta al cliente.
+        logger.error({ err, conversacionId }, 'No se pudo guardar la referencia de campaña de la conversación')
+      })
+  }
+
   try {
     const resultado = await withTenantTx(tenantId, (client) =>
-      procesarMensajeEntrante(client, tenantId, conversacionId, mensaje.texto)
+      procesarMensajeEntrante(client, tenantId, conversacionId, texto)
     )
     // null = la conversación ya estaba escalada/atendida por un operador —
     // procesarMensajeEntrante no generó ninguna respuesta del bot que mandar.

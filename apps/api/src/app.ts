@@ -13,6 +13,7 @@ import { webhookRoutes } from './routes/webhook.js'
 import { dashboardOrdersRoutes } from './routes/dashboardOrders.js'
 import { dashboardConversacionesRoutes } from './routes/dashboardConversaciones.js'
 import { dashboardSimuladorRoutes } from './routes/dashboardSimulador.js'
+import { dashboardMifactRoutes } from './routes/dashboardMifact.js'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -111,6 +112,7 @@ export async function buildApp() {
   dashboardOrdersRoutes(app)
   dashboardConversacionesRoutes(app)
   dashboardSimuladorRoutes(app)
+  dashboardMifactRoutes(app)
 
   return app
 }
