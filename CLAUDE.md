@@ -1108,6 +1108,111 @@ no se reescribieron (salvo Pedidos/Clientes, que ganaron versión de tarjetas pa
   Docker local: el puerto 54329 del contenedor `bb-pg-test` quedó en un rango reservado por
   Windows y no arranca; se usa `bb-pg-sim` (mismo volumen de datos) en el puerto 55432.
 
+### WhatsApp: número nuevo solo para el bot + lote de catálogo/Mifact (2026-10-21/22)
+
+> Estado de ramas al escribir esto: `main` (`7d85edd`) solo tiene migraciones hasta la **0031**.
+> `feature/coexistencia` (este archivo) = WhatsApp + número del bot. `feature/lote-catalogo-campanas` =
+> campañas, importador de Mifact y las migraciones **0032/0033**. **Nada de esto está en `main`, ni
+> desplegado.** Ojo: la **0032 (RLS de catálogo/sedes) YA está aplicada al Supabase real** (se aplicó antes
+> de mergear su rama), así que `main` y la base real no coinciden en eso; la 0030 y la 0033 no están
+> aplicadas.
+
+**Plan de WhatsApp vigente (cambió el 2026-10-21).** Un **número NUEVO solo para el bot**, conectado
+**directo a la API de Meta** en una app del portafolio de Bake Brothers, con **token de usuario del
+sistema** (no vence). Los números de los locales no se tocan. Ya no se usa Embedded Signup (ver abajo).
+
+- **Registro manual del número del bot** (ya funciona, sin depender del Embedded Signup):
+  `WHATSAPP_TOKEN_A_REGISTRAR=<token> pnpm whatsapp:registrar -- --bot --waba <waba_id> --phone <phone_number_id> --tipo sistema`
+  (desde `apps/api`, con `DATABASE_URL` y `WHATSAPP_TOKEN_ENCRYPTION_KEY`). El token va por variable de
+  entorno, no por argumento. También existe `POST /api/dashboard/whatsapp/conexiones/manual` (solo admin).
+  Los números de un local siguen con `--sede <uuid|nombre>`.
+- **0030 editada EN SU LUGAR** (no estaba aplicada en ningún Supabase real, así que no hizo falta una 0034):
+  `whatsapp_conexiones.sede_id` ahora admite null; columna `uso` (`'sede'` | `'bot'`) con el constraint
+  `whatsapp_conexiones_uso_sede` (`uso='bot'` ⇔ `sede_id is null`, sostenido por la base y no solo por el
+  código); `tipo_token` admite `'sistema'`; `conversaciones.whatsapp_phone_number_id` (el número por el que
+  escribió el cliente — desde ese mismo se le responde); y la RLS de `conversaciones` deja que **cualquier
+  persona del panel vea y atienda las conversaciones sin sede** (las que tienen sede siguen siendo del
+  admin y del operador de esa sede). Validada desde cero (cadena completa 0001→0031 en una base limpia) y con
+  tests de constraints y de RLS (`rlsConversacionesSinSede.test.ts`; necesita un rol que pueda hacer
+  `set role authenticated`, si no se salta).
+- **El bot pregunta el local.** El número del bot no pertenece a ninguna sede, así que la conversación nace
+  sin sede. La regla vive en el **servidor**, no en el modelo: `crearPedido` llama a
+  `resolverSedeDelPedido` (`packages/domain/src/sedeDelPedido.ts`, lógica pura, 20 tests) **antes** de
+  tocar nada: con número de local manda la sede de la conversación; con el del bot, recojo sin local →
+  `SEDE_REQUERIDA`, local desconocido → `SEDE_NO_VALIDA` (ambos devuelven `sedesDisponibles` y no dejan
+  cliente ni pedido); el local se reconoce sin importar mayúsculas ni "en el local de…". En `cerebro.ts` la
+  herramienta `crearPedido` tiene `sedeRecojo`, la regla 5 del prompt explica qué hacer ante esos dos
+  errores, y el prompt recibe el bloque `SEDE:` (`textoContextoSede`) **solo** cuando la conversación no
+  tiene sede.
+- **Decisión pendiente del cliente — delivery.** Un delivery no tiene "local de recojo". Se resolvió con la
+  variable **`SEDE_DELIVERY`** (nombre de la sede que despacha): si está, el pedido va a esa sede; si no, el
+  pedido queda **sin sede** (solo lo ve el admin hasta que alguien lo asigne). Hay que decidir cuál es.
+- **Webhook, firma y envío listos para conectar.** `POST /webhook` ahora exige la firma de Meta en
+  producción: sin `META_APP_SECRET` responde **503 `FIRMA_NO_CONFIGURADA`** (con la variable, firma mala →
+  401). Fuera de producción sin secreto sigue aceptando (desarrollo y tests). El envío usa el token cifrado
+  de la conexión del número que recibió el mensaje. **Cuando lleguen las credenciales basta con:** registrar
+  el número (`--bot`), cargar `META_APP_SECRET`, `WHATSAPP_TOKEN_ENCRYPTION_KEY`, `META_VERIFY_TOKEN` y
+  `SEDE_DELIVERY` en Coolify, y apuntar el webhook de la app de Meta a
+  `https://api.bake-brothers.com/webhook`. Hasta entonces el webhook de producción responde 503 (no hay nada
+  apuntando, no se pierde nada).
+- **Embedded Signup: nunca se construyó en esta rama** (solo existen el registro manual y el esquema).
+  `WHATSAPP_EMBEDDED_SIGNUP` (default `false`) queda **reservado y apagado**: ninguna ruta lo lee.
+- **Responder desde el panel** una conversación sin sede funciona: sale por el número por el que escribió el
+  cliente (`conversaciones.whatsapp_phone_number_id`) y cualquier persona del personal puede hacerlo; solo si
+  la conversación no lo trae se cae al número de la sede.
+- **Simulador:** el selector tiene "Número del bot (pregunta el local)" (valor por defecto, `sedeId: null`) y
+  uno por local; así se ve el flujo real de preguntar la sede.
+- **Tests nuevos:** `numeroDelBot.test.ts` (14: sede en `crearPedido`, delivery con y sin `SEDE_DELIVERY`,
+  contexto de sede en el prompt, el flujo completo por `POST /webhook` con una conexión `uso='bot'` y el SDK
+  mockeado —el bot pregunta, el cliente responde, el pedido nace con esa sede, la conversación sigue sin
+  sede, el envío sale por el número y token del bot—, responder sin sede, y la firma en producción),
+  `rlsConversacionesSinSede.test.ts` y los casos del número del bot en `whatsappConexiones.test.ts`. Suite de
+  la API: 162 pasan, 30 saltados (los que necesitan Anthropic o JWT reales). Nota: `dashboardSimulador`
+  cuenta filas de `conversaciones` globalmente y puede dar un falso fallo si corre a la vez que los tests de
+  webhook (pasa solo); su mock de `verificarJwtOperador` ahora usa `importOriginal` para no perder
+  `exigirAdmin`.
+- **Mantener la rama al día con `main`:** se hizo `merge origin/main` en `feature/coexistencia` (conflictos
+  solo en `app.ts` —conviven `dashboardWhatsAppRoutes` y `dashboardSimuladorRoutes`— y en los imports de
+  `cerebro.ts`). Cuando se mergee `feature/lote-catalogo-campanas` habrá conflictos previsibles en
+  `simuladorBot.ts`, `dashboardSimulador.ts` y su test (campañas vs. número del bot) y en este archivo;
+  conviene aplicar el mismo arreglo del mock (`importOriginal`) en la rama del lote.
+- **Orden de migraciones para el despliegue final:** 0030 (esta rama) → 0031 (ya aplicada) → 0032 (ya
+  aplicada en el real, vive en la rama del lote) → 0033 (lote, sin aplicar). Aplicar a la real solo con OK.
+
+**Plantillas de WhatsApp** (`docs/plantillas-whatsapp.md`): siete plantillas UTILITY en español, con tuteo,
+listas para enviar a Meta (confirmación de pedido, confirmación de pago, recordatorio de entrega, pedido en
+preparación, pedido listo/en camino, pedido entregado, solicitud de reseña), con variables, ejemplos y las
+reglas de Meta que cumplen. **El código todavía no envía plantillas** (`bot/meta.ts` solo manda texto libre,
+válido dentro de las 24 h): falta construirlo cuando Meta las apruebe y se definan los disparadores.
+
+**Campañas y lote de catálogo** (rama `feature/lote-catalogo-campanas`, sin mergear):
+- *Atribución de campañas:* `?utm_…` en la web → "(ref: tt-halloween)" en el mensaje de WhatsApp → el bot lo
+  lee y lo guarda en `orders.campana`.
+- *Importador de catálogo de Mifact* (pantalla admin **Mifact**, solo admin, ruta `/mifact`): se sube el
+  Excel de productos exportado de Mifact y se comparan sus códigos con nuestro catálogo; **el Excel no se
+  guarda en el repo** (vive en `Descargas`; el Excel de clientes `CLIENTES_MIFACT_20612010880.xlsx` está
+  aparte, para más adelante). **Hallazgos del archivo real (347 filas, 22 columnas):** hay **una fila por
+  producto y por almacén** (CENTRAL, santa marina, TODOS) con códigos distintos y a veces precios distintos
+  (212 nombres, 347 códigos únicos); el precio que se compara es `PRECIO UNITARIO` (con IGV 18 %), no
+  `VALOR UNITARIO`. Por eso el rediseño: `packages/domain/src/mifact.ts` no junta por nombre; compara con
+  sinónimos (porción→individual, ignora caja, ud. y relleno) y clasifica en exacta / probable (Jaccard ≥
+  0.75) / sugerencia (≥ 0.5); los ítems "(catering)" nunca se cruzan. Resultado con el archivo real: 39
+  exactas, 22 probables (todos los pares correctos), 0 ambiguas, 20 con precio distinto, 52 con nombre
+  distinto, 151 solo en Mifact, 25 solo nuestras, 63 códigos por guardar.
+- *Migración 0033 `mifact_codigos`:* tabla (producto o tamaño → almacén → código, código de barras), único
+  por código y por (ítem, almacén); RLS: `app_api` todo, personal solo lectura. Se guarda con
+  `POST /api/dashboard/mifact/codigos` (solo admin, nuevo `auth/soloAdmin.ts`); **nunca pisa un código
+  existente** (devuelve `item_con_otro_codigo` o `codigo_en_uso`). **Sin aplicar a Supabase.**
+- *Pendiente de lo grande ("Bake OS única fuente de verdad": clientes completos, pedidos al por menor,
+  mayoristas, resumen de producción, Rappi, comprobantes Mifact, importaciones):* solo hay un plan escrito
+  con dudas; **no se empezó**, se espera lo que respondan el cliente y Mifact. Vocabulario acordado para
+  cuando se construya: estados Confirmado / En preparación / Listo / Despachado / Anulado; modalidades
+  Delivery / Recojo en tienda; medios de pago Yape, Link Izipay, Trx. BCP, Trx. IBK, Canceló en tienda,
+  Canje, Cortesía.
+- *Otros pendientes:* devolver el Branch de la app de Coolify a `main` (hoy despliega `feature/bake-os`, que
+  es idéntica a `main`); los datos `[PRUEBA]` no se borran hasta que el cliente lo diga; los `WhatsApp Image
+  …jpeg` y `disenos/` sueltos en la raíz no son del código (nunca `git add -A`).
+
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.
