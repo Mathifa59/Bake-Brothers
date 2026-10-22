@@ -19,6 +19,7 @@ import {
   UserCog,
   Workflow,
   FlaskConical,
+  FileSpreadsheet,
 } from 'lucide-react'
 
 /**
@@ -38,6 +39,8 @@ export const SECCIONES_ACTIVAS = [
   { ruta: '/atribucion', etiqueta: 'Atribución', icono: PieChart },
   // Solo admin: prueba el cerebro real del bot sin WhatsApp (ver pages/Simulador.jsx).
   { ruta: '/simulador', etiqueta: 'Simulador', icono: FlaskConical, soloAdmin: true },
+  // Solo admin: cruza el Excel de productos de Mifact con el catálogo y guarda sus códigos (ver pages/Mifact.jsx).
+  { ruta: '/mifact', etiqueta: 'Mifact', icono: FileSpreadsheet, soloAdmin: true },
 ]
 
 /**

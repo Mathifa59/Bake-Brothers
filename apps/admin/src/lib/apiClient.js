@@ -62,12 +62,12 @@ export async function responderConversacion(conversacionId, texto) {
  * y devuelve su respuesta. No envía nada por WhatsApp. La conversación vive en el
  * navegador: se reenvía el historial en cada turno. Lanza un Error con .codigo/.detalle si falla.
  */
-export async function simularMensajeBot({ mensaje, sedeId, estado, historial }) {
+export async function simularMensajeBot({ mensaje, sedeId, estado, historial, campana }) {
   let res
   try {
     res = await pedirConAuth('/api/dashboard/simulador/mensaje', {
       method: 'POST',
-      body: JSON.stringify({ mensaje, sedeId, estado, historial }),
+      body: JSON.stringify({ mensaje, sedeId, estado, historial, campana: campana ?? null }),
     })
   } catch (e) {
     // fetch lanza TypeError ante CORS bloqueado, API caída o sin red.
@@ -81,6 +81,26 @@ export async function simularMensajeBot({ mensaje, sedeId, estado, historial }) 
     err.codigo = data.error
     err.detalle = data.detalle
     err.status = res.status
+    throw err
+  }
+  return data
+}
+
+/**
+ * Importador de Mifact (solo admin): guarda los códigos de Mifact de las coincidencias que el admin dejó
+ * marcadas — uno por unidad vendible y almacén. Solo guarda códigos: jamás un precio ni un nombre. Lanza un
+ * Error con .codigo/.detalle si falla.
+ */
+export async function guardarCodigosMifact(asignaciones) {
+  const res = await pedirConAuth('/api/dashboard/mifact/codigos', {
+    method: 'POST',
+    body: JSON.stringify({ asignaciones }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.error || `Error del servidor (${res.status})`)
+    err.codigo = data.error
+    err.detalle = data.detalle ?? (data.detalles ? data.detalles.map((d) => `${d.campo}: ${d.mensaje}`).join('; ') : undefined)
     throw err
   }
   return data

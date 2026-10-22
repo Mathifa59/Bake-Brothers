@@ -327,6 +327,9 @@ export interface OpcionesTurno {
   // Simulador del dashboard: los pedidos que cree el bot quedan marcados como
   // prueba (ver MARCA_PRUEBA en services/crearPedido.ts).
   esPrueba?: boolean
+  // Referencia de campaña de la conversación (ver campana.ts del dominio): el
+  // pedido que cree el bot la guarda en orders.campana.
+  campana?: string | null
 }
 
 /**
@@ -459,12 +462,14 @@ export function decidirEscaladaForzadaPorTool(
 function construirInputCrearPedido(
   inputCrudo: unknown,
   sedeId: string | undefined,
-  esPrueba: boolean
+  esPrueba: boolean,
+  campana: string | null
 ): CrearPedidoInput {
   const i = (inputCrudo ?? {}) as Record<string, unknown>
   const items = Array.isArray(i.items) ? (i.items as Record<string, unknown>[]) : []
   return {
     esPrueba,
+    campana,
     cliente: {
       nombre: String(i.clienteNombre ?? ''),
       telefono: String(i.clienteTelefono ?? ''),
@@ -612,7 +617,7 @@ export async function evaluarTurno(
             client,
             tenantId,
             canal,
-            construirInputCrearPedido(bloque.input, sedeId, opciones.esPrueba === true)
+            construirInputCrearPedido(bloque.input, sedeId, opciones.esPrueba === true, opciones.campana ?? null)
           )
           if (resultado.ok) {
             pedidosCreados.push({ numero: resultado.numero, estado: resultado.estado, total: resultado.total })
@@ -689,7 +694,7 @@ export async function procesarMensajeEntrante(
   mensajeTexto: string
 ): Promise<ResultadoTurno | null> {
   const { rows } = await client.query(
-    `select estado, historial, sede_id, canal, pausada_por_echo, ultimo_mensaje_humano_en
+    `select estado, historial, sede_id, canal, contexto, pausada_por_echo, ultimo_mensaje_humano_en
      from conversaciones where id = $1 and tenant_id = $2`,
     [conversacionId, tenantId]
   )
@@ -747,7 +752,8 @@ export async function procesarMensajeEntrante(
     mensajeTexto,
     estadoNormalizado,
     fila.canal as Canal,
-    fila.sede_id ?? undefined
+    fila.sede_id ?? undefined,
+    { campana: typeof fila.contexto?.campana === 'string' ? fila.contexto.campana : null }
   )
 
   const entradaBot: TurnoHistorial = { rol: 'bot', texto: resultado.textoRespuesta, en: new Date().toISOString() }

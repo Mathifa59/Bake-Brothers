@@ -14,6 +14,7 @@ import Atribucion from './pages/Atribucion'
 import Conversaciones from './pages/Conversaciones'
 import Metricas from './pages/Metricas'
 import Simulador from './pages/Simulador'
+import Mifact from './pages/Mifact'
 
 // Espera a saber si hay sesión y, si la hay, a leer el perfil (rol/sede) en
 // usuarios_dashboard antes de decidir qué mostrar.
@@ -64,6 +65,7 @@ export default function App() {
           <Route path="/metricas" element={protegida(<Metricas />)} />
           <Route path="/atribucion" element={protegida(<Atribucion />)} />
           <Route path="/simulador" element={protegida(<Simulador />)} />
+          <Route path="/mifact" element={protegida(<Mifact />)} />
           <Route path="*" element={<Navigate to="/resumen" replace />} />
         </Routes>
       </HashRouter>

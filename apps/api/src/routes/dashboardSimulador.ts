@@ -1,15 +1,10 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
+import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { withTenantTx } from '../db.js'
 import { verificarJwtOperador } from '../auth/verificarJwtOperador.js'
+// Solo admin: el simulador gasta tokens reales de Claude y crea pedidos (marcados como prueba) en cualquier sede.
+import { soloAdmin } from '../auth/soloAdmin.js'
 import { simularTurno } from '../services/simuladorBot.js'
-
-/** Solo admin: el simulador gasta tokens reales de Claude y crea pedidos (marcados como prueba) en cualquier sede. */
-async function exigirAdminSimulador(req: FastifyRequest, reply: FastifyReply) {
-  if (req.operador?.rol !== 'admin') {
-    return reply.code(403).send({ error: 'SOLO_ADMIN' })
-  }
-}
 
 const turnoSchema = z.object({
   rol: z.enum(['cliente', 'bot', 'operador']),
@@ -25,6 +20,8 @@ const simuladorSchema = z.object({
   // El historial viaja en cada turno (la conversación vive en el navegador).
   // Tope para que una conversación de prueba no crezca sin límite.
   historial: z.array(turnoSchema).max(60).default([]),
+  // Referencia de campaña vigente de la conversación simulada (viaja con el historial).
+  campana: z.string().regex(/^[a-z0-9][a-z0-9_-]{1,31}$/).nullish(),
 })
 
 const ERROR_A_CODIGO_HTTP: Record<string, number> = {
@@ -40,7 +37,7 @@ export function dashboardSimuladorRoutes(app: FastifyInstance) {
   app.post(
     '/api/dashboard/simulador/mensaje',
     {
-      preHandler: [verificarJwtOperador, exigirAdminSimulador],
+      preHandler: [verificarJwtOperador, soloAdmin],
       // Más estricto que el límite global (100/min): cada turno puede costar
       // varias llamadas a Claude.
       config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
@@ -62,6 +59,7 @@ export function dashboardSimuladorRoutes(app: FastifyInstance) {
             historial: body.historial,
             estado: body.estado === 'cerrada' ? 'activa' : body.estado,
             mensaje: body.mensaje,
+            campana: body.campana ?? null,
           })
         )
         if (!resultado.ok) {

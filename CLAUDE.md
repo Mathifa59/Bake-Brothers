@@ -1110,12 +1110,17 @@ no se reescribieron (salvo Pedidos/Clientes, que ganaron versión de tarjetas pa
 
 ### WhatsApp: número nuevo solo para el bot + lote de catálogo/Mifact (2026-10-21/22)
 
-> Estado de ramas al escribir esto: `main` (`7d85edd`) solo tiene migraciones hasta la **0031**.
-> `feature/coexistencia` (este archivo) = WhatsApp + número del bot. `feature/lote-catalogo-campanas` =
-> campañas, importador de Mifact y las migraciones **0032/0033**. **Nada de esto está en `main`, ni
-> desplegado.** Ojo: la **0032 (RLS de catálogo/sedes) YA está aplicada al Supabase real** (se aplicó antes
-> de mergear su rama), así que `main` y la base real no coinciden en eso; la 0030 y la 0033 no están
-> aplicadas.
+> **Estado de ramas (actualizado 2026-10-22).** `feature/lote-catalogo-campanas` YA está mergeada en `main`
+> (`fa6700c`): campañas, importador de Mifact, 0032 y 0033. La **0033 está aplicada en el Supabase real** y el
+> historial de migraciones de Supabase quedó 0001→0029, 0031, 0032, 0033 (la 0031 y la 0032 se registraron a
+> mano, sin reejecutarlas, con versiones sintéticas `20260925051615/16`). `main` y la base real coinciden;
+> **solo falta la 0030, que vive en esta rama** (`feature/coexistencia`, ya actualizada con `main`) y va con el
+> despliegue de WhatsApp. Verificado en producción tras el Deploy: catálogo en Stock y Nuevo pedido,
+> importador de Mifact abriendo, y la atribución de punta a punta (simulador con `(ref: tt-verificacion)` →
+> `orders.campana`, visible en Atribución; el pedido `[PRUEBA]` se borró, quedó el cliente `[PRUEBA] Prueba
+> Verificacion`). Hallazgo abierto: `consultarPrecio` busca solo por nombre, así que "carrot cake individual"
+> no calza (el tamaño no está en el nombre) y el bot responde que no existe hasta que el cliente dice solo
+> "carrot cake".
 
 **Plan de WhatsApp vigente (cambió el 2026-10-21).** Un **número NUEVO solo para el bot**, conectado
 **directo a la API de Meta** en una app del portafolio de Bake Brothers, con **token de usuario del
@@ -1176,8 +1181,8 @@ sistema** (no vence). Los números de los locales no se tocan. Ya no se usa Embe
   `cerebro.ts`). Cuando se mergee `feature/lote-catalogo-campanas` habrá conflictos previsibles en
   `simuladorBot.ts`, `dashboardSimulador.ts` y su test (campañas vs. número del bot) y en este archivo;
   conviene aplicar el mismo arreglo del mock (`importOriginal`) en la rama del lote.
-- **Orden de migraciones para el despliegue final:** 0030 (esta rama) → 0031 (ya aplicada) → 0032 (ya
-  aplicada en el real, vive en la rama del lote) → 0033 (lote, sin aplicar). Aplicar a la real solo con OK.
+- **Orden de migraciones:** 0031, 0032 y 0033 ya están aplicadas en el real y en `main`; **solo falta la 0030**
+  (esta rama), que se aplica a la real con el despliegue de WhatsApp y solo con OK.
 
 **Plantillas de WhatsApp** (`docs/plantillas-whatsapp.md`): siete plantillas UTILITY en español, con tuteo,
 listas para enviar a Meta (confirmación de pedido, confirmación de pago, recordatorio de entrega, pedido en

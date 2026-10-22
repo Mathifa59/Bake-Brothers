@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { Bot, FlaskConical, Hand, Receipt, RotateCcw, SendHorizontal, Wrench } from 'lucide-react'
+import { extraerReferencia } from '@bakebrothers/domain'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { simularMensajeBot } from '../lib/apiClient'
@@ -11,6 +12,7 @@ const CLAVE_SESION = 'bb-simulador-bot'
 
 const EJEMPLOS = [
   'Quiero 1 caja de alfajores mix para recoger hoy',
+  'Hola 👋 quiero hacer un pedido (ref: tt-halloween)',
   '¿Cuánto cuesta una torta de carrot cake?',
   'Mi pedido llegó roto, quiero un reembolso',
 ]
@@ -137,6 +139,8 @@ export default function Simulador() {
   const [sedeId, setSedeId] = useState(inicial?.sedeId ?? '')
   const [mensajes, setMensajes] = useState(inicial?.mensajes ?? [])
   const [estado, setEstado] = useState(inicial?.estado ?? 'activa')
+  // Referencia de campaña de la conversación simulada: la última "(ref: …)" que escribió el "cliente", como en WhatsApp.
+  const [campana, setCampana] = useState(inicial?.campana ?? null)
   const [texto, setTexto] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState(null)
@@ -162,9 +166,9 @@ export default function Simulador() {
   }, [])
 
   useEffect(() => {
-    guardarSesion({ sedeId, mensajes, estado })
+    guardarSesion({ sedeId, mensajes, estado, campana })
     fin.current?.scrollIntoView?.({ behavior: 'smooth', block: 'end' })
-  }, [sedeId, mensajes, estado, enviando])
+  }, [sedeId, mensajes, estado, campana, enviando])
 
   if (perfil?.rol !== 'admin') return <Navigate to="/resumen" replace />
 
@@ -187,9 +191,12 @@ export default function Simulador() {
         sedeId: sedeId === NUMERO_BOT ? null : sedeId,
         estado,
         // El servidor solo necesita rol/texto/en de cada turno, no la metadata de pantalla.
-        historial: previos.map(({ rol, texto: t, en }) => ({ rol, texto: t, en })),
+        // (sin la "(ref: …)": el bot nunca la ve, igual que en el webhook real)
+        historial: previos.map(({ rol, texto: t, en }) => ({ rol, texto: extraerReferencia(t).texto, en })),
+        campana,
       })
       setEstado(r.estado)
+      setCampana(r.campana ?? null)
       setMensajes((actuales) => [
         ...actuales,
         {
@@ -215,6 +222,7 @@ export default function Simulador() {
   function reiniciar() {
     setMensajes([])
     setEstado('activa')
+    setCampana(null)
     setError(null)
     setTexto('')
   }
@@ -254,6 +262,7 @@ export default function Simulador() {
           </select>
         </label>
         <Pill tono={info.tono}>{info.texto}</Pill>
+        {campana && <Pill tono="lila">Campaña: {campana}</Pill>}
         <button
           type="button"
           onClick={reiniciar}
