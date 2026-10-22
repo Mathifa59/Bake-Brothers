@@ -19,7 +19,8 @@ const turnoSchema = z.object({
 
 const simuladorSchema = z.object({
   mensaje: z.string().trim().min(1).max(1000),
-  sedeId: z.string().uuid(),
+  // null = simular el NÚMERO DEL BOT (sin sede): el bot pregunta en qué local recoge el cliente, como en producción.
+  sedeId: z.string().uuid().nullable(),
   estado: z.enum(['activa', 'escalada', 'atendida_por_operador', 'cerrada']).default('activa'),
   // El historial viaja en cada turno (la conversación vive en el navegador).
   // Tope para que una conversación de prueba no crezca sin límite.

@@ -170,6 +170,80 @@ describe.skipIf(!hayBaseDeDatosReal)('whatsapp_conexiones — token cifrado por 
     expect(await conexionActivaPorPhoneNumberId(pool, PHONE_A)).toBeNull()
   })
 
+  describe('número del bot (uso = "bot", sin sede)', () => {
+    it('se registra sin sede, con token de usuario del sistema, y no toca ninguna sede', async () => {
+      const c = await registrar({
+        sedeId: null, uso: 'bot', wabaId: 'W', phoneNumberId: PHONE_A,
+        tokenCifrado: cifrarTokenWhatsApp('token-del-sistema'), tipoToken: 'sistema', origen: 'manual',
+      })
+      expect(c.sedeId).toBeNull()
+      expect(c.uso).toBe('bot')
+      expect(c.tipoToken).toBe('sistema')
+      expect((await conexionActivaPorPhoneNumberId(pool, PHONE_A))?.sedeId).toBeNull()
+      expect(await obtenerTokenWhatsApp(PHONE_A)).toBe('token-del-sistema')
+    })
+
+    it('enviarMensajeMeta manda por el número del bot con SU token', async () => {
+      await registrar({
+        sedeId: null, uso: 'bot', wabaId: 'W', phoneNumberId: PHONE_A,
+        tokenCifrado: cifrarTokenWhatsApp('token-del-sistema'), tipoToken: 'sistema', origen: 'manual',
+      })
+      mockFetch.mockResolvedValue({ ok: true, text: async () => '' } as unknown as Response)
+      await enviarMensajeMeta('whatsapp', PHONE_A, '999', 'hola')
+      const [url, opciones] = mockFetch.mock.calls[0] as [string, RequestInit]
+      expect(url).toContain(`/${PHONE_A}/messages`)
+      expect((opciones.headers as Record<string, string>).Authorization).toBe('Bearer token-del-sistema')
+    })
+
+    it('validación: el número del bot no admite sede y el de un local la exige (con error claro, sin tocar la base)', async () => {
+      await expect(
+        registrar({
+          sedeId: sedeA, uso: 'bot', wabaId: 'W', phoneNumberId: PHONE_A,
+          tokenCifrado: cifrarTokenWhatsApp('x'), tipoToken: 'sistema', origen: 'manual',
+        })
+      ).rejects.toThrow(/no pertenece a una sede/)
+      await expect(
+        registrar({
+          sedeId: null, uso: 'sede', wabaId: 'W', phoneNumberId: PHONE_A,
+          tokenCifrado: cifrarTokenWhatsApp('x'), tipoToken: 'prueba', origen: 'manual',
+        })
+      ).rejects.toThrow(/necesita sedeId/)
+      expect(await conexionActivaPorPhoneNumberId(pool, PHONE_A)).toBeNull()
+    })
+
+    it('la base también lo sostiene (constraint): un bot con sede o un local sin sede se rechazan aunque se salte el código', async () => {
+      await expect(
+        pool.query(
+          `insert into whatsapp_conexiones (sede_id, uso, waba_id, phone_number_id, token_cifrado, tipo_token, origen)
+           values ($1, 'bot', 'W', $2, 'x', 'sistema', 'manual')`,
+          [sedeA, PHONE_A]
+        )
+      ).rejects.toThrow(/whatsapp_conexiones_uso_sede/)
+      await expect(
+        pool.query(
+          `insert into whatsapp_conexiones (sede_id, uso, waba_id, phone_number_id, token_cifrado, tipo_token, origen)
+           values (null, 'sede', 'W', $1, 'x', 'prueba', 'manual')`,
+          [PHONE_A]
+        )
+      ).rejects.toThrow(/whatsapp_conexiones_uso_sede/)
+    })
+
+    it('el número del bot convive con los de los locales (cada uno con su sede y token)', async () => {
+      await registrar({
+        sedeId: sedeA, wabaId: 'W', phoneNumberId: PHONE_A,
+        tokenCifrado: cifrarTokenWhatsApp('token-local'), tipoToken: 'negocio', origen: 'manual',
+      })
+      await registrar({
+        sedeId: null, uso: 'bot', wabaId: 'W2', phoneNumberId: PHONE_B,
+        tokenCifrado: cifrarTokenWhatsApp('token-bot'), tipoToken: 'sistema', origen: 'manual',
+      })
+      expect((await conexionActivaPorPhoneNumberId(pool, PHONE_A))?.sedeId).toBe(sedeA)
+      expect((await conexionActivaPorPhoneNumberId(pool, PHONE_B))?.uso).toBe('bot')
+      const { rows } = await pool.query(`select whatsapp_phone_number_id from sedes where id = $1`, [sedeA])
+      expect(rows[0].whatsapp_phone_number_id).toBe(PHONE_A)
+    })
+  })
+
   it('POST /api/dashboard/whatsapp/conexiones/manual exige JWT (401 sin Authorization, nada se escribe)', async () => {
     const app = await buildApp()
     const res = await app.inject({

@@ -102,3 +102,10 @@ export {
   type EstadoConversacion,
   type ConversacionParaAutoRetorno,
 } from './conversationStatus.js'
+
+export {
+  resolverSedeDelPedido,
+  encontrarSedePorNombre,
+  type SedeDisponible,
+  type ResultadoSedePedido,
+} from './sedeDelPedido.js'

@@ -5,16 +5,22 @@ import { verificarJwtOperador, exigirAdmin } from '../auth/verificarJwtOperador.
 import { cifrarTokenWhatsApp } from '../bot/tokensWhatsApp.js'
 import { registrarConexionWhatsApp, SedeNoEncontradaError } from '../repositories/whatsappConexionesRepo.js'
 
-const registroManualSchema = z.object({
-  sedeId: z.string().uuid(),
-  wabaId: z.string().trim().min(1),
-  phoneNumberId: z.string().trim().min(1),
-  token: z.string().trim().min(10),
-  // 'prueba' por defecto: el uso previsto de esta ruta es el número de prueba
-  // de DevHorses (ensayos y videos del App Review antes de que el Embedded
-  // Signup esté aprobado). Un token de negocio real también se acepta.
-  tipoToken: z.enum(['prueba', 'negocio']).default('prueba'),
-})
+const registroManualSchema = z
+  .object({
+    // Número de un local (uso 'sede'): lleva sedeId. Número del bot (uso 'bot'): no pertenece a una sede.
+    uso: z.enum(['sede', 'bot']).default('sede'),
+    sedeId: z.string().uuid().nullish(),
+    wabaId: z.string().trim().min(1),
+    phoneNumberId: z.string().trim().min(1),
+    token: z.string().trim().min(10),
+    // 'sistema' = token de usuario del sistema (permanente), el del número del bot. 'prueba' por defecto:
+    // un número de prueba. Un token de negocio real también se acepta.
+    tipoToken: z.enum(['prueba', 'negocio', 'sistema']).default('prueba'),
+  })
+  .refine((d) => (d.uso === 'bot') === !d.sedeId, {
+    message: 'El número de un local necesita sedeId; el del bot no debe llevarlo',
+    path: ['sedeId'],
+  })
 
 /**
  * Rutas de administración de las conexiones de WhatsApp. Solo admin — el
@@ -30,7 +36,8 @@ export function dashboardWhatsAppRoutes(app: FastifyInstance) {
       try {
         const conexion = await withTenantTx(req.tenantId, (client) =>
           registrarConexionWhatsApp(client, {
-            sedeId: datos.sedeId,
+            sedeId: datos.sedeId ?? null,
+            uso: datos.uso,
             wabaId: datos.wabaId,
             phoneNumberId: datos.phoneNumberId,
             tokenCifrado: cifrarTokenWhatsApp(datos.token),
@@ -43,6 +50,7 @@ export function dashboardWhatsAppRoutes(app: FastifyInstance) {
           conexion: {
             id: conexion.id,
             sedeId: conexion.sedeId,
+            uso: conexion.uso,
             wabaId: conexion.wabaId,
             phoneNumberId: conexion.phoneNumberId,
             tipoToken: conexion.tipoToken,

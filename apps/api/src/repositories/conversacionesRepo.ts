@@ -8,6 +8,8 @@ export interface ConversacionParaResponder {
   canal: CanalConversacion
   externalId: string
   sedeId: string | null
+  /** Número por el que escribió el cliente la última vez (desde ese se le responde). Null en conversaciones antiguas. */
+  whatsappPhoneNumberId: string | null
   estado: EstadoConversacionDb
 }
 
@@ -47,7 +49,7 @@ export async function conversacionPorId(
   id: string
 ): Promise<ConversacionParaResponder | null> {
   const { rows } = await client.query(
-    `select id, canal, external_id, sede_id, estado from conversaciones where id = $1 and tenant_id = $2`,
+    `select id, canal, external_id, sede_id, whatsapp_phone_number_id, estado from conversaciones where id = $1 and tenant_id = $2`,
     [id, tenantId]
   )
   const fila = rows[0]
@@ -57,6 +59,7 @@ export async function conversacionPorId(
     canal: fila.canal,
     externalId: fila.external_id,
     sedeId: fila.sede_id,
+    whatsappPhoneNumberId: fila.whatsapp_phone_number_id ?? null,
     estado: fila.estado,
   }
 }
@@ -86,17 +89,29 @@ export async function encontrarOCrearConversacion(
   tenantId: string,
   canal: CanalConversacion,
   externalId: string,
-  sedeId: string | null
+  sedeId: string | null,
+  // Número de WhatsApp por el que escribió el cliente: se guarda para responderle desde ese mismo número
+  // (el del bot no tiene sede de donde sacarlo). Se actualiza en cada mensaje: la conversación es una por
+  // cliente, y puede escribirle a un local y al bot.
+  whatsappPhoneNumberId: string | null = null
 ): Promise<string> {
   const existente = await client.query(
-    `select id from conversaciones where tenant_id = $1 and canal = $2 and external_id = $3`,
+    `select id, whatsapp_phone_number_id from conversaciones where tenant_id = $1 and canal = $2 and external_id = $3`,
     [tenantId, canal, externalId]
   )
-  if (existente.rows[0]) return existente.rows[0].id
+  if (existente.rows[0]) {
+    if (whatsappPhoneNumberId && existente.rows[0].whatsapp_phone_number_id !== whatsappPhoneNumberId) {
+      await client.query(`update conversaciones set whatsapp_phone_number_id = $2 where id = $1`, [
+        existente.rows[0].id,
+        whatsappPhoneNumberId,
+      ])
+    }
+    return existente.rows[0].id
+  }
 
   const creada = await client.query(
-    `insert into conversaciones (tenant_id, canal, external_id, sede_id) values ($1, $2, $3, $4) returning id`,
-    [tenantId, canal, externalId, sedeId]
+    `insert into conversaciones (tenant_id, canal, external_id, sede_id, whatsapp_phone_number_id) values ($1, $2, $3, $4, $5) returning id`,
+    [tenantId, canal, externalId, sedeId, whatsappPhoneNumberId]
   )
   return creada.rows[0].id
 }

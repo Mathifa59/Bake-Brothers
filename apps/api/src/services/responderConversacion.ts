@@ -36,17 +36,24 @@ export async function responderConversacion(
     return { ok: false, error: 'CONVERSACION_NO_ENCONTRADA' }
   }
 
-  if (operador.rol !== 'admin' && conversacion.sedeId !== operador.sedeId) {
+  // Una conversación SIN sede es del número del bot (la sede de cada pedido sale de lo que responde el
+  // cliente): cualquier persona del personal puede atenderla, igual que la ve en su bandeja (RLS, 0030).
+  // Una con sede solo la atiende un admin o el operador de esa sede.
+  if (operador.rol !== 'admin' && conversacion.sedeId !== null && conversacion.sedeId !== operador.sedeId) {
     return { ok: false, error: 'SIN_ACCESO_A_LA_CONVERSACION' }
   }
 
-  if (!conversacion.sedeId) {
-    return { ok: false, error: 'CONVERSACION_SIN_SEDE_ASIGNADA' }
-  }
-
-  const phoneNumberId = await phoneNumberIdPorSede(client, conversacion.sedeId)
+  // Se responde desde el número por el que escribió el cliente; solo si la conversación no lo trae
+  // (conversaciones antiguas) se cae al número de la sede.
+  let phoneNumberId = conversacion.whatsappPhoneNumberId
   if (!phoneNumberId) {
-    return { ok: false, error: 'SEDE_SIN_WHATSAPP_CONFIGURADO' }
+    if (!conversacion.sedeId) {
+      return { ok: false, error: 'CONVERSACION_SIN_SEDE_ASIGNADA' }
+    }
+    phoneNumberId = await phoneNumberIdPorSede(client, conversacion.sedeId)
+    if (!phoneNumberId) {
+      return { ok: false, error: 'SEDE_SIN_WHATSAPP_CONFIGURADO' }
+    }
   }
 
   try {

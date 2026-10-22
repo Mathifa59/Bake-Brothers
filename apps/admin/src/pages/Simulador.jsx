@@ -127,6 +127,9 @@ function Burbuja({ mensaje }) {
   )
 }
 
+/** Opción "número del bot" del selector: no es una sede, se manda como sedeId null. */
+const NUMERO_BOT = 'bot'
+
 export default function Simulador() {
   const { perfil } = useAuth()
   const inicial = useRef(leerSesion()).current
@@ -149,8 +152,9 @@ export default function Simulador() {
       .then(({ data }) => {
         if (cancelado || !data) return
         setSedes(data)
-        // Sede por defecto: la primera (Cedros). Si había una guardada y sigue existiendo, se respeta.
-        setSedeId((actual) => (data.some((s) => s.id === actual) ? actual : (data[0]?.id ?? '')))
+        // Por defecto se simula el número del bot (sin sede), que es el plan vigente. Si había una elección
+        // guardada y sigue existiendo, se respeta.
+        setSedeId((actual) => (actual === NUMERO_BOT || data.some((s) => s.id === actual) ? actual : NUMERO_BOT))
       })
     return () => {
       cancelado = true
@@ -179,7 +183,8 @@ export default function Simulador() {
     try {
       const r = await simularMensajeBot({
         mensaje: limpio,
-        sedeId,
+        // El número del bot no pertenece a ninguna sede: el servidor recibe null y el bot pregunta el local.
+        sedeId: sedeId === NUMERO_BOT ? null : sedeId,
         estado,
         // El servidor solo necesita rol/texto/en de cada turno, no la metadata de pantalla.
         historial: previos.map(({ rol, texto: t, en }) => ({ rol, texto: t, en })),
@@ -233,16 +238,17 @@ export default function Simulador() {
 
       <Tarjeta className="mt-4 flex flex-wrap items-center gap-3 p-3">
         <label className="flex items-center gap-2 text-sm">
-          <span className="font-semibold">Sede</span>
+          <span className="font-semibold">Número</span>
           <select
             value={sedeId}
             onChange={(e) => setSedeId(e.target.value)}
             disabled={empezada || enviando}
             className="rounded-lg border border-borde bg-crema px-2.5 py-1.5 text-sm disabled:opacity-60"
           >
+            <option value={NUMERO_BOT}>Número del bot (pregunta el local)</option>
             {sedes.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.nombre}
+                Local {s.nombre}
               </option>
             ))}
           </select>

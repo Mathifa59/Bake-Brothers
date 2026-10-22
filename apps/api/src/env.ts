@@ -23,6 +23,13 @@ const schema = z
     // conversación que un humano atendió desde el celular (echo). Ver
     // debeAutoRetornarAlBot en packages/domain.
     AUTO_RETORNO_BOT_HORAS: z.coerce.number().positive().default(3),
+    // Número del bot (sin sede): nombre de la sede que despacha los pedidos con delivery. Es configuración
+    // del negocio, no del código. Sin esto, un delivery del bot queda SIN sede (lo ve solo el admin hasta
+    // que alguien lo asigne) — ver packages/domain sedeDelPedido.ts.
+    SEDE_DELIVERY: z.string().trim().optional(),
+    // Embedded Signup de Meta (conectar números desde el dashboard): NO se terminó de construir y el plan
+    // vigente no lo usa (el número del bot se registra a mano). Reservado y APAGADO; hoy ninguna ruta lo lee.
+    WHATSAPP_EMBEDDED_SIGNUP: z.enum(['true', 'false']).default('false'),
   })
   .superRefine((valores, ctx) => {
     const clave = valores.WHATSAPP_TOKEN_ENCRYPTION_KEY

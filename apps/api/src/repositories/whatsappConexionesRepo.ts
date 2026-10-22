@@ -1,12 +1,16 @@
 import type pg from 'pg'
 
-export type TipoTokenWhatsApp = 'negocio' | 'prueba'
+export type TipoTokenWhatsApp = 'negocio' | 'prueba' | 'sistema'
 export type OrigenConexionWhatsApp = 'embedded_signup' | 'manual'
+/** 'sede': el número de un local. 'bot': el número del bot, que no pertenece a una sola sede. */
+export type UsoConexionWhatsApp = 'sede' | 'bot'
 
 /** Una fila de whatsapp_conexiones — incluye el token YA cifrado (nunca en claro, nunca sale por una ruta HTTP). */
 export interface ConexionWhatsApp {
   id: string
-  sedeId: string
+  /** Null solo en el número del bot (uso = 'bot'). */
+  sedeId: string | null
+  uso: UsoConexionWhatsApp
   wabaId: string
   phoneNumberId: string
   businessId: string | null
@@ -24,7 +28,8 @@ type Db = pg.Pool | pg.PoolClient
 function filaAConexion(fila: Record<string, unknown>): ConexionWhatsApp {
   return {
     id: fila.id as string,
-    sedeId: fila.sede_id as string,
+    sedeId: (fila.sede_id as string | null) ?? null,
+    uso: (fila.uso as UsoConexionWhatsApp) ?? 'sede',
     wabaId: fila.waba_id as string,
     phoneNumberId: fila.phone_number_id as string,
     businessId: (fila.business_id as string | null) ?? null,
@@ -63,7 +68,9 @@ export async function phoneNumberIdsConectados(db: Db, phoneNumberIds: string[])
 }
 
 export interface RegistroConexionWhatsApp {
-  sedeId: string
+  /** Obligatoria para el número de un local; debe ir en null para el número del bot (`uso: 'bot'`). */
+  sedeId: string | null
+  uso?: UsoConexionWhatsApp
   wabaId: string
   phoneNumberId: string
   businessId?: string | null
@@ -97,28 +104,37 @@ export async function registrarConexionWhatsApp(
   client: pg.PoolClient,
   datos: RegistroConexionWhatsApp
 ): Promise<ConexionWhatsApp> {
-  const sede = await client.query(`select id from sedes where id = $1`, [datos.sedeId])
-  if (!sede.rows[0]) throw new SedeNoEncontradaError(datos.sedeId)
+  const uso: UsoConexionWhatsApp = datos.uso ?? 'sede'
+  // Mismo criterio que el constraint de la base (whatsapp_conexiones_uso_sede): el número de un local
+  // lleva sede, el del bot no. Se valida acá para dar un error claro en vez de un fallo de constraint.
+  if (uso === 'sede' && !datos.sedeId) throw new Error('Un número de un local necesita sedeId (uso "sede")')
+  if (uso === 'bot' && datos.sedeId) throw new Error('El número del bot no pertenece a una sede: sedeId debe ir vacío (uso "bot")')
 
-  await client.query(
-    `update whatsapp_conexiones set estado = 'desconectada', actualizado_en = now()
-     where sede_id = $1 and estado = 'activa' and phone_number_id <> $2`,
-    [datos.sedeId, datos.phoneNumberId]
-  )
+  if (datos.sedeId) {
+    const sede = await client.query(`select id from sedes where id = $1`, [datos.sedeId])
+    if (!sede.rows[0]) throw new SedeNoEncontradaError(datos.sedeId)
 
-  // Si ese número estaba conectado a OTRA sede, esa sede deja de apuntarle.
+    await client.query(
+      `update whatsapp_conexiones set estado = 'desconectada', actualizado_en = now()
+       where sede_id = $1 and estado = 'activa' and phone_number_id <> $2`,
+      [datos.sedeId, datos.phoneNumberId]
+    )
+  }
+
+  // Si ese número estaba conectado a OTRA sede (o ahora pasa a ser el del bot), esa sede deja de apuntarle.
   await client.query(
     `update sedes set whatsapp_phone_number_id = null, whatsapp_waba_id = null
-     where whatsapp_phone_number_id = $1 and id <> $2`,
+     where whatsapp_phone_number_id = $1 and ($2::uuid is null or id <> $2::uuid)`,
     [datos.phoneNumberId, datos.sedeId]
   )
 
   const { rows } = await client.query(
     `insert into whatsapp_conexiones
-       (sede_id, waba_id, phone_number_id, business_id, token_cifrado, tipo_token, origen)
-     values ($1, $2, $3, $4, $5, $6, $7)
+       (sede_id, uso, waba_id, phone_number_id, business_id, token_cifrado, tipo_token, origen)
+     values ($1, $2, $3, $4, $5, $6, $7, $8)
      on conflict (phone_number_id) do update set
        sede_id = excluded.sede_id,
+       uso = excluded.uso,
        waba_id = excluded.waba_id,
        business_id = excluded.business_id,
        token_cifrado = excluded.token_cifrado,
@@ -129,6 +145,7 @@ export async function registrarConexionWhatsApp(
      returning *`,
     [
       datos.sedeId,
+      uso,
       datos.wabaId,
       datos.phoneNumberId,
       datos.businessId ?? null,
@@ -138,11 +155,14 @@ export async function registrarConexionWhatsApp(
     ]
   )
 
-  await client.query(`update sedes set whatsapp_phone_number_id = $1, whatsapp_waba_id = $2 where id = $3`, [
-    datos.phoneNumberId,
-    datos.wabaId,
-    datos.sedeId,
-  ])
+  // `sedes.whatsapp_phone_number_id` es solo un espejo de los números de los locales: el del bot no va ahí.
+  if (datos.sedeId) {
+    await client.query(`update sedes set whatsapp_phone_number_id = $1, whatsapp_waba_id = $2 where id = $3`, [
+      datos.phoneNumberId,
+      datos.wabaId,
+      datos.sedeId,
+    ])
+  }
 
   return filaAConexion(rows[0])
 }

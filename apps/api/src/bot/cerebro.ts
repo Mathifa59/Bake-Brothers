@@ -89,6 +89,7 @@ REGLAS DURAS, sin excepción:
    - Si el producto es un jugo o helado, pregunta con azúcar o sin azúcar; si son empanadas, pregunta calientes o sin calentar — anota la respuesta en el campo nota.
    - Para CATERING: nunca llames a crearPedido si evaluarSemaforoCateringPedido no dio verde para ese ítem — en amarillo/rojo escala (regla 2), no fuerces el pedido. crearPedido igual vuelve a verificar esto del lado del servidor.
    - Si el cliente te dice que va a pagar por adelantado, marca pagoPorAdelantado en true. Nunca proceses ni verifiques ningún comprobante de pago (captura, voucher) — eso lo revisa el equipo a mano. Hoy todavía no puedes ver imágenes: si el cliente manda una captura de pago, avísale con calidez que el pedido ya quedó registrado y que el equipo confirma el pago, sin intentar describir ni validar la imagen.
+   - Si crearPedido devuelve SEDE_REQUERIDA o SEDE_NO_VALIDA, pregúntale al cliente en qué local recoge (con las opciones que trae el error) o si es delivery, y vuelve a llamar a crearPedido con su respuesta en sedeRecojo.
    - Si crearPedido devuelve un error, no inventes un número de pedido — cuéntale al cliente lo que pasó con honestidad (ej. producto no disponible, dirección faltante) y ofrece ayudarlo a resolverlo.
 
 6. Combos: antes de vender un combo, llama siempre a consultarCombo para ver su composición real (items) y si admite cambios (permiteCambios) — nunca lo asumas.
@@ -197,6 +198,11 @@ const TOOLS: Anthropic.Tool[] = [
         direccion: { type: 'string', description: 'Requerida si tipoEntrega es delivery.' },
         distrito: { type: 'string', description: 'Requerido si tipoEntrega es delivery.' },
         referencia: { type: 'string' },
+        sedeRecojo: {
+          type: 'string',
+          description:
+            'Solo cuando este número NO pertenece a un local (ver el contexto de sede): el local donde el cliente recoge ("Cedros", "Santa Marina"…), tal como lo respondió. Para delivery no hace falta. Pregúntaselo siempre; nunca lo asumas.',
+        },
         fechaEntregaISO: { type: 'string', description: 'Fecha de entrega, formato YYYY-MM-DD.' },
         horario: { type: 'string', description: 'Horario acordado con el cliente, en texto libre.' },
         items: {
@@ -335,6 +341,16 @@ export function contextoFechaActual(ahora: Date = new Date()): string {
   return `FECHA Y HORA ACTUALES (hora de Lima, úsalas para "hoy", "mañana", "el sábado", etc. y para fechaEntregaISO): hoy es ${diaSemanaLegible(fecha)} ${fecha}, son las ${hhmm}. Mañana es ${sumarDiasISO(fecha, 1)}.`
 }
 
+/**
+ * Contexto de sede para el número del bot. Los números de cada local traen la sede en la conversación; el
+ * del bot es uno solo para todo el negocio. El servidor igual lo exige al crear el pedido
+ * (resolverSedeDelPedido): esto solo le dice al modelo qué preguntar y con qué opciones.
+ */
+export function textoContextoSede(nombresDeSedes: string[]): string {
+  const locales = nombresDeSedes.length > 0 ? nombresDeSedes.join(' o ') : 'el local'
+  return `SEDE: este número NO pertenece a un local. Antes de crear un pedido pregúntale al cliente si lo recoge en tienda —y en cuál local: ${locales}— o si es delivery, y pasa su respuesta en sedeRecojo (para delivery no hace falta). Nunca asumas el local ni lo adivines por el producto.`
+}
+
 function obtenerApiKey(): string {
   const key = process.env.ANTHROPIC_API_KEY
   if (!key) throw new Error('ANTHROPIC_API_KEY no está configurada')
@@ -454,6 +470,7 @@ function construirInputCrearPedido(
       telefono: String(i.clienteTelefono ?? ''),
     },
     sedeId,
+    sedeElegida: i.sedeRecojo ? String(i.sedeRecojo) : null,
     tipoEntrega: i.tipoEntrega === 'delivery' ? 'delivery' : 'tienda',
     direccion: i.direccion ? String(i.direccion) : null,
     distrito: i.distrito ? String(i.distrito) : null,
@@ -520,6 +537,13 @@ export async function evaluarTurno(
     }
   }
 
+  // Número del bot (la conversación no trae sede): el modelo tiene que preguntar en qué local recoge el cliente.
+  let contextoSede = ''
+  if (!sedeId) {
+    const { rows } = await client.query<{ nombre: string }>(`select nombre from sedes where activo order by nombre`)
+    contextoSede = `\n\n${textoContextoSede(rows.map((r) => r.nombre))}`
+  }
+
   const anthropic = new Anthropic({ apiKey: obtenerApiKey() })
 
   const mensajes = construirMensajesParaModelo(historialPrevio, mensajeEntrante)
@@ -538,7 +562,7 @@ export async function evaluarTurno(
     const respuesta = await anthropic.messages.create({
       model: MODELO,
       max_tokens: 1024,
-      system: `${SYSTEM_PROMPT}\n\n${contextoFechaActual()}`,
+      system: `${SYSTEM_PROMPT}\n\n${contextoFechaActual()}${contextoSede}`,
       tools: TOOLS,
       messages: mensajes,
     })

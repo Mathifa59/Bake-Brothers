@@ -22,7 +22,8 @@ import { evaluarTurno, type ResultadoTurno, type TurnoHistorial } from '../bot/c
  */
 
 export interface EntradaSimulador {
-  sedeId: string
+  /** null = el número del bot (sin sede): el bot pregunta en qué local recoge el cliente, como en producción. */
+  sedeId: string | null
   historial: TurnoHistorial[]
   estado: EstadoConversacion
   mensaje: string
@@ -49,8 +50,10 @@ export async function simularTurno(
   entrada: EntradaSimulador
 ): Promise<SalidaSimulador> {
   // `sedes` no tiene tenant_id (0004: un solo negocio, las sedes son suyas).
-  const { rows } = await client.query(`select id from sedes where id = $1`, [entrada.sedeId])
-  if (!rows[0]) return { ok: false, error: 'SEDE_NO_ENCONTRADA' }
+  if (entrada.sedeId) {
+    const { rows } = await client.query(`select id from sedes where id = $1`, [entrada.sedeId])
+    if (!rows[0]) return { ok: false, error: 'SEDE_NO_ENCONTRADA' }
+  }
 
   const entradaCliente: TurnoHistorial = { rol: 'cliente', texto: entrada.mensaje, en: new Date().toISOString() }
 
@@ -73,7 +76,7 @@ export async function simularTurno(
     entrada.mensaje,
     entrada.estado,
     'whatsapp',
-    entrada.sedeId,
+    entrada.sedeId ?? undefined,
     { esPrueba: true }
   )
 

@@ -75,6 +75,14 @@ export function webhookRoutes(app: FastifyInstance) {
       // esto empieza a exigir la firma sin tocar código, y cualquier request
       // sin firma válida se rechaza.
       const appSecret = process.env.META_APP_SECRET
+      // En PRODUCCIÓN la firma es obligatoria: sin META_APP_SECRET el webhook no atiende nada (503) en vez de
+      // aceptar a cualquiera. Con el número del bot conectado, un POST falso con su phone_number_id haría
+      // hablar al bot y crear pedidos. Antes de que lleguen las credenciales de Meta no se pierde nada: aún
+      // no hay ningún webhook de Meta apuntando acá.
+      if (!appSecret && env.NODE_ENV === 'production') {
+        app.log.error('POST /webhook rechazado: falta META_APP_SECRET en producción (la firma de Meta es obligatoria)')
+        return reply.code(503).send({ error: 'FIRMA_NO_CONFIGURADA' })
+      }
       if (appSecret) {
         const firma = req.headers['x-hub-signature-256'] as string | undefined
         if (!req.rawBody || !verificarFirmaWebhook(req.rawBody, firma, appSecret)) {

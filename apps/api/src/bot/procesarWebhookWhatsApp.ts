@@ -52,7 +52,7 @@ export async function procesarMensajeWhatsAppEnBackground(
   try {
     conversacionId = await withTenantTx(tenantId, async (client) => {
       const sedeId = await sedePorPhoneNumberId(client, mensaje.phoneNumberId)
-      return encontrarOCrearConversacion(client, tenantId, 'whatsapp', mensaje.telefono, sedeId)
+      return encontrarOCrearConversacion(client, tenantId, 'whatsapp', mensaje.telefono, sedeId, mensaje.phoneNumberId)
     })
   } catch (err) {
     logger.error(

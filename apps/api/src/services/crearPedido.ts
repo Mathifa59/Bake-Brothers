@@ -1,5 +1,6 @@
 import type pg from 'pg'
-import type { EstadoPedido, TipoEntrega } from '@bakebrothers/domain'
+import { resolverSedeDelPedido, type EstadoPedido, type TipoEntrega } from '@bakebrothers/domain'
+import { env } from '../env.js'
 import { findOrCreateCustomer, siguienteNumeroDePedido, insertarPedido, type OrderItemInsert } from '../repositories/ordersRepo.js'
 import { validarYValorizarItemsTienda } from './pedidosTienda.js'
 import { validarItemsCatering } from './pedidosCatering.js'
@@ -54,7 +55,10 @@ export interface CrearPedidoInput {
     // entre canales.
     telefono: string
   }
+  /** Sede de la conversación (número de un local). Con el número del bot no existe y se resuelve con `sedeElegida`. */
   sedeId?: string
+  /** Lo que respondió el cliente a "¿en qué local recoges?" (o "delivery"). Solo se usa si la conversación no trae sede. */
+  sedeElegida?: string | null
   tipoEntrega: TipoEntrega
   direccion?: string | null
   distrito?: string | null
@@ -154,6 +158,23 @@ export async function crearPedido(
     return { ok: false, error: 'DIRECCION_REQUERIDA' }
   }
 
+  // Sede del pedido. Con el número de un local sale de la conversación; con el número del bot (sin sede) la
+  // EXIGE el servidor — no depende de que el modelo se acuerde de preguntar. Se resuelve ANTES de tocar nada
+  // (cliente, número de pedido): un rechazo no deja rastro.
+  const { rows: sedes } = await client.query<{ id: string; nombre: string }>(
+    `select id, nombre from sedes where activo order by nombre`
+  )
+  const sede = resolverSedeDelPedido({
+    tipoEntrega: input.tipoEntrega,
+    sedeDeLaConversacion: input.sedeId ?? null,
+    sedeElegida: input.sedeElegida ?? null,
+    sedes,
+    sedeDelivery: env.SEDE_DELIVERY ?? null,
+  })
+  if (!sede.ok) {
+    return { ok: false, error: sede.error, detalle: { sedesDisponibles: sede.sedesDisponibles } }
+  }
+
   const { rows: tenantRows } = await client.query<{ codigo_prefijo: string }>(
     `select codigo_prefijo from tenants where id = $1`,
     [tenantId]
@@ -182,7 +203,7 @@ export async function crearPedido(
       canal,
       estado,
       tipoEntrega: input.tipoEntrega,
-      sedeId: input.sedeId ?? null,
+      sedeId: sede.sedeId,
       direccion: input.direccion ?? null,
       distrito: input.tipoEntrega === 'delivery' ? (input.distrito ?? null) : null,
       referencia: input.referencia ?? null,
