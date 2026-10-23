@@ -96,6 +96,13 @@ REGLAS DURAS, sin excepción:
 
 7. Pedidos genéricos y preguntas de "qué hay": si el cliente no nombra un producto concreto ("quiero alfajores", "un postre dulce", "¿qué tipo de empanadas hay?", "¿qué tortas tienen?", "¿qué venden?"), llama a listarCatalogo y muéstrale las opciones reales de forma breve (nombre y precio desde; si tiene varios tamaños, dile que hay varios) y pregúntale cuál prefiere. Nunca elijas un producto por él ni uses consultarPrecio para adivinar de entre varios. Si hay muchas opciones, muestra las más representativas y ofrécele acotar (por sabor, por tamaño, para cuántas personas). Si listarCatalogo no encuentra nada, cuéntale qué categorías sí hay. Una vez que elige uno concreto, sigue con consultarPrecio/crearPedido.
 
+8. Tamaños: el cliente suele nombrar el producto y el tamaño en la misma frase ("carrot cake individual", "porción de cheesecake de fresa", "torta de chocolate familiar", "mini red velvet", "caja de alfajores de 18", "alfajores x10"). Pásale a consultarPrecio la frase TAL CUAL la dijo el cliente, con el tamaño incluido: la herramienta separa el producto del tamaño.
+   - Si el resultado trae tamanoSolicitado.encontrado = true, ese es el tamaño y el precio que pidió.
+   - Si trae tamanoSolicitado.encontrado = false, el producto SÍ existe pero no viene en ese tamaño: díselo con naturalidad y ofrécele los de tamanosDisponibles con su precio. NUNCA le digas que el producto no existe ni que no lo encuentras.
+   - Si trae otrasCoincidencias, hay varios productos que calzan igual de bien (por ejemplo varios sabores): no elijas por él, pregúntale cuál quiere.
+   - Si el producto tiene varios tamaños y el cliente no dijo cuál, pregúntaselo antes de crear el pedido.
+   - Al llamar a crearPedido, deja el producto en "busqueda" y, si el cliente dijo el tamaño, ponlo en "tamano" (o déjalo dentro de la frase): el servidor lo resuelve contra los tamaños reales. Si crearPedido devuelve TAMANO_NO_DISPONIBLE o TAMANO_INVALIDO, trae tamanosDisponibles: ofrécelos al cliente.
+
 Responde siempre en español (tuteo peruano: tú, puedes, tienes, quieres), breve y natural, como un mensaje real de WhatsApp — no un párrafo largo. Formato de WhatsApp: para resaltar algo usa un solo asterisco (*así*), nunca **doble asterisco** ni títulos con #.`
 
 const TOOLS: Anthropic.Tool[] = [
@@ -108,7 +115,8 @@ const TOOLS: Anthropic.Tool[] = [
       properties: {
         busqueda: {
           type: 'string',
-          description: 'Nombre o texto aproximado del producto, tal como lo escribió el cliente (ej. "carrot cake").',
+          description:
+            'Nombre del producto tal como lo escribió el cliente, INCLUIDO el tamaño si lo dijo (ej. "carrot cake", "carrot cake individual", "mini red velvet", "alfajores x10"). La herramienta separa el tamaño.',
         },
       },
       required: ['busqueda'],
@@ -204,8 +212,12 @@ const TOOLS: Anthropic.Tool[] = [
             type: 'object',
             properties: {
               tipo: { type: 'string', enum: ['producto', 'catering', 'combo'] },
-              busqueda: { type: 'string', description: 'Nombre o texto aproximado del producto, ítem de catering o combo.' },
-              tamano: { type: 'string', description: 'Solo para tipo "producto", si el producto tiene tamaños.' },
+              busqueda: { type: 'string', description: 'Nombre o texto aproximado del producto, ítem de catering o combo (puede incluir el tamaño si el cliente lo dijo en la misma frase).' },
+              tamano: {
+                type: 'string',
+                description:
+                  'Solo para tipo "producto", si el producto tiene tamaños: el que eligió el cliente ("Individual", "Mini", "Familiar", "Caja x18", "500g"). El servidor lo resuelve contra los tamaños reales del producto.',
+              },
               cantidad: { type: 'number' },
               seleccion: {
                 type: 'array',

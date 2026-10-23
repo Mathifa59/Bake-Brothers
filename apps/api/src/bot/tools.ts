@@ -1,6 +1,14 @@
 import type pg from 'pg'
 import { evaluarSemaforoCatering, type SemaforoCatering } from '@bakebrothers/domain'
-import { construirBusqueda, sqlCoincide, sqlCoincideEstricto } from '../repositories/busquedaTexto.js'
+import {
+  construirBusqueda,
+  extraerTamano,
+  resolverTamano,
+  tienePalabrasDeProducto,
+  sqlCoincide,
+  sqlCoincideEstricto,
+} from '../repositories/busquedaTexto.js'
+import { buscarProductosPorTexto } from '../repositories/productsRepo.js'
 
 /**
  * Funciones de solo lectura contra el catálogo real — pensadas para que un
@@ -24,6 +32,25 @@ export interface PrecioProducto {
   precioBase: number
   disponible: boolean
   tamanos: TamanoConPrecio[]
+  /**
+   * Solo si el cliente mencionó un tamaño en la frase ("carrot cake individual", "mini red velvet",
+   * "alfajores x10") y el producto tiene tamaños. Si `encontrado` es false, el producto SÍ existe pero no
+   * viene en ese tamaño: hay que decirlo y ofrecer `tamanosDisponibles`, nunca decir que el producto no existe.
+   */
+  tamanoSolicitado?: {
+    /** Lo que dijo el cliente ("mini", "x10", "24cm"). */
+    pedido: string
+    encontrado: boolean
+    /** El tamaño real que calza (con su precio), si se encontró. */
+    tamano?: TamanoConPrecio
+    /** Los tamaños que sí tiene el producto, si no se encontró el pedido. */
+    tamanosDisponibles?: TamanoConPrecio[]
+  }
+  /**
+   * Otros productos que calzan IGUAL de bien con lo que escribió el cliente ("alfajores x10" → hay 5
+   * sabores). Si viene, no elijas por él: pregúntale cuál quiere.
+   */
+  otrasCoincidencias?: string[]
 }
 
 export async function consultarPrecio(
@@ -31,32 +58,31 @@ export async function consultarPrecio(
   tenantId: string,
   busqueda: string
 ): Promise<PrecioProducto | null> {
-  const b = construirBusqueda(busqueda)
-  const { rows } = await client.query(
-    `select id, slug, nombre, precio_base, disponible
-     from products
-     where tenant_id = $1 and (slug = $2 or ${sqlCoincide('nombre', '$3', '$4')})
-     order by (slug = $2) desc, ${sqlCoincideEstricto('nombre', '$3')} desc, length(nombre), nombre
-     limit 1`,
-    [tenantId, busqueda, b.estrictos, b.flexibles]
-  )
-  const producto = rows[0]
-  if (!producto) return null
+  const { tamano: pedido, mejor, otras } = await buscarProductosPorTexto(client, tenantId, busqueda)
+  if (!mejor) return null
 
-  const tamanos = await client.query(
-    `select tamano, precio from product_sizes
-     where product_id = $1 and precio is not null
-     order by precio`,
-    [producto.id]
-  )
+  const tamanos: TamanoConPrecio[] = mejor.tamanos
+    .filter((t) => t.precio !== null && t.precio !== undefined)
+    .map((t) => ({ tamano: t.tamano, precio: Number(t.precio) }))
+    .sort((x, y) => x.precio - y.precio)
 
-  return {
-    slug: producto.slug,
-    nombre: producto.nombre,
-    precioBase: Number(producto.precio_base),
-    disponible: producto.disponible,
-    tamanos: tamanos.rows.map((t) => ({ tamano: t.tamano as string, precio: Number(t.precio) })),
+  const resultado: PrecioProducto = {
+    slug: mejor.slug,
+    nombre: mejor.nombre,
+    precioBase: Number(mejor.precio_base),
+    disponible: mejor.disponible,
+    tamanos,
   }
+
+  if (pedido && tamanos.length > 0) {
+    const etiqueta = resolverTamano(pedido, tamanos.map((t) => t.tamano))
+    resultado.tamanoSolicitado = etiqueta
+      ? { pedido: pedido.dicho, encontrado: true, tamano: tamanos.find((t) => t.tamano === etiqueta) }
+      : { pedido: pedido.dicho, encontrado: false, tamanosDisponibles: tamanos }
+  }
+  if (otras.length > 0) resultado.otrasCoincidencias = otras
+
+  return resultado
 }
 
 export interface StockPorSede {
@@ -81,16 +107,8 @@ export async function consultarDisponibilidad(
   busqueda: string,
   sedeId?: string
 ): Promise<Disponibilidad | null> {
-  const b = construirBusqueda(busqueda)
-  const { rows } = await client.query(
-    `select id, slug, nombre, disponible
-     from products
-     where tenant_id = $1 and (slug = $2 or ${sqlCoincide('nombre', '$3', '$4')})
-     order by (slug = $2) desc, ${sqlCoincideEstricto('nombre', '$3')} desc, length(nombre), nombre
-     limit 1`,
-    [tenantId, busqueda, b.estrictos, b.flexibles]
-  )
-  const producto = rows[0]
+  // Mismo criterio que consultarPrecio: el tamaño que mencione el cliente en la frase no impide hallar el producto.
+  const { mejor: producto } = await buscarProductosPorTexto(client, tenantId, busqueda)
   if (!producto) return null
 
   // stock no tiene tenant_id — product_id (ya resuelto contra el tenant
@@ -173,7 +191,9 @@ export async function listarCatalogo(
     return { busqueda: texto, total: 0, truncado: false, grupos: [], categoriasDisponibles: await categorias() }
   }
 
-  const b = construirBusqueda(texto)
+  // "cheesecakes individuales", "tortas familiares": el tamaño no es parte del nombre ni de la categoría.
+  const sinTamano = extraerTamano(texto)
+  const b = construirBusqueda(sinTamano.tamano && tienePalabrasDeProducto(sinTamano.texto) ? sinTamano.texto : texto)
   const { rows } = await client.query(
     `select p.nombre, coalesce(c.nombre, 'Otros') as categoria,
             coalesce(min(ps.precio), p.precio_base) as precio_desde,
