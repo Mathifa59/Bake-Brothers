@@ -1,6 +1,7 @@
 import type pg from 'pg'
 import type { OrderItemInsert } from '../repositories/ordersRepo.js'
-import { productoParaPedidoPorBusqueda } from '../repositories/productsRepo.js'
+import { buscarProductosPorTexto } from '../repositories/productsRepo.js'
+import { resolverTamano, resolverTamanoTexto } from '../repositories/busquedaTexto.js'
 
 /**
  * Validación de items de COMBO — compartida por dos callers:
@@ -132,12 +133,37 @@ export async function validarItemsCombo(
         return { ok: false, error: 'SELECCION_COMBO_REQUERIDA', detalle: { combo: combo.nombre } }
       }
       for (const sel of seleccion) {
-        const producto = await productoParaPedidoPorBusqueda(client, tenantId, sel.productoBusqueda)
+        const { mejor: producto, tamano: tamanoEnFrase } = await buscarProductosPorTexto(
+          client,
+          tenantId,
+          sel.productoBusqueda,
+          sel.tamano
+        )
         if (!producto) {
           return { ok: false, error: 'PRODUCTO_NO_ENCONTRADO', detalle: { producto: sel.productoBusqueda } }
         }
-        if (sel.tamano && !producto.tamanos.some((t: { tamano: string }) => t.tamano === sel.tamano)) {
-          return { ok: false, error: 'TAMANO_INVALIDO', detalle: { producto: producto.nombre, tamano: sel.tamano } }
+        // Mismo criterio que pedidosTienda: el tamaño puede venir aparte o dentro de la frase, y se guarda la
+        // etiqueta REAL del catálogo. Si el producto no tiene tamaños, una mención suelta no aplica.
+        const etiquetas = producto.tamanos.map((t: { tamano: string }) => t.tamano)
+        let tamanoReal: string | null = null
+        if (sel.tamano) {
+          tamanoReal = resolverTamanoTexto(sel.tamano, etiquetas)
+          if (!tamanoReal) {
+            return {
+              ok: false,
+              error: 'TAMANO_INVALIDO',
+              detalle: { producto: producto.nombre, tamano: sel.tamano, tamanosDisponibles: etiquetas },
+            }
+          }
+        } else if (tamanoEnFrase && etiquetas.length > 0) {
+          tamanoReal = resolverTamano(tamanoEnFrase, etiquetas)
+          if (!tamanoReal) {
+            return {
+              ok: false,
+              error: 'TAMANO_NO_DISPONIBLE',
+              detalle: { producto: producto.nombre, tamanoPedido: tamanoEnFrase.dicho, tamanosDisponibles: etiquetas },
+            }
+          }
         }
         // Línea informativa (precio 0, mismo criterio que catering en
         // crearPedido.ts) — el combo ya cobró su precio fijo arriba, esto
@@ -147,7 +173,7 @@ export async function validarItemsCombo(
           cateringItemId: null,
           comboId: null,
           nombreProducto: producto.nombre,
-          tamano: sel.tamano ?? null,
+          tamano: tamanoReal,
           extras: [],
           precioUnitario: 0,
           cantidad: sel.cantidad,

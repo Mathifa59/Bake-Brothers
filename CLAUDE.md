@@ -1098,6 +1098,22 @@ no se reescribieron (salvo Pedidos/Clientes, que ganaron versión de tarjetas pa
   existen. Regla 7 en el prompt: ante un pedido genérico llama a `listarCatalogo`, muestra opciones
   y pregunta cuál; nunca elige por el cliente. La búsqueda ignora además palabras de pregunta
   ("qué", "tipo", "tienen", "sabores"…).
+  **Tamaño dentro de la frase (2026-10-23, rama `fix/busqueda-por-tamano`, sin mergear)**: en producción
+  "carrot cake individual" respondía que el producto no existía — la búsqueda exigía todas las palabras dentro
+  del nombre y el tamaño ("Individual", "Mini 16cm", "Familiar 24cm", "200g", "Caja x18") vive en
+  `product_sizes`, no en el nombre. `busquedaTexto.ts` gana `extraerTamano` (separa clase individual/porción/
+  personal, mini, familiar; medidas "24cm", "de 18", "x10"; pesos "500g", "un kilo"; una cantidad suelta
+  como "2 carrot cake" NO es tamaño), `resolverTamano`/`resolverTamanoTexto` (elige entre los tamaños REALES
+  del producto; null si ninguno calza o calzan varios, nunca adivina) y `productsRepo.buscarProductosPorTexto`
+  (busca el producto con el resto de la frase; orden: slug exacto > el nombre ya contiene lo dicho —"Pionono
+  Familiar", "Empanada 3 Quesos"— > tiene el tamaño pedido —"torta de chocolate familiar" gana la que viene en
+  familiar— > calza todas las palabras). `consultarPrecio` devuelve `tamanoSolicitado` (encontrado, o
+  `tamanosDisponibles` si el producto no viene en ese tamaño: nunca "no existe") y `otrasCoincidencias` cuando
+  varios productos calzan igual ("alfajores x10" → 5 sabores: el bot pregunta cuál). `validarYValorizarItemsTienda`
+  y las selecciones de combo resuelven el tamaño tolerante, guardan la etiqueta real y devuelven
+  `TAMANO_NO_DISPONIBLE`/`TAMANO_INVALIDO` con `tamanosDisponibles`; apps/web y el dashboard mandan slug +
+  etiqueta exacta y no cambian. Regla 8 del prompt. Tests: `busquedaTamano.test.ts` (46, 11 fallan con el
+  código viejo) y `cerebroTamano.test.ts` (Claude real, se salta sin `ANTHROPIC_API_KEY`).
   **Tuteo peruano (2026-10-13)**: el prompt del bot estaba escrito con voseo argentino ("Sos", "podés",
   "llamá"…) y el modelo lo imitaba con el cliente ("pagás", "podés"). Todo el prompt y las descripciones
   de herramientas pasaron a "tú", se agregó la instrucción explícita de tutear y la regla de formato de
