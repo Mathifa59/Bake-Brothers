@@ -1,9 +1,14 @@
 import type pg from 'pg'
-import { resolverSedeDelPedido, type EstadoPedido, type TipoEntrega } from '@bakebrothers/domain'
+import {
+  resolverSedeDelPedido,
+  distritoTieneCobertura,
+  parsearDistritosDelivery,
+  type EstadoPedido,
+  type TipoEntrega,
+} from '@bakebrothers/domain'
 import { env } from '../env.js'
 import { findOrCreateCustomer, siguienteNumeroDePedido, insertarPedido, type OrderItemInsert } from '../repositories/ordersRepo.js'
 import { validarYValorizarItemsTienda } from './pedidosTienda.js'
-import { validarItemsCatering } from './pedidosCatering.js'
 import { validarItemsCombo, type SeleccionComboInput } from './pedidosCombos.js'
 
 /**
@@ -87,7 +92,23 @@ export interface CrearPedidoInput {
 export const MARCA_PRUEBA = '[PRUEBA]'
 
 export type ResultadoCrearPedido =
-  | { ok: true; numero: string; estado: EstadoPedido; subtotal: number; total: number }
+  | {
+      ok: true
+      numero: string
+      estado: EstadoPedido
+      subtotal: number
+      total: number
+      /**
+       * Datos para pagar por adelantado (env DATOS_PAGO), solo en recojo en tienda y solo si están
+       * configurados. null = el cliente todavía no tiene cómo pagar: una persona se los envía.
+       */
+      datosPago: string | null
+      /**
+       * Si viene, el pedido quedó registrado pero lo debe seguir una persona (delivery por cotizar y
+       * coordinar, o datos de pago por enviar). El bot deriva la conversación con este motivo.
+       */
+      atencionHumana?: string
+    }
   | { ok: false; error: string; detalle?: unknown }
 
 export async function crearPedido(
@@ -100,8 +121,27 @@ export async function crearPedido(
     return { ok: false, error: 'SIN_ITEMS' }
   }
 
+  // Reglas de lanzamiento (decididas con el negocio, 2026-10-29) — el servidor las hace cumplir, no depende
+  // de que el modelo las recuerde:
+  //  1. El catering SIEMPRE lo cotiza y confirma una persona: el bot nunca crea un pedido de catering, ni
+  //     siquiera con el semáforo en verde (sigue consultándolo para dejarle el contexto a esa persona).
+  //  2. Todo pedido por el bot se paga 100 % por adelantado: no existe contraentrega.
+  //  3. Delivery solo a los distritos con cobertura (DISTRITOS_DELIVERY).
+  if (input.items.some((i) => i.tipo === 'catering')) {
+    return { ok: false, error: 'CATERING_REQUIERE_PERSONA' }
+  }
+  if (input.metodoPago === 'contraentrega') {
+    return { ok: false, error: 'PAGO_ADELANTADO_REQUERIDO', detalle: { mensaje: 'Los pedidos por WhatsApp se pagan 100 % por adelantado.' } }
+  }
+  if (input.tipoEntrega === 'delivery') {
+    if (!input.direccion || !input.distrito) return { ok: false, error: 'DIRECCION_REQUERIDA' }
+    const distritosConCobertura = parsearDistritosDelivery(env.DISTRITOS_DELIVERY)
+    if (!distritoTieneCobertura(input.distrito, distritosConCobertura)) {
+      return { ok: false, error: 'DISTRITO_SIN_COBERTURA', detalle: { distrito: input.distrito, distritosConCobertura } }
+    }
+  }
+
   const itemsProducto = input.items.filter((i): i is ItemPedidoProducto => i.tipo === 'producto')
-  const itemsCatering = input.items.filter((i): i is ItemPedidoCatering => i.tipo === 'catering')
   const itemsCombo = input.items.filter((i): i is ItemPedidoCombo => i.tipo === 'combo')
 
   const itemsParaInsertar: OrderItemInsert[] = []
@@ -125,20 +165,6 @@ export async function crearPedido(
     subtotal += resultado.subtotal
   }
 
-  if (itemsCatering.length > 0) {
-    // Re-verificación server-side: nunca confía en que el modelo solo haya
-    // llamado a esta función después de ver verde.
-    const resultado = await validarItemsCatering(
-      client,
-      itemsCatering.map((i) => ({ busquedaItem: i.busqueda, cantidad: i.cantidad })),
-      input.fechaEntregaISO
-    )
-    if (!resultado.ok) return resultado
-    itemsParaInsertar.push(...resultado.items)
-    // Los items de catering suman 0 al subtotal — no hay precio de
-    // catálogo (ver pedidosCatering.ts), lo cotiza el operador después.
-  }
-
   if (itemsCombo.length > 0) {
     // Re-verificación server-side, mismo criterio que catering arriba:
     // nunca confía en que el modelo haya clasificado bien el combo por su
@@ -155,10 +181,6 @@ export async function crearPedido(
     itemsParaInsertar.push(...resultado.items)
     subtotal += resultado.subtotal
     requiereConfirmarCombo = requiereConfirmarCombo || resultado.requiereConfirmarCombo
-  }
-
-  if (input.tipoEntrega === 'delivery' && (!input.direccion || !input.distrito)) {
-    return { ok: false, error: 'DIRECCION_REQUERIDA' }
   }
 
   // Sede del pedido. Con el número de un local sale de la conversación; con el número del bot (sin sede) la
@@ -185,7 +207,10 @@ export async function crearPedido(
   const codigoPrefijo = tenantRows[0]?.codigo_prefijo
   if (!codigoPrefijo) return { ok: false, error: 'TENANT_NO_ENCONTRADO' }
 
-  const estado: EstadoPedido = input.pagoPorAdelantado ? 'payment_pending' : 'confirmed'
+  // 100 % adelantado: todo pedido del bot nace pendiente de pago y pasa a pagado cuando una persona verifica
+  // el comprobante en el panel. `input.pagoPorAdelantado` ya no decide nada (se conserva en el tipo por
+  // compatibilidad con quien lo manda).
+  const estado: EstadoPedido = 'payment_pending'
   // delivery/total: mismo criterio que POST /api/orders — delivery en 0, lo
   // completa el operador desde el dashboard.
   const total = subtotal
@@ -225,5 +250,21 @@ export async function crearPedido(
     itemsParaInsertar
   )
 
-  return { ok: true, numero, estado, subtotal, total }
+  // Qué debe hacer una persona después de este pedido. En delivery el costo de envío lo cotiza ella, así que
+  // tampoco se le dan datos de pago al cliente hasta tener el total final.
+  const esDelivery = input.tipoEntrega === 'delivery'
+  const datosPago = esDelivery ? null : (env.DATOS_PAGO ?? null)
+  const pendientes: string[] = []
+  if (esDelivery) pendientes.push('cotizar el delivery y coordinar la entrega')
+  if (!datosPago) pendientes.push('enviar los datos de pago al cliente')
+
+  return {
+    ok: true,
+    numero,
+    estado,
+    subtotal,
+    total,
+    datosPago,
+    atencionHumana: pendientes.length > 0 ? `Pedido ${numero}: ${pendientes.join(' y ')}.` : undefined,
+  }
 }

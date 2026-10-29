@@ -1234,6 +1234,50 @@ válido dentro de las 24 h): falta construirlo cuando Meta las apruebe y se defi
   es idéntica a `main`); los datos `[PRUEBA]` no se borran hasta que el cliente lo diga; los `WhatsApp Image
   …jpeg` y `disenos/` sueltos en la raíz no son del código (nunca `git add -A`).
 
+### Reglas de lanzamiento (2026-10-29) — rama `release/lanzamiento-v1`
+
+El negocio decidió un documento corto de 10 decisiones para salir; para todo lo demás se avanza con estos
+supuestos (se ajustan después). Las reglas las hace cumplir el **servidor**, no la memoria del modelo.
+
+- **Horarios** (los de la ficha): Cedros lun–vie 7:30 a. m.–8:30 p. m., domingo 10:00 a. m.–8:30 p. m.;
+  Santa Marina todos los días 12:00 p. m.–10:00 p. m. **Sábado de Cedros: pendiente** (queda "por confirmar" y
+  el bot no promete hora ese día). Viven en `sedes.horario` (migración **0034**, texto libre) y el bot los recibe
+  en cada conversación junto con la dirección de cada local (`textoContextoLocales`). No hay validación de hora
+  del lado del servidor: `orders.horario` sigue siendo texto libre y el modelo respeta el horario del prompt.
+- **Pago por WhatsApp: 100 % adelantado.** Todo pedido de `crearPedido` nace `payment_pending` (ignora
+  `pagoPorAdelantado`); `contraentrega` se rechaza (`PAGO_ADELANTADO_REQUERIDO`) y ya no está en el enum de la
+  herramienta; "link de pago" se registra como `tarjeta`. Una persona verifica el comprobante en el panel y lo
+  pasa a pagado (el bot no ve imágenes). **Datos de pago**: variable `DATOS_PAGO` (texto libre). Si está, el bot
+  se los da al cliente de recojo apenas registra el pedido; si no está, el pedido queda registrado, el bot avisa
+  que una persona le escribe con los datos y la conversación pasa a `escalada` (motivo "enviar los datos de pago").
+  **Hoy no está configurada** (faltan los datos reales de Yape/cuentas).
+- **Catering: siempre una persona.** `crearPedido` rechaza cualquier ítem de catering
+  (`CATERING_REQUIERE_PERSONA`, también con semáforo en verde) y fuerza la escalada. El bot sigue consultando el
+  semáforo solo para dejarle contexto a la persona. Cambia lo anterior (antes un catering en verde se registraba).
+- **Delivery: lo cotiza y coordina una persona.** Solo a los distritos de `DISTRITOS_DELIVERY` (por defecto la
+  lista de la ficha: Chorrillos, Surco, Miraflores, San Isidro, Villa el Salvador, San Juan de Miraflores, La
+  Victoria, Jesús María, Lince; regla pura `distritoTieneCobertura` en el dominio, igualdad exacta sin tildes:
+  "Miraflores" no calza con "San Juan de Miraflores"). Fuera de cobertura → `DISTRITO_SIN_COBERTURA` y el bot
+  ofrece recojo. Un delivery válido se registra y la conversación pasa a una persona (cotizar el envío y
+  coordinar); no se dan datos de pago hasta tener el total final. **`SEDE_DELIVERY` sigue sin definir**: esos
+  pedidos quedan sin sede y **un operador no los ve en Pedidos** (solo el admin; las conversaciones sin sede sí
+  las ve todo el personal). Hay que definir qué local los despacha o abrir los pedidos sin sede a todo el personal.
+- **El bot confirma solo los pedidos normales** (productos de tienda y combos con composición); catering, tortas
+  personalizadas con foto, alergias y reclamos pasan a una persona (ya era así salvo catering).
+- **Facturación**: al inicio se sigue en Mifact; no bloquea la salida. **Equipo**: arrancan con las 3 cuentas
+  actuales. **Datos `[PRUEBA]`**: se borran antes de salir (el cliente avisa cuándo).
+- **Siguiente etapa** (no empezada): la sección L del documento de preguntas — mayoristas, Rappi, resumen de
+  producción, vocabulario de estados y pagos, roles. Es el "prompt grande" de Bake OS.
+- **Qué incluye la rama**: `feature/coexistencia` (WhatsApp, número del bot, 0030) + `fix/busqueda-por-tamano` +
+  estas reglas + 0034. **Nada de esto está en `main` ni aplicado al Supabase real** (0030 y 0034 pendientes).
+  Orden de despliegue propuesto: aplicar 0030 y 0034 → mergear a `main` (con OK) → variables en Coolify
+  (`META_APP_SECRET`, `WHATSAPP_TOKEN_ENCRYPTION_KEY`, `META_VERIFY_TOKEN`, `DATOS_PAGO`, y `SEDE_DELIVERY` si se
+  decide) → registrar el número del bot (`pnpm whatsapp:registrar -- --bot ...`) → apuntar el webhook de Meta.
+- **Tests**: `reglasLanzamiento.test.ts` (18, 15 fallan con el código anterior) y `coberturaDelivery.test.ts`
+  (dominio). `campanaAtribucion.test.ts` ya siembra su propio número conectado (antes dependía de que otro
+  archivo lo sembrara y fallaba suelto). `cerebro.test.ts` (modelo real, no corrido aquí) se actualizó: pago
+  adelantado, y el caso 10 ahora espera que el catering escale sin crear pedido.
+
 ## 8. Reglas de trabajo
 
 - Antes de escribir código, lee el repo y presenta un plan. Espera OK.

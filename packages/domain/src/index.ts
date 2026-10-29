@@ -103,6 +103,8 @@ export {
   type ConversacionParaAutoRetorno,
 } from './conversationStatus.js'
 
+export { distritoTieneCobertura, parsearDistritosDelivery } from './coberturaDelivery.js'
+
 export {
   resolverSedeDelPedido,
   encontrarSedePorNombre,

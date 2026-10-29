@@ -6,6 +6,7 @@ import {
   partesLima,
   diaSemanaLegible,
   sumarDiasISO,
+  parsearDistritosDelivery,
   type EstadoConversacion,
 } from '@bakebrothers/domain'
 import { env } from '../env.js'
@@ -65,10 +66,11 @@ REGLAS DURAS, sin excepción:
 
 1. Nunca digas un precio, disponibilidad o condición de un combo de memoria. Siempre llama a la tool correspondiente (consultarPrecio, consultarDisponibilidad, consultarCombo) y responde solo con el dato real que te devuelve. Si la tool no encuentra el producto/combo (te devuelve null), dilo con honestidad — nunca inventes un precio, una disponibilidad ni una condición.
 
-2. Catering: antes de confirmar o cotizar CUALQUIER pedido de catering (cantidad + fecha de entrega), llama siempre a evaluarSemaforoCateringPedido — nunca lo calcules ni lo supongas tú.
-   - Resultado verde: puedes confirmar con naturalidad.
-   - Resultado amarillo o rojo: NO prometas ni confirmes nada. Llama a escalarAHumano con un motivo breve, y avísale al cliente con calidez que lo vas a conectar con el equipo para confirmar los detalles — nunca digas que "no se puede", solo que lo vas a consultar.
-   - Puedes usar consultarReglasCatering si necesitas los datos crudos de un ítem para explicarle algo al cliente, pero la decisión de verde/amarillo/rojo siempre pasa por evaluarSemaforoCateringPedido.
+2. Catering: SIEMPRE lo atiende una persona del equipo — tú nunca lo confirmas ni lo cotizas, y crearPedido rechaza cualquier ítem de catering. Haz esto:
+   - Recoge con calidez el ítem, la cantidad, la fecha de entrega, el nombre y el teléfono del cliente.
+   - Llama a evaluarSemaforoCateringPedido para dejarle el contexto a la persona (si el pedido cumple o no las reglas); nunca lo calcules ni lo supongas tú.
+   - Llama a escalarAHumano con un resumen breve (ítem, cantidad, fecha, nombre, teléfono y el resultado del semáforo) y avísale al cliente que el equipo le confirma y le cotiza en breve — nunca digas que "no se puede", solo que lo van a revisar.
+   - Puedes usar consultarReglasCatering si necesitas los datos crudos de un ítem para explicarle algo al cliente.
 
 3. Escala a una persona del equipo (llamando a escalarAHumano con un motivo breve) SIEMPRE ante:
    - Reclamos o quejas.
@@ -87,10 +89,12 @@ REGLAS DURAS, sin excepción:
    - Pídele SIEMPRE el teléfono de contacto, incluso en WhatsApp aunque ya tengas el número de quien te escribe — quien escribe no es necesariamente quien recibe el pedido, no asumas que es el mismo.
    - Junta nombre, producto(s) y cantidad, fecha de entrega, y si es recojo en tienda o delivery (con dirección) — nunca cotices ni prometas el costo del delivery, eso lo cotiza el operador a mano.
    - Si el producto es un jugo o helado, pregunta con azúcar o sin azúcar; si son empanadas, pregunta calientes o sin calentar — anota la respuesta en el campo nota.
-   - Para CATERING: nunca llames a crearPedido si evaluarSemaforoCateringPedido no dio verde para ese ítem — en amarillo/rojo escala (regla 2), no fuerces el pedido. crearPedido igual vuelve a verificar esto del lado del servidor.
-   - Si el cliente te dice que va a pagar por adelantado, marca pagoPorAdelantado en true. Nunca proceses ni verifiques ningún comprobante de pago (captura, voucher) — eso lo revisa el equipo a mano. Hoy todavía no puedes ver imágenes: si el cliente manda una captura de pago, avísale con calidez que el pedido ya quedó registrado y que el equipo confirma el pago, sin intentar describir ni validar la imagen.
+   - Catering: nunca lo registres tú con crearPedido (regla 2). Solo productos de tienda y combos.
+   - PAGO: los pedidos por WhatsApp se pagan 100 % por adelantado, siempre (no existe contraentrega). Dile al cliente que el pedido queda registrado pendiente de pago y que se confirma cuando el equipo verifique el pago. Pon pagoPorAdelantado en true y en metodoPago el que elija (yape, plin, transferencia, o tarjeta si es link de pago). Cuando crearPedido responda: si trae datosPago, dáselos tal cual y pídele que envíe la captura por aquí; si datosPago es null, dile que una persona del equipo le escribe en un momento con los datos de pago. NUNCA inventes un número de Yape, una cuenta ni un link. Nunca proceses ni verifiques ningún comprobante (captura, voucher): lo revisa el equipo a mano. Hoy no puedes ver imágenes: si el cliente manda una captura, avísale con calidez que el equipo confirma el pago, sin intentar describir ni validar la imagen.
+   - DELIVERY: solo se hace a los distritos de la lista de cobertura (ver el contexto de locales y delivery). Si el distrito no está, dile con amabilidad que ahí no llegan y ofrécele recojo en tienda. El costo del envío y la coordinación los hace una persona: nunca cotices ni prometas el costo. Cuando crearPedido registre un delivery, llama a escalarAHumano (motivo: cotizar y coordinar el delivery) y dile al cliente que una persona le confirma el costo de envío y le pasa los datos de pago.
+   - Si crearPedido devuelve atencionHumana, el pedido SÍ quedó registrado: cuéntale el número de pedido y el total de los productos, y llama a escalarAHumano con ese motivo.
    - Si crearPedido devuelve SEDE_REQUERIDA o SEDE_NO_VALIDA, pregúntale al cliente en qué local recoge (con las opciones que trae el error) o si es delivery, y vuelve a llamar a crearPedido con su respuesta en sedeRecojo.
-   - Si crearPedido devuelve un error, no inventes un número de pedido — cuéntale al cliente lo que pasó con honestidad (ej. producto no disponible, dirección faltante) y ofrece ayudarlo a resolverlo.
+   - Si crearPedido devuelve un error, no inventes un número de pedido — cuéntale al cliente lo que pasó con honestidad (ej. producto no disponible, dirección faltante, distrito sin cobertura) y ofrece ayudarlo a resolverlo. Si el error es CATERING_REQUIERE_PERSONA, sigue la regla 2.
 
 6. Combos: antes de vender un combo, llama siempre a consultarCombo para ver su composición real (items) y si admite cambios (permiteCambios) — nunca lo asumas.
    - Si "items" viene vacío (combo sin composición fija, "sujeto a stock del día"), NO puedes cerrar ese pedido tú — llama a escalarAHumano con un motivo breve, avisándole al cliente con calidez que el equipo lo va a confirmar.
@@ -245,10 +249,14 @@ const TOOLS: Anthropic.Tool[] = [
             required: ['tipo', 'busqueda', 'cantidad'],
           },
         },
-        metodoPago: { type: 'string', enum: ['yape', 'plin', 'transferencia', 'tarjeta', 'contraentrega'] },
+        metodoPago: {
+          type: 'string',
+          enum: ['yape', 'plin', 'transferencia', 'tarjeta'],
+          description: 'Cómo pagará por adelantado. "tarjeta" = link de pago. No hay contraentrega.',
+        },
         pagoPorAdelantado: {
           type: 'boolean',
-          description: 'true si el cliente dijo que va a pagar antes de la entrega (no si ya pagó ni si vas a verificar un comprobante).',
+          description: 'Siempre true: los pedidos por WhatsApp se pagan 100 % por adelantado (el servidor igual los registra pendientes de pago).',
         },
         nota: {
           type: 'string',
@@ -361,6 +369,26 @@ export function contextoFechaActual(ahora: Date = new Date()): string {
  * del bot es uno solo para todo el negocio. El servidor igual lo exige al crear el pedido
  * (resolverSedeDelPedido): esto solo le dice al modelo qué preguntar y con qué opciones.
  */
+/**
+ * Contexto de negocio que el modelo necesita en TODA conversación: qué locales hay, su dirección y
+ * horario, y a qué distritos se hace delivery. Sale de la base (`sedes`) y de la configuración
+ * (DISTRITOS_DELIVERY), no del código — cambiar un horario no requiere un deploy.
+ */
+export function textoContextoLocales(
+  locales: { nombre: string; direccion: string | null; horario: string | null }[],
+  distritosDelivery: string[]
+): string {
+  const lineas = locales.map((l) => {
+    const partes = [l.direccion, l.horario ? `horario: ${l.horario}` : null].filter(Boolean)
+    return `- ${l.nombre}${partes.length > 0 ? ` (${partes.join('; ')})` : ''}`
+  })
+  const delivery =
+    distritosDelivery.length > 0
+      ? `Delivery de tienda solo a: ${distritosDelivery.join(', ')}.`
+      : 'Delivery sin restricción de distrito.'
+  return `LOCALES Y HORARIOS:\n${lineas.join('\n')}\nSolo ofrece horas de recojo dentro del horario del local elegido; si el horario de un día aparece como "por confirmar", no prometas una hora ese día: ofrécele el otro local o dile que el equipo se lo confirma. ${delivery}`
+}
+
 export function textoContextoSede(nombresDeSedes: string[]): string {
   const locales = nombresDeSedes.length > 0 ? nombresDeSedes.join(' o ') : 'el local'
   return `SEDE: este número NO pertenece a un local. Antes de crear un pedido pregúntale al cliente si lo recoge en tienda —y en cuál local: ${locales}— o si es delivery, y pasa su respuesta en sedeRecojo (para delivery no hace falta). Nunca asumas el local ni lo adivines por el producto.`
@@ -436,7 +464,32 @@ function esNombreToolDeDatos(nombre: string): nombre is NombreToolDeDatos {
 export function decidirEscaladaForzadaPorTool(
   nombreTool: string,
   resultadoTool: unknown
-): { forzar: boolean; motivo?: string } {
+): { forzar: boolean; motivo?: string; textoConfiable?: boolean } {
+  // Catering: SIEMPRE lo atiende una persona. crearPedido ya rechaza cualquier ítem de catering; además se
+  // fuerza la escalada acá, aunque el modelo no haya llamado a escalarAHumano por su cuenta.
+  if (
+    nombreTool === 'crearPedido' &&
+    typeof resultadoTool === 'object' &&
+    resultadoTool !== null &&
+    'ok' in resultadoTool &&
+    (resultadoTool as { ok: boolean }).ok === false &&
+    (resultadoTool as { error?: string }).error === 'CATERING_REQUIERE_PERSONA'
+  ) {
+    return { forzar: true, motivo: 'Pedido de catering — lo cotiza y confirma una persona del equipo.' }
+  }
+  // Pedido registrado que una persona debe seguir (delivery por cotizar y coordinar, o datos de pago por
+  // enviar). El pedido SÍ existe, así que el texto que escribió el modelo (número, total, qué sigue) es
+  // confiable y NO se reemplaza por el mensaje fijo.
+  if (
+    nombreTool === 'crearPedido' &&
+    typeof resultadoTool === 'object' &&
+    resultadoTool !== null &&
+    'ok' in resultadoTool &&
+    (resultadoTool as { ok: boolean }).ok === true &&
+    typeof (resultadoTool as { atencionHumana?: unknown }).atencionHumana === 'string'
+  ) {
+    return { forzar: true, motivo: String((resultadoTool as { atencionHumana?: unknown }).atencionHumana), textoConfiable: true }
+  }
   if (nombreTool === 'evaluarSemaforoCateringPedido' && (resultadoTool === 'amarillo' || resultadoTool === 'rojo')) {
     return { forzar: true, motivo: `Semáforo de catering en ${resultadoTool} — no se confirma sin operador.` }
   }
@@ -555,6 +608,11 @@ export async function evaluarTurno(
   }
 
   // Número del bot (la conversación no trae sede): el modelo tiene que preguntar en qué local recoge el cliente.
+  // Locales, horarios y cobertura de delivery: van en TODA conversación (con o sin sede en el número).
+  const { rows: locales } = await client.query<{ nombre: string; direccion: string | null; horario: string | null }>(
+    `select nombre, direccion, horario from sedes where activo order by nombre`
+  )
+  const contextoLocales = `\n\n${textoContextoLocales(locales, parsearDistritosDelivery(env.DISTRITOS_DELIVERY))}`
   let contextoSede = ''
   if (!sedeId) {
     const { rows } = await client.query<{ nombre: string }>(`select nombre from sedes where activo order by nombre`)
@@ -579,7 +637,7 @@ export async function evaluarTurno(
     const respuesta = await anthropic.messages.create({
       model: MODELO,
       max_tokens: 1024,
-      system: `${SYSTEM_PROMPT}\n\n${contextoFechaActual()}${contextoSede}`,
+      system: `${SYSTEM_PROMPT}\n\n${contextoFechaActual()}${contextoLocales}${contextoSede}`,
       tools: TOOLS,
       messages: mensajes,
     })
@@ -638,6 +696,9 @@ export async function evaluarTurno(
           if (decision.forzar) {
             debeEscalar = true
             motivoEscalacion = decision.motivo
+            // Pedido real que sigue una persona: el texto del modelo (número, total, qué sigue) es el
+            // correcto, no se reemplaza por el mensaje fijo de "lo revisa el equipo".
+            if (decision.textoConfiable) elModeloLlamoEscalarAHumano = true
           }
           resultadosTool.push({ type: 'tool_result', tool_use_id: bloque.id, content: JSON.stringify(resultado) })
         } catch (err) {

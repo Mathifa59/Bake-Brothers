@@ -27,6 +27,16 @@ const schema = z
     // del negocio, no del código. Sin esto, un delivery del bot queda SIN sede (lo ve solo el admin hasta
     // que alguien lo asigne) — ver packages/domain sedeDelPedido.ts.
     SEDE_DELIVERY: z.string().trim().optional(),
+    // Distritos a los que se hace delivery de TIENDA (lista separada por comas). Configuración del negocio:
+    // el valor por defecto es el de la ficha real (catalogo-real-bake-brothers.md, sección 0). El bot no
+    // toma un pedido de delivery a un distrito que no esté acá. Una lista vacía desactiva la restricción.
+    DISTRITOS_DELIVERY: z
+      .string()
+      .default('Chorrillos, Surco, Miraflores, San Isidro, Villa el Salvador, San Juan de Miraflores, La Victoria, Jesús María, Lince'),
+    // Datos para pagar por adelantado (texto libre: número y titular de Yape, cuentas y CCI). Si está, el
+    // bot se los da al cliente de recojo apenas registra el pedido; si NO está, el bot avisa que una persona
+    // se los envía y la conversación pasa al equipo para que lo haga. No lleva secretos, pero tampoco va en el código.
+    DATOS_PAGO: z.string().trim().optional(),
     // Embedded Signup de Meta (conectar números desde el dashboard): NO se terminó de construir y el plan
     // vigente no lo usa (el número del bot se registra a mano). Reservado y APAGADO; hoy ninguna ruta lo lee.
     WHATSAPP_EMBEDDED_SIGNUP: z.enum(['true', 'false']).default('false'),
