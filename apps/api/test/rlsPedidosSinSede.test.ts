@@ -196,6 +196,44 @@ describe.skipIf(!hayBaseDeDatosReal)('RLS de pedidos sin sede (delivery de las d
     })
   })
 
+  it('métricas: un pedido sin sede NO se suma a ninguna sede (va aparte, como "sin asignar") y el total del administrador lo cuenta una sola vez', async (ctx) => {
+    await enTransaccion(ctx, async () => {
+      const hoy = (await client.query(`select (now() at time zone 'America/Lima')::date as d`)).rows[0].d
+      const kpis = async (uid: string, sede: string | null) =>
+        como(uid, async () => {
+          const r = await client.query(`select pedidos, ingresos from metricas_kpis($1, $1, $2)`, [hoy, sede])
+          return { pedidos: Number(r.rows[0].pedidos), ingresos: Number(r.rows[0].ingresos) }
+        })
+      const sinAsignar = async (uid: string) =>
+        como(uid, async () => {
+          const r = await client.query(`select pedidos, ingresos from metricas_sin_asignar($1, $1)`, [hoy])
+          return { pedidos: Number(r.rows[0].pedidos), ingresos: Number(r.rows[0].ingresos) }
+        })
+
+      const antes = { total: await kpis(ADMIN, null), sin: await sinAsignar(ADMIN) }
+      const { sedeA, sedeB, pSin } = await sembrar()
+
+      // Cada sede cuenta solo lo suyo: 1 pedido de 10, sin el pedido sin sede.
+      expect(await kpis(OP_A, sedeA)).toEqual({ pedidos: 1, ingresos: 10 })
+      expect(await kpis(OP_B, sedeB)).toEqual({ pedidos: 1, ingresos: 10 })
+
+      // "Sin asignar" lo ven las dos sedes, aparte, y es el mismo pedido (no uno por sede).
+      const sinA = await sinAsignar(OP_A)
+      expect(sinA).toEqual({ pedidos: antes.sin.pedidos + 1, ingresos: antes.sin.ingresos + 10 })
+      expect(await sinAsignar(OP_B)).toEqual(sinA)
+
+      // El total del negocio (admin, sin filtro) suma los 3 pedidos UNA vez: A + B + sin asignar.
+      const total = await kpis(ADMIN, null)
+      expect(total.pedidos - antes.total.pedidos).toBe(3)
+      expect(total.ingresos - antes.total.ingresos).toBe(30)
+
+      // Cuando una sede lo toma, sale de "sin asignar" y pasa a contar en esa sede (sigue siendo 1 vez en total).
+      expect(await intentar(OP_A, `update orders set sede_id = $2 where id = $1 and sede_id is null`, [pSin, sedeA])).toEqual({ filas: 1 })
+      expect(await kpis(OP_A, sedeA)).toEqual({ pedidos: 2, ingresos: 20 })
+      expect(await sinAsignar(OP_B)).toEqual(antes.sin)
+    })
+  })
+
   it('el administrador puede asignar un pedido sin sede a cualquier sede', async (ctx) => {
     await enTransaccion(ctx, async () => {
       const { sedeB, pSin } = await sembrar()

@@ -37,13 +37,13 @@ describe.skipIf(!hayBaseDeDatosReal)('emisores_mifact (Postgres real)', () => {
     }
   }
 
-  it('cada sede ya tiene su razón social, y ningún dato inventado: RUC, series y token vacíos', async () => {
+  it('cada sede ya tiene su razón social; solo Santa Marina tiene RUC (el de Mifact) — series y token vacíos', async () => {
     const cedros = await emisorDeSede(pool, cedrosId)
     const santaMarina = await emisorDeSede(pool, santaMarinaId)
     expect(cedros).toMatchObject({ razonSocial: 'Corporación Hermanos Loarte S.A.C.', ruc: null, serieBoleta: null, serieFactura: null, tieneToken: false })
-    expect(santaMarina).toMatchObject({ razonSocial: 'Baker Brothers E.I.R.L.', ruc: null, tieneToken: false })
+    expect(santaMarina).toMatchObject({ razonSocial: 'BAKER BROTHERS E.I.R.L.', ruc: '20612010880', tieneToken: false })
     expect((await emisoresMifact(pool)).map((e) => e.razonSocial)).toEqual(
-      expect.arrayContaining(['Corporación Hermanos Loarte S.A.C.', 'Baker Brothers E.I.R.L.'])
+      expect.arrayContaining(['Corporación Hermanos Loarte S.A.C.', 'BAKER BROTHERS E.I.R.L.'])
     )
   })
 
@@ -54,7 +54,7 @@ describe.skipIf(!hayBaseDeDatosReal)('emisores_mifact (Postgres real)', () => {
       const b = await guardarCredencialesEmisor(client, cedrosId, { serieFactura: 'F001' })
       expect(b).toMatchObject({ ruc: '20123456789', serieBoleta: 'B001', serieFactura: 'F001' }) // lo anterior sigue
       // la otra sede no se tocó
-      expect(await emisorDeSede(client, santaMarinaId)).toMatchObject({ ruc: null })
+      expect(await emisorDeSede(client, santaMarinaId)).toMatchObject({ ruc: '20612010880' })
     })
   })
 

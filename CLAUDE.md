@@ -1282,20 +1282,24 @@ supuestos (se ajustan después). Las reglas las hace cumplir el **servidor**, no
   Pedidos (con su cliente y sus líneas) y puede **tomarlo** con el botón **"Me lo quedo"**, que le asigna el pedido a
   la sede de quien lo toma (un UPDATE `where sede_id is null`: si dos lo toman a la vez gana el primero). La RLS solo
   deja ese movimiento: sin tomarlo un operador no puede cambiarle el estado ni confirmar su pago, no puede asignarlo a
-  otra sede, ni soltar uno que ya tiene sede; los pedidos que ya tienen sede no cambian. Las métricas de cada sede
-  incluyen los sin sede mientras nadie los toma. `rlsPedidosSinSede.test.ts` (6, roles reales).
+  otra sede, ni soltar uno que ya tiene sede; los pedidos que ya tienen sede no cambian. **Métricas (2026-10-30): un pedido sin
+  sede NO se suma a ninguna sede** — cada sede cuenta solo lo suyo, y los sin sede salen aparte como «Sin
+  asignar» (`metricas_sin_asignar`, parte de la 0035; en Métricas y filtrado fuera del Resumen de un operador); el
+  total del administrador («Todas las sedes») los incluye una sola vez. `rlsPedidosSinSede.test.ts` (6, roles reales).
 - **El bot confirma solo los pedidos normales** (productos de tienda y combos con composición); catering, tortas
   personalizadas con foto, alergias y reclamos pasan a una persona (ya era así salvo catering).
 - **Facturación**: al inicio se sigue en Mifact; no bloquea la salida. **Equipo**: arrancan con las 3 cuentas
   actuales. **Datos `[PRUEBA]`**: se borran antes de salir (el cliente avisa cuándo).
 - **Emisores de Mifact por sede (0037, para cuando llegue la facturación).** Cedros = Corporación Hermanos Loarte
-  S.A.C.; Santa Marina = Baker Brothers E.I.R.L. (nombre tal cual lo dio el cliente: confirmar si es "Baker" o
-  "Bake"). Tabla `emisores_mifact` (sede → razón social, RUC, serie de boleta B###, serie de factura F###, token
-  cifrado con la misma clave AES que los de WhatsApp); **RUC, series y token vacíos hasta que el cliente los
-  entregue**. Sin ningún permiso para `anon`/`authenticated` (tiene un token): solo la API. Se cargan con
+  S.A.C. (RUC pendiente); Santa Marina = **BAKER BROTHERS E.I.R.L.**, RUC `20612010880` (tal como figura en
+  Mifact; confirmado por el cliente). Tabla `emisores_mifact` (sede → razón social, RUC, serie de boleta B###,
+  serie de factura F###, token cifrado con la misma clave AES que los de WhatsApp); **series y token vacíos hasta
+  que el cliente los entregue** (y el RUC de Cedros). Sin ningún permiso para `anon`/`authenticated` (tiene un token): solo la API. Se cargan con
   `MIFACT_TOKEN_A_REGISTRAR=<token> pnpm mifact:emisor -- --sede Cedros --ruc ... --serie-boleta B001 ...`.
   Todavía no se emite ningún comprobante.
-- **Precios de Mifact (2026-10-30): NO se actualizó ninguno.** `docs/precios-mifact-vs-catalogo.md` lista los 20
+- **Precios de Mifact (2026-10-30): NO se actualizó ninguno — decisión del cliente: nada antes de la salida.**
+  Nuestro catálogo coincide con CENTRAL en 18 de 20 y los otros dos no son el mismo producto; se le pregunta al
+  cliente si Santa Marina tiene precios distintos (si sí, el precio por sede va después). Análisis original: `docs/precios-mifact-vs-catalogo.md` lista los 20
   productos con precio distinto. Hallazgo: Mifact tiene precios distintos para el mismo producto según el almacén
   (CENTRAL / santa marina / TODOS); en 18 de 20 el de CENTRAL ya es el nuestro, y la diferencia viene de santa
   marina o TODOS. Con un solo precio por producto en el sistema, "usar el de Mifact" depende de qué almacén es la
@@ -1312,6 +1316,9 @@ supuestos (se ajustan después). Las reglas las hace cumplir el **servidor**, no
   OK) → variables en Coolify (`META_APP_SECRET`, `WHATSAPP_TOKEN_ENCRYPTION_KEY` —obligatoria en producción—,
   `META_VERIFY_TOKEN`, `DATOS_PAGO`) → registrar el número del bot (`pnpm whatsapp:registrar -- --bot ...`) →
   apuntar el webhook de Meta. Ya no existe `SEDE_DELIVERY`.
+- **Lectura de capturas con el modelo real** (`capturaPagoReal.test.ts` + `test/fixtures/*.png`, imágenes sintéticas
+  armadas con Pillow, ninguna es de un cliente): clara, no-comprobante (una torta), borrosa y con una instrucción
+  escrita adentro. Se salta sin `ANTHROPIC_API_KEY`.
 - **Tests**: `reglasLanzamiento.test.ts` (18, 15 fallan con el código anterior) y `coberturaDelivery.test.ts`
   (dominio). `campanaAtribucion.test.ts` ya siembra su propio número conectado (antes dependía de que otro
   archivo lo sembrara y fallaba suelto). `cerebro.test.ts` (modelo real, no corrido aquí) se actualizó: pago

@@ -77,3 +77,28 @@ create policy order_items_select_por_sede on order_items
         and (u.rol = 'admin' or u.sede_id = o.sede_id or o.sede_id is null)
     )
   );
+
+-- 5. Métricas: los pedidos sin sede NO se suman a ninguna sede. Las 3 funciones de 0026/0027 ya filtran por
+--    `o.sede_id = p_sede_id` cuando se pide una sede (así que un pedido sin sede no entra en ninguna), y sin
+--    filtro suman todo (el total del negocio). Esta función da el aparte "Sin asignar" que el panel muestra
+--    mientras nadie tome el pedido. Misma definición de ingreso (todo menos cancelled) y misma frontera de día
+--    en Lima que 0027. `security invoker`: hereda la RLS de quien llama.
+create or replace function metricas_sin_asignar(p_desde date, p_hasta date)
+returns table(pedidos bigint, ingresos numeric)
+language sql
+stable
+security invoker
+set search_path = public, pg_temp
+as $$
+  select
+    count(*)::bigint as pedidos,
+    coalesce(sum(o.total), 0)::numeric as ingresos
+  from orders o
+  where o.creado_en >= (p_desde::timestamp at time zone 'America/Lima')
+    and o.creado_en < ((p_hasta + 1)::timestamp at time zone 'America/Lima')
+    and o.estado <> 'cancelled'
+    and o.sede_id is null
+$$;
+
+revoke all on function metricas_sin_asignar(date, date) from public;
+grant execute on function metricas_sin_asignar(date, date) to authenticated;

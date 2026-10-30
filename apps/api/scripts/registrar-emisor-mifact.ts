@@ -1,6 +1,6 @@
 /**
  * Carga RUC, series y/o token de Mifact del emisor de una sede (tabla `emisores_mifact`, 0037). Cada sede factura
- * con su propia razón social: Cedros → Corporación Hermanos Loarte S.A.C.; Santa Marina → Baker Brothers E.I.R.L.
+ * con su propia razón social: Cedros → Corporación Hermanos Loarte S.A.C.; Santa Marina → BAKER BROTHERS E.I.R.L.
  * (las razones sociales ya vienen cargadas por la migración; esto completa lo que faltaba).
  *
  * El token va por variable de entorno, NO por argumento: no queda en el historial del shell ni en la lista de

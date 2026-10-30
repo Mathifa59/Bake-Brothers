@@ -3,7 +3,7 @@
 --
 -- Decisión del negocio (2026-10-30): cada sede factura con su propia razón social —
 --   Cedros       → Corporación Hermanos Loarte S.A.C.
---   Santa Marina → Baker Brothers E.I.R.L.
+--   Santa Marina → BAKER BROTHERS E.I.R.L. (RUC 20612010880, como figura en Mifact)
 -- y cada una tendrá su RUC, su token de Mifact y sus series de boleta y factura. Hoy solo se conocen las razones
 -- sociales: RUC, series y token quedan vacíos (null) hasta que el cliente los entregue — nada se inventa.
 --
@@ -45,11 +45,11 @@ create policy app_api_emisores_mifact on emisores_mifact for all to app_api usin
 
 -- Razones sociales conocidas. `on conflict do nothing`: si ya hay una fila (con RUC, series o token cargados),
 -- no se toca.
-insert into emisores_mifact (sede_id, razon_social)
-select s.id, v.razon_social
+insert into emisores_mifact (sede_id, razon_social, ruc)
+select s.id, v.razon_social, v.ruc
 from (values
-  ('Cedros', 'Corporación Hermanos Loarte S.A.C.'),
-  ('Santa Marina', 'Baker Brothers E.I.R.L.')
-) as v(nombre, razon_social)
+  ('Cedros', 'Corporación Hermanos Loarte S.A.C.', null),
+  ('Santa Marina', 'BAKER BROTHERS E.I.R.L.', '20612010880')
+) as v(nombre, razon_social, ruc)
 join sedes s on s.nombre = v.nombre
 on conflict (sede_id) do nothing;
