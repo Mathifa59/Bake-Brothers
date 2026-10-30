@@ -32,6 +32,11 @@ export function cifrarTokenWhatsApp(tokenEnClaro: string): string {
   return cifrarToken(tokenEnClaro, claveCifradoTokens())
 }
 
+/** Inverso de cifrarTokenWhatsApp: para tokens guardados cifrados con la misma clave (WhatsApp y emisores de Mifact). */
+export function descifrarTokenWhatsApp(tokenCifrado: string): string {
+  return descifrarToken(tokenCifrado, claveCifradoTokens())
+}
+
 /**
  * El token de negocio con el que se manda desde ese número — sale de la base
  * (whatsapp_conexiones), una conexión por número, descifrado en el momento.

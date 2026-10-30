@@ -9,6 +9,7 @@
     "start": "node --env-file=.env dist/server.js",
     "seed:generate": "node scripts/seed-from-mock.mjs > migrations/0002_seed_bake_brothers.sql",
     "whatsapp:registrar": "tsx --env-file=.env scripts/registrar-conexion-whatsapp.ts",
+    "mifact:emisor": "tsx --env-file=.env scripts/registrar-emisor-mifact.ts",
     "test": "vitest run"
   },
   "dependencies": {
