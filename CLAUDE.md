@@ -1165,7 +1165,8 @@ sistema** (no vence). Los números de los locales no se tocan. Ya no se usa Embe
   herramienta `crearPedido` tiene `sedeRecojo`, la regla 5 del prompt explica qué hacer ante esos dos
   errores, y el prompt recibe el bloque `SEDE:` (`textoContextoSede`) **solo** cuando la conversación no
   tiene sede.
-- **Decisión pendiente del cliente — delivery.** Un delivery no tiene "local de recojo". Se resolvió con la
+- **(Reemplazado el 2026-10-30: `SEDE_DELIVERY` ya no existe; ver "Delivery" en las reglas de lanzamiento.)**
+  **Decisión que había quedado pendiente — delivery.** Un delivery no tiene "local de recojo". Se resolvió con la
   variable **`SEDE_DELIVERY`** (nombre de la sede que despacha): si está, el pedido va a esa sede; si no, el
   pedido queda **sin sede** (solo lo ve el admin hasta que alguien lo asigne). Hay que decidir cuál es.
 - **Webhook, firma y envío listos para conectar.** `POST /webhook` ahora exige la firma de Meta en
@@ -1244,35 +1245,73 @@ supuestos (se ajustan después). Las reglas las hace cumplir el **servidor**, no
   el bot no promete hora ese día). Viven en `sedes.horario` (migración **0034**, texto libre) y el bot los recibe
   en cada conversación junto con la dirección de cada local (`textoContextoLocales`). No hay validación de hora
   del lado del servidor: `orders.horario` sigue siendo texto libre y el modelo respeta el horario del prompt.
-- **Pago por WhatsApp: 100 % adelantado.** Todo pedido de `crearPedido` nace `payment_pending` (ignora
-  `pagoPorAdelantado`); `contraentrega` se rechaza (`PAGO_ADELANTADO_REQUERIDO`) y ya no está en el enum de la
-  herramienta; "link de pago" se registra como `tarjeta`. Una persona verifica el comprobante en el panel y lo
-  pasa a pagado (el bot no ve imágenes). **Datos de pago**: variable `DATOS_PAGO` (texto libre). Si está, el bot
-  se los da al cliente de recojo apenas registra el pedido; si no está, el pedido queda registrado, el bot avisa
-  que una persona le escribe con los datos y la conversación pasa a `escalada` (motivo "enviar los datos de pago").
-  **Hoy no está configurada** (faltan los datos reales de Yape/cuentas).
+- **Pago (revisado 2026-10-30; antes era 100 % adelantado siempre).** **Delivery: SIEMPRE adelantado**
+  (`contraentrega` en delivery → `PAGO_ADELANTADO_REQUERIDO`). **Recojo: el cliente elige** pagar antes (el pedido
+  nace `payment_pending`) o al recoger ("Canceló en tienda": nace `confirmed` y se registra con
+  `metodo_pago = 'contraentrega'`); la herramienta del bot usa `pagoPorAdelantado` true/false para eso y "link de
+  pago" se registra como `tarjeta`. **Datos de pago**: variable `DATOS_PAGO` (texto libre). Si está, el bot se los
+  da al cliente de recojo que paga antes; si no está, el pedido queda registrado, el bot avisa que una persona le
+  escribe con los datos y la conversación pasa a `escalada`. **Hoy no está configurada.**
+- **Captura de pago → "pago reportado" → una persona lo confirma (0036).** Si el cliente manda una imagen
+  (`parsearMensajesWhatsApp` ahora la entrega con `imagen`), `bot/procesarCapturaPago.ts` — un camino APARTE del
+  cerebro, que también corre con la conversación escalada — la descarga (`descargarMediaWhatsApp`, tope 5 MB, solo
+  jpeg/png/webp), la lee con visión (`bot/capturaPago.ts`: esquema forzado por `tool_choice`, `normalizarLectura`
+  descarta lo inválido, el texto dentro de la imagen es dato y no instrucción) y deja el pedido pendiente de pago
+  como **pago reportado**: `orders.pago_reportado` (monto, fecha, n.° de operación, medio, `coincideTotal`,
+  `requiereRevision`, `motivos`) + `pago_reportado_en`. **El bot NUNCA cambia el estado ni lo marca pagado.** La
+  asociación captura→pedido es por `orders.conversacion_id` (lo pone `crearPedido`); con varios pendientes gana el
+  que calza con el monto. Regla pura `evaluarPagoReportado` (dominio, tolerancia en céntimos enteros): marca
+  "Revisar" si el monto no coincide con el total, falta la operación o la fecha, la fecha es futura o de hace más de
+  3 días, no es soles, la imagen no es un comprobante / no se lee, o el n.° de operación ya aparece en otro pedido.
+  En el panel (Pedidos y el historial del cliente): **Confirmar pago** (→ `paid`) / **Rechazar** (sigue pendiente;
+  una captura nueva reabre la revisión) con un toque; el trigger de 0036 registra QUIÉN revisó con `auth.uid()` y
+  un CHECK impide resolver un pago que nadie reportó. Alerta nueva "Pago por confirmar" en el Control Tower. Si la
+  imagen no es un comprobante o no hay pedido pendiente, la conversación pasa a una persona. **Sin probar con el
+  modelo real ni con capturas reales de Yape** (hace falta una clave de Anthropic y ejemplos reales del cliente);
+  la imagen no se guarda, solo los datos leídos y el `mediaId`.
 - **Catering: siempre una persona.** `crearPedido` rechaza cualquier ítem de catering
   (`CATERING_REQUIERE_PERSONA`, también con semáforo en verde) y fuerza la escalada. El bot sigue consultando el
   semáforo solo para dejarle contexto a la persona. Cambia lo anterior (antes un catering en verde se registraba).
-- **Delivery: lo cotiza y coordina una persona.** Solo a los distritos de `DISTRITOS_DELIVERY` (por defecto la
-  lista de la ficha: Chorrillos, Surco, Miraflores, San Isidro, Villa el Salvador, San Juan de Miraflores, La
-  Victoria, Jesús María, Lince; regla pura `distritoTieneCobertura` en el dominio, igualdad exacta sin tildes:
-  "Miraflores" no calza con "San Juan de Miraflores"). Fuera de cobertura → `DISTRITO_SIN_COBERTURA` y el bot
-  ofrece recojo. Un delivery válido se registra y la conversación pasa a una persona (cotizar el envío y
-  coordinar); no se dan datos de pago hasta tener el total final. **`SEDE_DELIVERY` sigue sin definir**: esos
-  pedidos quedan sin sede y **un operador no los ve en Pedidos** (solo el admin; las conversaciones sin sede sí
-  las ve todo el personal). Hay que definir qué local los despacha o abrir los pedidos sin sede a todo el personal.
+- **Delivery: lo cotiza y coordina una persona; AMBAS sedes despachan (2026-10-30).** Solo a los distritos de
+  `DISTRITOS_DELIVERY` (por defecto la lista de la ficha: Chorrillos, Surco, Miraflores, San Isidro, Villa el
+  Salvador, San Juan de Miraflores, La Victoria, Jesús María, Lince; regla pura `distritoTieneCobertura` en el
+  dominio, igualdad exacta sin tildes: "Miraflores" no calza con "San Juan de Miraflores"). Fuera de cobertura →
+  `DISTRITO_SIN_COBERTURA` y el bot ofrece recojo. Un delivery válido se registra y la conversación pasa a una
+  persona (cotizar el envío y coordinar); no se dan datos de pago hasta tener el total final. **`SEDE_DELIVERY` se
+  eliminó**: el delivery del bot nace **sin sede** y, desde la migración **0035**, **todo el personal lo ve** en
+  Pedidos (con su cliente y sus líneas) y puede **tomarlo** con el botón **"Me lo quedo"**, que le asigna el pedido a
+  la sede de quien lo toma (un UPDATE `where sede_id is null`: si dos lo toman a la vez gana el primero). La RLS solo
+  deja ese movimiento: sin tomarlo un operador no puede cambiarle el estado ni confirmar su pago, no puede asignarlo a
+  otra sede, ni soltar uno que ya tiene sede; los pedidos que ya tienen sede no cambian. Las métricas de cada sede
+  incluyen los sin sede mientras nadie los toma. `rlsPedidosSinSede.test.ts` (6, roles reales).
 - **El bot confirma solo los pedidos normales** (productos de tienda y combos con composición); catering, tortas
   personalizadas con foto, alergias y reclamos pasan a una persona (ya era así salvo catering).
 - **Facturación**: al inicio se sigue en Mifact; no bloquea la salida. **Equipo**: arrancan con las 3 cuentas
   actuales. **Datos `[PRUEBA]`**: se borran antes de salir (el cliente avisa cuándo).
+- **Emisores de Mifact por sede (0037, para cuando llegue la facturación).** Cedros = Corporación Hermanos Loarte
+  S.A.C.; Santa Marina = Baker Brothers E.I.R.L. (nombre tal cual lo dio el cliente: confirmar si es "Baker" o
+  "Bake"). Tabla `emisores_mifact` (sede → razón social, RUC, serie de boleta B###, serie de factura F###, token
+  cifrado con la misma clave AES que los de WhatsApp); **RUC, series y token vacíos hasta que el cliente los
+  entregue**. Sin ningún permiso para `anon`/`authenticated` (tiene un token): solo la API. Se cargan con
+  `MIFACT_TOKEN_A_REGISTRAR=<token> pnpm mifact:emisor -- --sede Cedros --ruc ... --serie-boleta B001 ...`.
+  Todavía no se emite ningún comprobante.
+- **Precios de Mifact (2026-10-30): NO se actualizó ninguno.** `docs/precios-mifact-vs-catalogo.md` lista los 20
+  productos con precio distinto. Hallazgo: Mifact tiene precios distintos para el mismo producto según el almacén
+  (CENTRAL / santa marina / TODOS); en 18 de 20 el de CENTRAL ya es el nuestro, y la diferencia viene de santa
+  marina o TODOS. Con un solo precio por producto en el sistema, "usar el de Mifact" depende de qué almacén es la
+  referencia (y si Santa Marina vende de verdad más barato haría falta precio por sede). Esperando respuesta.
+- **Número del bot (2026-10-30):** el cliente quiere pasar uno de sus números actuales en vez de un chip nuevo;
+  todavía no se sabe cuál. No se cambió nada (el registro `--bot` ya soporta cualquier número conectado a la API de
+  Meta; habrá que ver si ese número hoy usa la app de WhatsApp Business, porque un número en la API de Cloud no
+  puede estar a la vez en la app del celular salvo con Coexistence).
 - **Siguiente etapa** (no empezada): la sección L del documento de preguntas — mayoristas, Rappi, resumen de
   producción, vocabulario de estados y pagos, roles. Es el "prompt grande" de Bake OS.
 - **Qué incluye la rama**: `feature/coexistencia` (WhatsApp, número del bot, 0030) + `fix/busqueda-por-tamano` +
   estas reglas + 0034. **Nada de esto está en `main` ni aplicado al Supabase real** (0030 y 0034 pendientes).
-  Orden de despliegue propuesto: aplicar 0030 y 0034 → mergear a `main` (con OK) → variables en Coolify
-  (`META_APP_SECRET`, `WHATSAPP_TOKEN_ENCRYPTION_KEY`, `META_VERIFY_TOKEN`, `DATOS_PAGO`, y `SEDE_DELIVERY` si se
-  decide) → registrar el número del bot (`pnpm whatsapp:registrar -- --bot ...`) → apuntar el webhook de Meta.
+  Orden de despliegue propuesto: aplicar **0030, 0034, 0035, 0036 y 0037** (en ese orden) → mergear a `main` (con
+  OK) → variables en Coolify (`META_APP_SECRET`, `WHATSAPP_TOKEN_ENCRYPTION_KEY` —obligatoria en producción—,
+  `META_VERIFY_TOKEN`, `DATOS_PAGO`) → registrar el número del bot (`pnpm whatsapp:registrar -- --bot ...`) →
+  apuntar el webhook de Meta. Ya no existe `SEDE_DELIVERY`.
 - **Tests**: `reglasLanzamiento.test.ts` (18, 15 fallan con el código anterior) y `coberturaDelivery.test.ts`
   (dominio). `campanaAtribucion.test.ts` ya siembra su propio número conectado (antes dependía de que otro
   archivo lo sembrara y fallaba suelto). `cerebro.test.ts` (modelo real, no corrido aquí) se actualizó: pago
