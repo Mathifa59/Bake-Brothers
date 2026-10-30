@@ -18,9 +18,9 @@ export interface SedeDisponible {
 export type ResultadoSedePedido =
   | {
       ok: true
-      /** null solo en delivery cuando no hay una sede configurada para despacharlo. */
+      /** null solo en delivery: ambas sedes despachan, así que nace sin sede y la toma quien lo atiende ("Me lo quedo"). */
       sedeId: string | null
-      motivo: 'sede_de_la_conversacion' | 'recojo_en_tienda' | 'delivery_sede_configurada' | 'delivery_sin_sede_configurada'
+      motivo: 'sede_de_la_conversacion' | 'recojo_en_tienda' | 'delivery_sin_sede'
     }
   | { ok: false; error: 'SEDE_REQUERIDA' | 'SEDE_NO_VALIDA'; sedesDisponibles: string[] }
 
@@ -55,20 +55,16 @@ export function resolverSedeDelPedido(params: {
   /** Lo que respondió el cliente al "¿en qué local recoges?" (o "delivery"). */
   sedeElegida?: string | null
   sedes: SedeDisponible[]
-  /** Nombre de la sede que despacha los delivery (configuración del negocio, no del código). */
-  sedeDelivery?: string | null
 }): ResultadoSedePedido {
-  const { tipoEntrega, sedeDeLaConversacion, sedeElegida, sedes, sedeDelivery } = params
+  const { tipoEntrega, sedeDeLaConversacion, sedeElegida, sedes } = params
   const nombres = sedes.map((s) => s.nombre)
 
   if (sedeDeLaConversacion) return { ok: true, sedeId: sedeDeLaConversacion, motivo: 'sede_de_la_conversacion' }
 
-  if (tipoEntrega === 'delivery') {
-    const configurada = sedeDelivery ? encontrarSedePorNombre(sedeDelivery, sedes) : null
-    return configurada
-      ? { ok: true, sedeId: configurada.id, motivo: 'delivery_sede_configurada' }
-      : { ok: true, sedeId: null, motivo: 'delivery_sin_sede_configurada' }
-  }
+  // Delivery: AMBAS sedes despachan (decisión del negocio, 2026-10-30). El pedido nace sin sede, lo ven todas
+  // en Pedidos y la sede que lo toma se lo queda (botón "Me lo quedo" del panel, ver 0035). Si la conversación
+  // ya tenía sede (número de un local), esa manda — se resuelve arriba.
+  if (tipoEntrega === 'delivery') return { ok: true, sedeId: null, motivo: 'delivery_sin_sede' }
 
   // Recojo en tienda: el cliente tiene que haber elegido un local concreto.
   const dicho = (sedeElegida ?? '').trim()

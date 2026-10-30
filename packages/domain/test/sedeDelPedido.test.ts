@@ -55,18 +55,15 @@ describe('resolverSedeDelPedido', () => {
     expect(resolverSedeDelPedido({ tipoEntrega: 'tienda', sedeElegida: 'delivery a domicilio', sedes })).toMatchObject({ ok: false, error: 'SEDE_NO_VALIDA' })
   })
 
-  it('delivery: va a la sede que lo despacha según la configuración del negocio', () => {
-    expect(resolverSedeDelPedido({ tipoEntrega: 'delivery', sedeDelivery: 'Cedros', sedes })).toEqual({
-      ok: true, sedeId: 'id-cedros', motivo: 'delivery_sede_configurada',
-    })
+  it('delivery: ambas sedes despachan, así que nace SIN sede (la toma quien lo atiende)', () => {
+    expect(resolverSedeDelPedido({ tipoEntrega: 'delivery', sedes })).toEqual({ ok: true, sedeId: null, motivo: 'delivery_sin_sede' })
   })
 
-  it('delivery sin sede configurada (o con una que no existe): se crea igual, sin sede, y queda dicho el motivo', () => {
-    expect(resolverSedeDelPedido({ tipoEntrega: 'delivery', sedes })).toEqual({ ok: true, sedeId: null, motivo: 'delivery_sin_sede_configurada' })
-    expect(resolverSedeDelPedido({ tipoEntrega: 'delivery', sedeDelivery: 'Miraflores', sedes })).toMatchObject({ sedeId: null, motivo: 'delivery_sin_sede_configurada' })
+  it('delivery no pregunta el local ni usa el que mande el modelo: sigue sin sede', () => {
+    expect(resolverSedeDelPedido({ tipoEntrega: 'delivery', sedeElegida: 'Santa Marina', sedes })).toEqual({ ok: true, sedeId: null, motivo: 'delivery_sin_sede' })
   })
 
-  it('delivery no pregunta el local aunque el modelo mande uno', () => {
-    expect(resolverSedeDelPedido({ tipoEntrega: 'delivery', sedeElegida: 'Santa Marina', sedeDelivery: 'Cedros', sedes })).toMatchObject({ sedeId: 'id-cedros' })
+  it('si la conversación ya es de un local (número de la tienda), esa sede manda también en delivery', () => {
+    expect(resolverSedeDelPedido({ tipoEntrega: 'delivery', sedeDeLaConversacion: 'id-cedros', sedes })).toMatchObject({ sedeId: 'id-cedros', motivo: 'sede_de_la_conversacion' })
   })
 })

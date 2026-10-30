@@ -23,10 +23,6 @@ const schema = z
     // conversación que un humano atendió desde el celular (echo). Ver
     // debeAutoRetornarAlBot en packages/domain.
     AUTO_RETORNO_BOT_HORAS: z.coerce.number().positive().default(3),
-    // Número del bot (sin sede): nombre de la sede que despacha los pedidos con delivery. Es configuración
-    // del negocio, no del código. Sin esto, un delivery del bot queda SIN sede (lo ve solo el admin hasta
-    // que alguien lo asigne) — ver packages/domain sedeDelPedido.ts.
-    SEDE_DELIVERY: z.string().trim().optional(),
     // Distritos a los que se hace delivery de TIENDA (lista separada por comas). Configuración del negocio:
     // el valor por defecto es el de la ficha real (catalogo-real-bake-brothers.md, sección 0). El bot no
     // toma un pedido de delivery a un distrito que no esté acá. Una lista vacía desactiva la restricción.

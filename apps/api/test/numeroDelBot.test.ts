@@ -7,7 +7,7 @@
 //   1. crearPedido EXIGE la sede (el servidor, no el modelo): SEDE_REQUERIDA / SEDE_NO_VALIDA, el
 //      local se reconoce sin importar mayúsculas ni "local de…", y una conversación que ya trae sede
 //      no pregunta nada. Un rechazo no deja rastro (ni cliente ni pedido).
-//   2. Delivery: usa SEDE_DELIVERY si está configurada; si no, el pedido queda sin sede.
+//   2. Delivery: ambas sedes despachan; el pedido nace sin sede (lo toma quien lo atiende).
 //   3. El prompt del modelo recibe el contexto de sede SOLO cuando la conversación no la trae.
 //   4. De punta a punta por POST /webhook con una conexión `uso = 'bot'`: el bot pregunta, el cliente
 //      responde, el pedido nace con la sede elegida, la conversación sigue sin sede y la respuesta sale
@@ -166,41 +166,16 @@ describe.skipIf(!hayBaseDeDatosReal)('número del bot — sede del pedido', () =
     })
   })
 
-  it('delivery sin SEDE_DELIVERY configurada → el pedido se crea y queda sin sede', async () => {
+  it('delivery: ambas sedes despachan → el pedido se crea SIN sede, aunque el cliente nombre un local', async () => {
     await enTransaccion(async () => {
-      const previa = env.SEDE_DELIVERY
-      env.SEDE_DELIVERY = undefined
-      try {
-        const r = await crearPedido(
-          client,
-          tenantId,
-          'whatsapp',
-          base({ tipoEntrega: 'delivery', direccion: 'Av. Prueba 123', distrito: 'Chorrillos' })
-        )
-        expect(r.ok).toBe(true)
-        if (r.ok) expect(await sedeDelPedido(r.numero)).toBeNull()
-      } finally {
-        env.SEDE_DELIVERY = previa
-      }
-    })
-  })
-
-  it('delivery con SEDE_DELIVERY configurada → el pedido va a esa sede', async () => {
-    await enTransaccion(async () => {
-      const previa = env.SEDE_DELIVERY
-      env.SEDE_DELIVERY = SEDE_UNO
-      try {
-        const r = await crearPedido(
-          client,
-          tenantId,
-          'whatsapp',
-          base({ tipoEntrega: 'delivery', direccion: 'Av. Prueba 123', distrito: 'Chorrillos' })
-        )
-        expect(r.ok).toBe(true)
-        if (r.ok) expect(await sedeDelPedido(r.numero)).toBe(sedeUnoId)
-      } finally {
-        env.SEDE_DELIVERY = previa
-      }
+      const r = await crearPedido(
+        client,
+        tenantId,
+        'whatsapp',
+        base({ tipoEntrega: 'delivery', direccion: 'Av. Prueba 123', distrito: 'Chorrillos', sedeElegida: SEDE_UNO })
+      )
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(await sedeDelPedido(r.numero)).toBeNull()
     })
   })
 

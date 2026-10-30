@@ -194,7 +194,6 @@ export async function crearPedido(
     sedeDeLaConversacion: input.sedeId ?? null,
     sedeElegida: input.sedeElegida ?? null,
     sedes,
-    sedeDelivery: env.SEDE_DELIVERY ?? null,
   })
   if (!sede.ok) {
     return { ok: false, error: sede.error, detalle: { sedesDisponibles: sede.sedesDisponibles } }
