@@ -157,7 +157,7 @@ describe.skipIf(!hayBaseDeDatosReal)('atribución de campañas — webhook real'
       `select o.campana, o.canal, o.estado from orders o join customers c on c.id = o.customer_id where c.telefono = $1`,
       [TEL_PEDIDO]
     )
-    expect(rows).toEqual([{ campana: 'ig-navidad', canal: 'whatsapp', estado: 'payment_pending' }])
+    expect(rows).toEqual([{ campana: 'ig-navidad', canal: 'whatsapp', estado: 'confirmed' }])
   })
 
   it('si el cliente vuelve por otra campaña, gana la más reciente (los pedidos nuevos se atribuyen a esa)', async () => {

@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { ESTADOS_PEDIDO, puedeTransicionar, estadoLegible } from '@bakebrothers/domain'
 import { formatoPrecio } from '../utils/formato'
 import { Pill } from './bakeos/ui'
@@ -49,6 +50,65 @@ function SinSede({ pedido, perfil, guardando, onTomar }) {
   )
 }
 
+// Pago que el cliente reportó con una captura (el bot la leyó): la persona lo confirma o lo rechaza con un toque.
+// El bot nunca lo da por confirmado. Si los datos leídos no cuadran con el pedido, va marcado "Revisar" con el motivo.
+function PagoReportado({ pedido, guardando, bloqueado, onConfirmar, onRechazar }) {
+  const r = pedido.pago_reportado
+  if (pedido.estado !== 'payment_pending' || !r) return null
+
+  if (pedido.pago_resultado === 'rechazado') {
+    return (
+      <Pill tono="neutro" title="Rechazaste el pago reportado. Si el cliente manda otra captura, vuelve a aparecer para revisar.">
+        Pago rechazado · esperando otra captura
+      </Pill>
+    )
+  }
+  if (pedido.pago_resultado) return null
+
+  const datos = [
+    r.monto != null ? formatoPrecio(r.monto) : 'monto no leído',
+    r.fecha ?? 'fecha no leída',
+    r.numeroOperacion ? `Op. ${r.numeroOperacion}` : 'sin n.° de operación',
+    r.medio ?? null,
+  ].filter(Boolean)
+  const ocupado = guardando === pedido.numero || bloqueado
+  return (
+    <div className="mt-2 w-full rounded-xl border border-borde bg-lila-suave/50 p-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <Pill tono="lila">Pago reportado</Pill>
+        {r.requiereRevision && <Pill tono="prioridad">Revisar</Pill>}
+        <span className="text-xs font-semibold">{datos.join(' · ')}</span>
+      </div>
+      {r.requiereRevision && Array.isArray(r.motivos) && (
+        <ul className="mt-1.5 list-disc pl-5 text-xs text-acento-oscuro">
+          {r.motivos.map((m) => (
+            <li key={m}>{m}</li>
+          ))}
+        </ul>
+      )}
+      <div className="mt-2 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => onConfirmar(pedido.numero)}
+          disabled={ocupado}
+          title={bloqueado ? 'Tómalo primero con "Me lo quedo".' : undefined}
+          className="rounded-lg bg-tinta px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+        >
+          Confirmar pago
+        </button>
+        <button
+          type="button"
+          onClick={() => onRechazar(pedido.numero)}
+          disabled={ocupado}
+          className="rounded-lg border border-borde bg-hueso px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+        >
+          Rechazar
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // Un operador no puede cambiar el estado de un pedido sin sede hasta tomarlo (lo exige la RLS, 0035).
 const estadoBloqueado = (pedido, perfil) => !pedido.sede_id && perfil?.rol !== 'admin'
 
@@ -61,7 +121,7 @@ function EtiquetaCombo({ pedido }) {
   )
 }
 
-export default function TablaPedidos({ pedidos, guardando, onCambiarEstado, onTomar, perfil }) {
+export default function TablaPedidos({ pedidos, guardando, onCambiarEstado, onTomar, onConfirmarPago, onRechazarPago, perfil }) {
   if (pedidos.length === 0) {
     return <p className="text-sm text-gris">No hay pedidos para este alcance todavía.</p>
   }
@@ -86,6 +146,15 @@ export default function TablaPedidos({ pedidos, guardando, onCambiarEstado, onTo
               <EtiquetaCombo pedido={p} />
               <SinSede pedido={p} perfil={perfil} guardando={guardando} onTomar={onTomar} />
             </div>
+            {onConfirmarPago && (
+              <PagoReportado
+                pedido={p}
+                guardando={guardando}
+                bloqueado={estadoBloqueado(p, perfil)}
+                onConfirmar={onConfirmarPago}
+                onRechazar={onRechazarPago}
+              />
+            )}
           </li>
         ))}
       </ul>
@@ -106,7 +175,8 @@ export default function TablaPedidos({ pedidos, guardando, onCambiarEstado, onTo
           </thead>
           <tbody>
             {pedidos.map((p) => (
-              <tr key={p.numero} className="border-b border-borde/60 last:border-0">
+              <Fragment key={p.numero}>
+              <tr className="border-b border-borde/60 last:border-0">
                 <td className="px-4 py-3 font-semibold">
                   <span className="flex items-center gap-2">
                     {p.numero}
@@ -126,6 +196,20 @@ export default function TablaPedidos({ pedidos, guardando, onCambiarEstado, onTo
                   </span>
                 </td>
               </tr>
+              {onConfirmarPago && p.estado === 'payment_pending' && p.pago_reportado && (
+                <tr className="border-b border-borde/60 last:border-0">
+                  <td colSpan={8} className="px-4 pb-3">
+                    <PagoReportado
+                      pedido={p}
+                      guardando={guardando}
+                      bloqueado={estadoBloqueado(p, perfil)}
+                      onConfirmar={onConfirmarPago}
+                      onRechazar={onRechazarPago}
+                    />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             ))}
           </tbody>
         </table>

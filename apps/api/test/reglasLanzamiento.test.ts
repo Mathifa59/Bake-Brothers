@@ -117,16 +117,45 @@ describe.skipIf(!hayBaseDeDatosReal)('crearPedido — reglas de lanzamiento (Pos
       horario: '4pm',
       items: [{ tipo: 'producto', busqueda: 'carrot cake', tamano: 'Individual', cantidad: 1 }],
       metodoPago: 'yape',
-      pagoPorAdelantado: false,
+      // Por defecto paga por adelantado; los casos de "paga al recoger" lo ponen en false explícitamente.
+      pagoPorAdelantado: true,
       ...extra,
     }) as Parameters<typeof crearPedido>[3]
 
   const pedidos = async () => (await client.query(`select count(*)::int as n from orders`)).rows[0].n as number
 
-  it('todo pedido del bot nace pendiente de pago, aunque el modelo diga que no es por adelantado', async () => {
+  it('recojo pagando por adelantado: el pedido nace pendiente de pago', async () => {
     await enTransaccion(async () => {
       env.DATOS_PAGO = undefined
-      const r = await crearPedido(client, tenantId, 'whatsapp', base({ pagoPorAdelantado: false }))
+      const r = await crearPedido(client, tenantId, 'whatsapp', base({ pagoPorAdelantado: true }))
+      expect(r.ok).toBe(true)
+      if (r.ok) expect(r.estado).toBe('payment_pending')
+    })
+  })
+
+  it('recojo pagando al recoger ("Canceló en tienda"): nace confirmado, se registra como contraentrega y no pide datos de pago', async () => {
+    await enTransaccion(async () => {
+      env.DATOS_PAGO = undefined
+      const r = await crearPedido(client, tenantId, 'whatsapp', base({ pagoPorAdelantado: false, metodoPago: 'yape' }))
+      expect(r.ok).toBe(true)
+      if (r.ok) {
+        expect(r.estado).toBe('confirmed')
+        expect(r.datosPago).toBeNull()
+        expect(r.atencionHumana).toBeUndefined() // nadie tiene que mandarle datos de pago
+        const { rows } = await client.query(`select metodo_pago from orders where numero = $1`, [r.numero])
+        expect(rows[0].metodo_pago).toBe('contraentrega')
+      }
+    })
+  })
+
+  it('delivery: SIEMPRE por adelantado, aunque el modelo diga que paga al recoger', async () => {
+    await enTransaccion(async () => {
+      const r = await crearPedido(
+        client,
+        tenantId,
+        'whatsapp',
+        base({ tipoEntrega: 'delivery', direccion: 'Av. Prueba 1', distrito: 'Surco', pagoPorAdelantado: false })
+      )
       expect(r.ok).toBe(true)
       if (r.ok) expect(r.estado).toBe('payment_pending')
     })
@@ -156,10 +185,15 @@ describe.skipIf(!hayBaseDeDatosReal)('crearPedido — reglas de lanzamiento (Pos
     })
   })
 
-  it('contraentrega no existe: PAGO_ADELANTADO_REQUERIDO y no se crea nada', async () => {
+  it('delivery con contraentrega: PAGO_ADELANTADO_REQUERIDO y no se crea nada', async () => {
     await enTransaccion(async () => {
       const antes = await pedidos()
-      const r = await crearPedido(client, tenantId, 'whatsapp', base({ metodoPago: 'contraentrega' }))
+      const r = await crearPedido(
+        client,
+        tenantId,
+        'whatsapp',
+        base({ tipoEntrega: 'delivery', direccion: 'Av. Prueba 1', distrito: 'Surco', metodoPago: 'contraentrega' })
+      )
       expect(r).toMatchObject({ ok: false, error: 'PAGO_ADELANTADO_REQUERIDO' })
       expect(await pedidos()).toBe(antes)
     })
@@ -297,7 +331,8 @@ describe.skipIf(!hayBaseDeDatosReal)('crearPedido — reglas de lanzamiento (Pos
       expect(system).toMatch(/Santa Marina \(.*horario: todos los días 12:00 p\. m\. a 10:00 p\. m\./)
       expect(system).toContain('Delivery de tienda solo a: Chorrillos, Surco, Miraflores')
       // Y las reglas nuevas del prompt.
-      expect(system).toMatch(/100 % por adelantado/)
+      expect(system).toMatch(/delivery se paga SIEMPRE por adelantado/)
+      expect(system).toMatch(/CAPTURAS DE PAGO/)
       expect(system).toMatch(/SIEMPRE lo atiende una persona/)
     })
   })

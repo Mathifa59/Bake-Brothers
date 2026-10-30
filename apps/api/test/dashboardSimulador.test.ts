@@ -197,8 +197,8 @@ describe.skipIf(!hayBaseDeDatosReal)('POST /api/dashboard/simulador/mensaje', ()
     const cuerpo = res.json()
     expect(cuerpo.pedidosCreados).toHaveLength(1)
     const { numero, estado, total } = cuerpo.pedidosCreados[0]
-    // Todo pedido del bot nace pendiente de pago (100 % adelantado).
-    expect(estado).toBe('payment_pending')
+    // Recojo pagando al recoger (pagoPorAdelantado: false en el pedido del modelo mockeado): nace confirmado.
+    expect(estado).toBe('confirmed')
     expect(total).toBe(12.9)
 
     const { rows } = await pool.query(

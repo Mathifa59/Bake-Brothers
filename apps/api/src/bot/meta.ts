@@ -83,6 +83,41 @@ export async function enviarMensajeMeta(
   return { wamid: extraerWamid(cuerpo) }
 }
 
+/** Imagen descargada de WhatsApp, lista para mandarla al modelo. */
+export interface MediaDescargada {
+  bytes: Buffer
+  mimeType: string
+}
+
+/** Tope de lo que se descarga (una captura de pantalla pesa unos cientos de KB): evita bajar archivos enormes. */
+export const MAX_BYTES_MEDIA = 5 * 1024 * 1024
+const MIMES_IMAGEN_PERMITIDOS = ['image/jpeg', 'image/png', 'image/webp']
+
+/**
+ * Descarga una imagen que mandó el cliente (WhatsApp Cloud API, dos pasos): primero `GET /{media_id}` devuelve
+ * la URL temporal del archivo y su tipo; después se baja esa URL con el mismo token. Usa el token del número que
+ * recibió el mensaje (whatsapp_conexiones), igual que el envío. Falla visible si Meta responde error, si el
+ * tipo no es una imagen soportada o si pesa más de MAX_BYTES_MEDIA — nunca devuelve algo a medias.
+ */
+export async function descargarMediaWhatsApp(phoneNumberId: string, mediaId: string): Promise<MediaDescargada> {
+  const token = await obtenerTokenWhatsApp(phoneNumberId)
+  const cabeceras = { Authorization: `Bearer ${token}` }
+
+  const meta = await fetch(`https://graph.facebook.com/${env.META_GRAPH_VERSION}/${encodeURIComponent(mediaId)}`, { headers: cabeceras })
+  if (!meta.ok) throw new Error(`descargarMediaWhatsApp: Meta respondió ${meta.status} al pedir el archivo ${mediaId}`)
+  const info = (await meta.json().catch(() => ({}))) as { url?: unknown; mime_type?: unknown; file_size?: unknown }
+  if (typeof info.url !== 'string') throw new Error('descargarMediaWhatsApp: Meta no devolvió la URL del archivo')
+  const mimeType = typeof info.mime_type === 'string' ? info.mime_type : ''
+  if (!MIMES_IMAGEN_PERMITIDOS.includes(mimeType)) throw new Error(`descargarMediaWhatsApp: tipo de archivo no soportado (${mimeType || 'desconocido'})`)
+  if (typeof info.file_size === 'number' && info.file_size > MAX_BYTES_MEDIA) throw new Error('descargarMediaWhatsApp: el archivo es demasiado grande')
+
+  const archivo = await fetch(info.url, { headers: cabeceras })
+  if (!archivo.ok) throw new Error(`descargarMediaWhatsApp: la descarga respondió ${archivo.status}`)
+  const bytes = Buffer.from(await archivo.arrayBuffer())
+  if (bytes.length > MAX_BYTES_MEDIA) throw new Error('descargarMediaWhatsApp: el archivo es demasiado grande')
+  return { bytes, mimeType }
+}
+
 function extraerWamid(cuerpo: string): string | null {
   try {
     const id = (JSON.parse(cuerpo) as { messages?: { id?: unknown }[] }).messages?.[0]?.id

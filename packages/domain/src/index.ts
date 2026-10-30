@@ -106,6 +106,13 @@ export {
 export { distritoTieneCobertura, parsearDistritosDelivery } from './coberturaDelivery.js'
 
 export {
+  evaluarPagoReportado,
+  DIAS_MAXIMOS_ANTIGUEDAD_CAPTURA,
+  type ExtraccionPago,
+  type EvaluacionPago,
+} from './pagoReportado.js'
+
+export {
   resolverSedeDelPedido,
   encontrarSedePorNombre,
   type SedeDisponible,

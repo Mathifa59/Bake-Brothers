@@ -74,6 +74,16 @@ export default function ControlTower() {
                 accion="Atender"
               />
             ))}
+            {alertas.pagosPorConfirmar.map((p) => (
+              <Fila
+                key={`pago-${p.numero}`}
+                icono={BadgeDollarSign}
+                titulo={`Pago por confirmar en ${p.numero}`}
+                detalle={`El cliente mandó la captura de su pago · confirmar o rechazar${p.cliente ? ` · ${p.cliente}` : ''}${p.sede ? ` · ${p.sede}` : ' · sin sede'}`}
+                a="/pedidos"
+                accion="Revisar pago"
+              />
+            ))}
             {alertas.pagadosSinEmpezar.map((p) => (
               <Fila
                 key={`pagado-${p.numero}`}

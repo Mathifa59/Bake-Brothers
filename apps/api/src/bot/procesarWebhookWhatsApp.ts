@@ -4,6 +4,7 @@ import { pool, withTenantTx } from '../db.js'
 import { sedePorPhoneNumberId, encontrarOCrearConversacion } from '../repositories/conversacionesRepo.js'
 import { procesarMensajeEntrante } from './cerebro.js'
 import { enviarMensajeMeta } from './meta.js'
+import { procesarCapturaWhatsApp } from './procesarCapturaPago.js'
 import { extraerReferencia } from '@bakebrothers/domain'
 import type { MensajeWhatsAppEntrante } from './parsearMensajesWhatsApp.js'
 
@@ -60,6 +61,13 @@ export async function procesarMensajeWhatsAppEnBackground(
       { err, mensajeId: mensaje.mensajeId },
       'Fallo resolviendo/creando la conversación para un mensaje de WhatsApp entrante'
     )
+    return
+  }
+
+  // Una imagen (la captura de un pago) no pasa por el cerebro conversacional: la lee procesarCapturaPago.ts y
+  // deja el pedido como "pago reportado" para que una persona lo confirme. El bot nunca da un pago por confirmado.
+  if (mensaje.imagen) {
+    await procesarCapturaWhatsApp(logger, tenantId, conversacionId, mensaje)
     return
   }
 

@@ -16,8 +16,14 @@ export function detectarCanalNoWhatsApp(payload: unknown): 'facebook' | 'instagr
 export interface MensajeWhatsAppEntrante {
   mensajeId: string
   telefono: string
+  /** Texto del mensaje; en una imagen es el pie de foto (puede venir vacío). */
   texto: string
   phoneNumberId: string
+  /**
+   * Solo si el mensaje es una imagen (ej. la captura de un pago): el cerebro conversacional no la ve, la procesa
+   * bot/procesarCapturaPago.ts. Los demás tipos (audio, video, ubicación, documentos) se siguen ignorando.
+   */
+  imagen?: { mediaId: string; mimeType: string }
 }
 
 /**
@@ -26,9 +32,9 @@ export interface MensajeWhatsAppEntrante {
  * agrupados (entry[]/changes[]), y también trae eventos que no son mensajes
  * (statuses de entrega/lectura) — esos se ignoran acá, no son un error.
  *
- * Solo texto: el bot (cerebro.ts) hoy no puede ver imágenes/audio/ubicación,
- * así que cualquier otro tipo de mensaje se ignora a propósito en vez de
- * mandarlo al modelo con contenido vacío.
+ * Texto e imágenes: el texto va al cerebro (cerebro.ts); las imágenes (capturas de pago) las lee aparte
+ * bot/procesarCapturaPago.ts. Audio, video, ubicación y documentos se ignoran a propósito en vez de mandarlos al
+ * modelo con contenido vacío.
  *
  * Nunca lanza — un payload con forma inesperada simplemente no aporta
  * mensajes (devuelve []), no rompe el webhook.
@@ -52,6 +58,18 @@ export function parsearMensajesWhatsApp(payload: unknown): MensajeWhatsAppEntran
 
       for (const msg of listaMensajes) {
         const m = msg as Record<string, unknown>
+        if (m.type === 'image') {
+          const imagen = m.image as Record<string, unknown> | undefined
+          if (typeof m.id !== 'string' || typeof m.from !== 'string' || typeof imagen?.id !== 'string') continue
+          mensajes.push({
+            mensajeId: m.id,
+            telefono: m.from,
+            texto: typeof imagen.caption === 'string' ? imagen.caption : '',
+            phoneNumberId,
+            imagen: { mediaId: imagen.id, mimeType: typeof imagen.mime_type === 'string' ? imagen.mime_type : 'image/jpeg' },
+          })
+          continue
+        }
         if (m.type !== 'text') continue
         const texto = (m.text as Record<string, unknown> | undefined)?.body
         if (typeof m.id !== 'string' || typeof m.from !== 'string' || typeof texto !== 'string') continue

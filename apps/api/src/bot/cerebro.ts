@@ -90,7 +90,8 @@ REGLAS DURAS, sin excepción:
    - Junta nombre, producto(s) y cantidad, fecha de entrega, y si es recojo en tienda o delivery (con dirección) — nunca cotices ni prometas el costo del delivery, eso lo cotiza el operador a mano.
    - Si el producto es un jugo o helado, pregunta con azúcar o sin azúcar; si son empanadas, pregunta calientes o sin calentar — anota la respuesta en el campo nota.
    - Catering: nunca lo registres tú con crearPedido (regla 2). Solo productos de tienda y combos.
-   - PAGO: los pedidos por WhatsApp se pagan 100 % por adelantado, siempre (no existe contraentrega). Dile al cliente que el pedido queda registrado pendiente de pago y que se confirma cuando el equipo verifique el pago. Pon pagoPorAdelantado en true y en metodoPago el que elija (yape, plin, transferencia, o tarjeta si es link de pago). Cuando crearPedido responda: si trae datosPago, dáselos tal cual y pídele que envíe la captura por aquí; si datosPago es null, dile que una persona del equipo le escribe en un momento con los datos de pago. NUNCA inventes un número de Yape, una cuenta ni un link. Nunca proceses ni verifiques ningún comprobante (captura, voucher): lo revisa el equipo a mano. Hoy no puedes ver imágenes: si el cliente manda una captura, avísale con calidez que el equipo confirma el pago, sin intentar describir ni validar la imagen.
+   - PAGO: el delivery se paga SIEMPRE por adelantado (pagoPorAdelantado = true). En recojo en tienda pregúntale al cliente si prefiere pagar ahora (por adelantado) o al recoger en el local: si paga al recoger usa pagoPorAdelantado = false (el pedido queda confirmado y paga en tienda); si paga ahora, true. Con pago por adelantado pon en metodoPago el que elija (yape, plin, transferencia, o tarjeta si es link de pago). Cuando crearPedido responda: si es por adelantado y trae datosPago, dáselos tal cual y pídele que mande la captura del pago por aquí; si datosPago es null, dile que una persona del equipo le escribe en un momento con los datos de pago. NUNCA inventes un número de Yape, una cuenta ni un link. Si paga al recoger, confírmaselo sin pedirle datos de pago.
+   - CAPTURAS DE PAGO: cuando el cliente manda la captura de su pago, el sistema la lee solo y la deja para que el equipo la confirme con un toque. Tú nunca des un pago por confirmado ni verifiques ningún comprobante: solo dile con calidez que el equipo lo confirma y le avisa.
    - DELIVERY: solo se hace a los distritos de la lista de cobertura (ver el contexto de locales y delivery). Si el distrito no está, dile con amabilidad que ahí no llegan y ofrécele recojo en tienda. El costo del envío y la coordinación los hace una persona: nunca cotices ni prometas el costo. Cuando crearPedido registre un delivery, llama a escalarAHumano (motivo: cotizar y coordinar el delivery) y dile al cliente que una persona le confirma el costo de envío y le pasa los datos de pago.
    - Si crearPedido devuelve atencionHumana, el pedido SÍ quedó registrado: cuéntale el número de pedido y el total de los productos, y llama a escalarAHumano con ese motivo.
    - Si crearPedido devuelve SEDE_REQUERIDA o SEDE_NO_VALIDA, pregúntale al cliente en qué local recoge (con las opciones que trae el error) o si es delivery, y vuelve a llamar a crearPedido con su respuesta en sedeRecojo.
@@ -252,11 +253,11 @@ const TOOLS: Anthropic.Tool[] = [
         metodoPago: {
           type: 'string',
           enum: ['yape', 'plin', 'transferencia', 'tarjeta'],
-          description: 'Cómo pagará por adelantado. "tarjeta" = link de pago. No hay contraentrega.',
+          description: 'Cómo pagará por adelantado. "tarjeta" = link de pago. Si paga al recoger en tienda se ignora.',
         },
         pagoPorAdelantado: {
           type: 'boolean',
-          description: 'Siempre true: los pedidos por WhatsApp se pagan 100 % por adelantado (el servidor igual los registra pendientes de pago).',
+          description: 'true si paga ahora por adelantado; false si paga al recoger en tienda ("Canceló en tienda"). En delivery siempre true: el servidor lo exige.',
         },
         nota: {
           type: 'string',
@@ -350,6 +351,8 @@ export interface OpcionesTurno {
   // Referencia de campaña de la conversación (ver campana.ts del dominio): el
   // pedido que cree el bot la guarda en orders.campana.
   campana?: string | null
+  // Conversación en la que se crea el pedido (0036): enlaza la captura de pago que llegue después.
+  conversacionId?: string | null
 }
 
 /**
@@ -528,13 +531,15 @@ function construirInputCrearPedido(
   inputCrudo: unknown,
   sedeId: string | undefined,
   esPrueba: boolean,
-  campana: string | null
+  campana: string | null,
+  conversacionId: string | null
 ): CrearPedidoInput {
   const i = (inputCrudo ?? {}) as Record<string, unknown>
   const items = Array.isArray(i.items) ? (i.items as Record<string, unknown>[]) : []
   return {
     esPrueba,
     campana,
+    conversacionId,
     cliente: {
       nombre: String(i.clienteNombre ?? ''),
       telefono: String(i.clienteTelefono ?? ''),
@@ -687,7 +692,13 @@ export async function evaluarTurno(
             client,
             tenantId,
             canal,
-            construirInputCrearPedido(bloque.input, sedeId, opciones.esPrueba === true, opciones.campana ?? null)
+            construirInputCrearPedido(
+              bloque.input,
+              sedeId,
+              opciones.esPrueba === true,
+              opciones.campana ?? null,
+              opciones.conversacionId ?? null
+            )
           )
           if (resultado.ok) {
             pedidosCreados.push({ numero: resultado.numero, estado: resultado.estado, total: resultado.total })
@@ -826,7 +837,7 @@ export async function procesarMensajeEntrante(
     estadoNormalizado,
     fila.canal as Canal,
     fila.sede_id ?? undefined,
-    { campana: typeof fila.contexto?.campana === 'string' ? fila.contexto.campana : null }
+    { campana: typeof fila.contexto?.campana === 'string' ? fila.contexto.campana : null, conversacionId }
   )
 
   const entradaBot: TurnoHistorial = { rol: 'bot', texto: resultado.textoRespuesta, en: new Date().toISOString() }

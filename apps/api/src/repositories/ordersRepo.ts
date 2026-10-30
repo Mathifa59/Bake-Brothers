@@ -69,6 +69,9 @@ export interface OrderInsert {
   // services/pedidosCombos.ts y 0028. Siempre false salvo que crearPedido
   // (el tool del bot) lo ponga en true; apps/admin nunca lo setea.
   requiereConfirmarCombo: boolean
+  // Conversación del bot que creó el pedido (0036): una captura de pago que llega por esa conversación se
+  // asocia a su pedido pendiente de pago. null para pedidos que no vienen de una conversación.
+  conversacionId?: string | null
   // Referencia de campaña con la que llegó el cliente ("tt-halloween", ver
   // packages/domain campana.ts). null si no vino de ninguna.
   campana?: string | null
@@ -101,8 +104,8 @@ export async function insertarPedido(
     `insert into orders (tenant_id, numero, customer_id, canal, estado, tipo_entrega, sede_id,
                          direccion, distrito, referencia, fecha_entrega, horario_entrega,
                          nota, metodo_pago, cupon_codigo, subtotal, descuento_cupon, delivery, total,
-                         requiere_confirmar_combo, campana)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+                         requiere_confirmar_combo, campana, conversacion_id)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
      returning id`,
     [
       tenantId, pedido.numero, pedido.customerId, pedido.canal, pedido.estado,
@@ -111,6 +114,7 @@ export async function insertarPedido(
       pedido.cuponCodigo, pedido.subtotal, pedido.descuentoCupon, pedido.delivery, pedido.total,
       pedido.requiereConfirmarCombo,
       pedido.campana ?? null,
+      pedido.conversacionId ?? null,
     ]
   )
   const orderId = rows[0].id

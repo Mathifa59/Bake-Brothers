@@ -77,6 +77,8 @@ export interface CrearPedidoInput {
   // manual, vía el dashboard) → el pedido nace en payment_pending en vez de
   // confirmed.
   pagoPorAdelantado: boolean
+  /** Conversación del bot que crea el pedido (0036): enlaza la captura de pago que llegue después con este pedido. */
+  conversacionId?: string | null
   nota?: string | null
   // Pedido de prueba (simulador del bot del dashboard, ver
   // services/simuladorBot.ts): el cliente y la nota quedan marcados con
@@ -125,13 +127,14 @@ export async function crearPedido(
   // de que el modelo las recuerde:
   //  1. El catering SIEMPRE lo cotiza y confirma una persona: el bot nunca crea un pedido de catering, ni
   //     siquiera con el semáforo en verde (sigue consultándolo para dejarle el contexto a esa persona).
-  //  2. Todo pedido por el bot se paga 100 % por adelantado: no existe contraentrega.
+  //  2. Pago: el delivery se paga SIEMPRE por adelantado (contraentrega no existe ahí); en recojo en tienda
+  //     el cliente elige pagar antes o al recoger ("Canceló en tienda", metodo_pago = 'contraentrega').
   //  3. Delivery solo a los distritos con cobertura (DISTRITOS_DELIVERY).
   if (input.items.some((i) => i.tipo === 'catering')) {
     return { ok: false, error: 'CATERING_REQUIERE_PERSONA' }
   }
-  if (input.metodoPago === 'contraentrega') {
-    return { ok: false, error: 'PAGO_ADELANTADO_REQUERIDO', detalle: { mensaje: 'Los pedidos por WhatsApp se pagan 100 % por adelantado.' } }
+  if (input.tipoEntrega === 'delivery' && input.metodoPago === 'contraentrega') {
+    return { ok: false, error: 'PAGO_ADELANTADO_REQUERIDO', detalle: { mensaje: 'El delivery se paga por adelantado.' } }
   }
   if (input.tipoEntrega === 'delivery') {
     if (!input.direccion || !input.distrito) return { ok: false, error: 'DIRECCION_REQUERIDA' }
@@ -206,10 +209,13 @@ export async function crearPedido(
   const codigoPrefijo = tenantRows[0]?.codigo_prefijo
   if (!codigoPrefijo) return { ok: false, error: 'TENANT_NO_ENCONTRADO' }
 
-  // 100 % adelantado: todo pedido del bot nace pendiente de pago y pasa a pagado cuando una persona verifica
-  // el comprobante en el panel. `input.pagoPorAdelantado` ya no decide nada (se conserva en el tipo por
-  // compatibilidad con quien lo manda).
-  const estado: EstadoPedido = 'payment_pending'
+  // Delivery: adelantado, siempre. Recojo: lo que elija el cliente — pagar antes (nace pendiente de pago y pasa
+  // a pagado cuando una persona verifica el comprobante en el panel) o pagar al recoger (nace confirmado y se
+  // registra como "Canceló en tienda"). El bot NUNCA pasa un pedido a pagado: eso lo hace una persona.
+  const esDelivery = input.tipoEntrega === 'delivery'
+  const pagaAlRecoger = !esDelivery && !input.pagoPorAdelantado
+  const estado: EstadoPedido = pagaAlRecoger ? 'confirmed' : 'payment_pending'
+  const metodoPagoFinal = pagaAlRecoger ? 'contraentrega' : input.metodoPago === 'contraentrega' ? 'yape' : input.metodoPago
   // delivery/total: mismo criterio que POST /api/orders — delivery en 0, lo
   // completa el operador desde el dashboard.
   const total = subtotal
@@ -237,7 +243,7 @@ export async function crearPedido(
       fechaEntrega: input.fechaEntregaISO,
       horario: input.horario,
       nota: esPrueba ? `${MARCA_PRUEBA} ${input.nota ?? 'Pedido del simulador del bot'}` : (input.nota ?? null),
-      metodoPago: input.metodoPago,
+      metodoPago: metodoPagoFinal,
       cuponCodigo: null,
       subtotal,
       descuentoCupon: 0,
@@ -245,17 +251,18 @@ export async function crearPedido(
       total,
       requiereConfirmarCombo,
       campana: input.campana ?? null,
+      conversacionId: input.conversacionId ?? null,
     },
     itemsParaInsertar
   )
 
   // Qué debe hacer una persona después de este pedido. En delivery el costo de envío lo cotiza ella, así que
   // tampoco se le dan datos de pago al cliente hasta tener el total final.
-  const esDelivery = input.tipoEntrega === 'delivery'
-  const datosPago = esDelivery ? null : (env.DATOS_PAGO ?? null)
+  const datosPago = esDelivery || pagaAlRecoger ? null : (env.DATOS_PAGO ?? null)
   const pendientes: string[] = []
   if (esDelivery) pendientes.push('cotizar el delivery y coordinar la entrega')
-  if (!datosPago) pendientes.push('enviar los datos de pago al cliente')
+  // Los datos de pago solo hacen falta si paga por adelantado (y en delivery, cuando ya esté el total final).
+  if (!datosPago && !pagaAlRecoger) pendientes.push('enviar los datos de pago al cliente')
 
   return {
     ok: true,

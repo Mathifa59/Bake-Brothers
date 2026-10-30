@@ -258,7 +258,7 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
           [numeroMatch![0]]
         )
         expect(rows.length).toBe(1)
-        // Pago 100 % adelantado: todo pedido del bot nace pendiente de pago.
+        // El cliente dijo que paga por adelantado: el pedido nace pendiente de pago.
         expect(rows[0].estado).toBe('payment_pending')
         expect(rows[0].canal).toBe('whatsapp')
         expect(rows[0].telefono).toBe(telefono)
@@ -340,7 +340,8 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
           [numeroMatch![0]]
         )
         expect(pedidoRows.length).toBe(1)
-        expect(pedidoRows[0].estado).toBe('payment_pending')
+        // El cliente dijo que paga al recoger ("cuando llegue"): el pedido nace confirmado.
+        expect(pedidoRows[0].estado).toBe('confirmed')
         expect(pedidoRows[0].telefono).toBe(telefono)
         expect(Number(pedidoRows[0].total)).toBe(30.9)
         expect(pedidoRows[0].requiere_confirmar_combo).toBe(false)
@@ -391,7 +392,8 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
           [numeroMatch![0]]
         )
         expect(pedidoRows.length).toBe(1)
-        expect(pedidoRows[0].estado).toBe('payment_pending')
+        // El cliente dijo que paga al recoger ("cuando llegue"): el pedido nace confirmado.
+        expect(pedidoRows[0].estado).toBe('confirmed')
         expect(pedidoRows[0].telefono).toBe(telefono)
         // El combo cobra su precio fijo una sola vez — las líneas de
         // selección son informativas (precio 0), no duplican el total.
