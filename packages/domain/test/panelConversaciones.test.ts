@@ -64,10 +64,9 @@ describe('ventana de 24 horas de WhatsApp', () => {
 
 describe('motivo de la derivación', () => {
   it('clasifica y acorta', () => {
-    expect(motivoEscaladaLegible('Reclamo: pide reembolso por una torta rota.')).toEqual({
-      categoria: 'Reclamo',
-      etiqueta: 'Reclamo · pide reembolso por una torta rota',
-    })
+    expect(motivoEscaladaLegible('Reclamo: pide reembolso.')).toEqual({ categoria: 'Reclamo', etiqueta: 'Reclamo · pide reembolso' })
+    // Un detalle largo se recorta para que quepa en una etiqueta de celular.
+    expect(motivoEscaladaLegible('Reclamo: pide reembolso por una torta que llegó en mal estado.')?.etiqueta).toBe('Reclamo · pide reembolso por una torta que ll…')
     expect(motivoEscaladaLegible('Pedido de catering — lo cotiza y confirma una persona del equipo.')?.etiqueta).toBe('Catering')
     expect(motivoEscaladaLegible('Mención de alergia/intolerancia/"libre de" — escalada automática, sin pasar por el modelo.')?.etiqueta).toBe('Alergia')
     expect(motivoEscaladaLegible('El cliente mandó una imagen que no es un comprobante de pago (¿referencia de diseño?).')?.categoria).toBe('Pago por revisar')

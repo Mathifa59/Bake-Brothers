@@ -50,7 +50,7 @@ export function motivoEscaladaLegible(motivo: string | null | undefined): Motivo
   if (categoria === 'Alergia' || categoria === 'Catering') return { categoria, etiqueta: categoria }
   // «Reclamo · pide reembolso»: lo que viene después de los dos puntos del motivo, o el motivo mismo.
   const detalle = texto.includes(':') ? texto.split(':').slice(1).join(':') : texto
-  const corto = recortar(detalle, 48)
+  const corto = recortar(detalle, 36)
   if (categoria === 'Otro') return { categoria, etiqueta: corto }
   if (categoria === 'Pago por revisar' || categoria === 'Imagen' || categoria === 'Error técnico' || categoria === 'Combo' || categoria === 'Delivery') {
     // Estos motivos los escribe el código con frases largas: la categoría sola alcanza.
