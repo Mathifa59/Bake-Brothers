@@ -1,7 +1,12 @@
 import type pg from 'pg'
-import { puedeTransicionarConversacion, type EstadoConversacion } from '@bakebrothers/domain'
+import { estadoVentana24h, puedeTransicionarConversacion, type EstadoConversacion } from '@bakebrothers/domain'
 import type { OperadorAutenticado } from '../auth/verificarJwtOperador.js'
-import { conversacionPorId, phoneNumberIdPorSede, agregarMensajeOperador } from '../repositories/conversacionesRepo.js'
+import {
+  conversacionPorId,
+  phoneNumberIdPorSede,
+  agregarMensajeOperador,
+  nombreVisibleDelOperador,
+} from '../repositories/conversacionesRepo.js'
 import { enviarMensajeMeta } from '../bot/meta.js'
 
 export type ResultadoResponderConversacion =
@@ -43,6 +48,19 @@ export async function responderConversacion(
     return { ok: false, error: 'SIN_ACCESO_A_LA_CONVERSACION' }
   }
 
+  // Ventana de 24 horas de WhatsApp: pasado ese tiempo desde el último mensaje del cliente, Meta rechaza el texto
+  // libre — solo se pueden enviar plantillas aprobadas. Se corta aquí, antes de intentar enviar, con un motivo claro.
+  if (conversacion.canal === 'whatsapp') {
+    const ventana = estadoVentana24h(conversacion.historial)
+    if (!ventana.abierta) {
+      return {
+        ok: false,
+        error: 'VENTANA_24H_CERRADA',
+        detalle: 'Pasaron más de 24 horas desde el último mensaje del cliente: WhatsApp solo permite enviar plantillas aprobadas.',
+      }
+    }
+  }
+
   // Se responde desde el número por el que escribió el cliente; solo si la conversación no lo trae
   // (conversaciones antiguas) se cae al número de la sede.
   let phoneNumberId = conversacion.whatsappPhoneNumberId
@@ -68,7 +86,13 @@ export async function responderConversacion(
       ? 'atendida_por_operador'
       : estadoActual
 
-  await agregarMensajeOperador(client, conversacionId, texto, nuevoEstado)
+  const autor = await nombreVisibleDelOperador(client, operador.id)
+  await agregarMensajeOperador(client, conversacionId, texto, nuevoEstado, {
+    autor,
+    // Responder una conversación sin local es tomarla: queda en el local de quien contesta (un admin no tiene local).
+    sedeAAsignar: conversacion.sedeId ? null : operador.sedeId,
+    atendidaPor: nuevoEstado === 'atendida_por_operador' ? autor : null,
+  })
 
   return { ok: true }
 }

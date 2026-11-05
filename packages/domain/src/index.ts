@@ -142,3 +142,8 @@ export {
   type SoloMifact,
   type ComparacionMifact,
 } from './mifact.js'
+
+export { RUTAS_DE_EMPLEADO, puedeVerRuta, rutaInicial, nombreDeRol, type RolPanel } from "./permisosPanel.js"
+export { HORAS_VENTANA_WHATSAPP, estadoVentana24h, ultimoMensajeDelCliente, type EstadoVentana, type MensajeConHora } from "./ventanaWhatsApp.js"
+export { motivoEscaladaLegible, type CategoriaMotivo, type MotivoLegible } from "./motivoEscalada.js"
+export { ultimos9, mismoTelefono, telefonoLegible } from "./telefono.js"

@@ -210,17 +210,29 @@ describe.skipIf(!hayBaseDeDatosReal)('RLS de pedidos sin sede (delivery de las d
           return { pedidos: Number(r.rows[0].pedidos), ingresos: Number(r.rows[0].ingresos) }
         })
 
-      const antes = { total: await kpis(ADMIN, null), sin: await sinAsignar(ADMIN) }
+      // Línea base ANTES de sembrar, con SQL directo (el admin de la prueba todavía no existe y las funciones de
+      // métricas exigen un admin real): lo que ya hay hoy en la base local.
+      const base = async (soloSinSede: boolean) => {
+        const r = await client.query(
+          `select count(*)::int as pedidos, coalesce(sum(total), 0)::numeric as ingresos from orders
+            where creado_en >= ($1::date::timestamp at time zone 'America/Lima')
+              and creado_en < (($1::date + 1)::timestamp at time zone 'America/Lima')
+              and estado <> 'cancelled' and ($2::boolean is false or sede_id is null)`,
+          [hoy, soloSinSede]
+        )
+        return { pedidos: Number(r.rows[0].pedidos), ingresos: Number(r.rows[0].ingresos) }
+      }
+      const antes = { total: await base(false), sin: await base(true) }
       const { sedeA, sedeB, pSin } = await sembrar()
 
-      // Cada sede cuenta solo lo suyo: 1 pedido de 10, sin el pedido sin sede.
-      expect(await kpis(OP_A, sedeA)).toEqual({ pedidos: 1, ingresos: 10 })
-      expect(await kpis(OP_B, sedeB)).toEqual({ pedidos: 1, ingresos: 10 })
+      // Cada sede cuenta solo lo suyo: 1 pedido de 10, sin el pedido sin sede. (Las métricas son de dirección:
+      // 0038 — las consulta el admin filtrando por sede; un empleado ya no las puede llamar.)
+      expect(await kpis(ADMIN, sedeA)).toEqual({ pedidos: 1, ingresos: 10 })
+      expect(await kpis(ADMIN, sedeB)).toEqual({ pedidos: 1, ingresos: 10 })
 
-      // "Sin asignar" lo ven las dos sedes, aparte, y es el mismo pedido (no uno por sede).
-      const sinA = await sinAsignar(OP_A)
+      // "Sin asignar" es aparte y es un solo pedido (no uno por sede).
+      const sinA = await sinAsignar(ADMIN)
       expect(sinA).toEqual({ pedidos: antes.sin.pedidos + 1, ingresos: antes.sin.ingresos + 10 })
-      expect(await sinAsignar(OP_B)).toEqual(sinA)
 
       // El total del negocio (admin, sin filtro) suma los 3 pedidos UNA vez: A + B + sin asignar.
       const total = await kpis(ADMIN, null)
@@ -229,8 +241,8 @@ describe.skipIf(!hayBaseDeDatosReal)('RLS de pedidos sin sede (delivery de las d
 
       // Cuando una sede lo toma, sale de "sin asignar" y pasa a contar en esa sede (sigue siendo 1 vez en total).
       expect(await intentar(OP_A, `update orders set sede_id = $2 where id = $1 and sede_id is null`, [pSin, sedeA])).toEqual({ filas: 1 })
-      expect(await kpis(OP_A, sedeA)).toEqual({ pedidos: 2, ingresos: 20 })
-      expect(await sinAsignar(OP_B)).toEqual(antes.sin)
+      expect(await kpis(ADMIN, sedeA)).toEqual({ pedidos: 2, ingresos: 20 })
+      expect(await sinAsignar(ADMIN)).toEqual(antes.sin)
     })
   })
 

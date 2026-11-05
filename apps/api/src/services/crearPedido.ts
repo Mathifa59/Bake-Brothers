@@ -100,6 +100,8 @@ export type ResultadoCrearPedido =
       estado: EstadoPedido
       subtotal: number
       total: number
+      /** Sede en la que quedó el pedido (null = delivery sin sede: lo toma una sede con «Me lo quedo»). */
+      sedeId: string | null
       /**
        * Datos para pagar por adelantado (env DATOS_PAGO), solo en recojo en tienda y solo si están
        * configurados. null = el cliente todavía no tiene cómo pagar: una persona se los envía.
@@ -270,6 +272,7 @@ export async function crearPedido(
     estado,
     subtotal,
     total,
+    sedeId: sede.sedeId,
     datosPago,
     atencionHumana: pendientes.length > 0 ? `Pedido ${numero}: ${pendientes.join(' y ')}.` : undefined,
   }

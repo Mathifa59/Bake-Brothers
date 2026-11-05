@@ -284,7 +284,7 @@ describe.skipIf(!hayBaseDeDatosReal)('número del bot — de punta a punta por P
     }
   }
 
-  it('el bot pregunta el local, el cliente responde y el pedido nace con esa sede (la conversación sigue sin sede)', async () => {
+  it('el bot pregunta el local, el cliente responde, el pedido nace con esa sede y la conversación queda en ese local (pero un pedido nuevo vuelve a preguntar)', async () => {
     const fecha = fechaValida()
     const itemsPedido = [{ tipo: 'producto', busqueda: 'carrot cake', tamano: 'Individual', cantidad: 1 }]
     const pedidoBase = {
@@ -360,25 +360,48 @@ describe.skipIf(!hayBaseDeDatosReal)('número del bot — de punta a punta por P
     expect(pedidos).toHaveLength(1)
     expect(pedidos[0].sede_id).toBe(sedeId)
 
-    // La conversación NO se asigna a ninguna sede (es del número del bot) y recuerda por qué número habla.
+    // Un solo número para los dos locales: la conversación nació sin local y, al elegirlo el cliente en su pedido,
+    // queda en ese local (así esa sede la ve en su bandeja). Recuerda por qué número habla.
     const { rows: conv } = await client.query(
       `select sede_id, whatsapp_phone_number_id from conversaciones where tenant_id = $1 and canal = 'whatsapp' and external_id = $2`,
       [tenantId, telefono]
     )
-    expect(conv[0].sede_id).toBeNull()
+    expect(conv[0].sede_id).toBe(sedeId)
     expect(conv[0].whatsapp_phone_number_id).toBe(PHONE_ID_BOT)
 
     // La respuesta salió por el número del bot, con el token del usuario del sistema.
     const [url, opciones] = mockFetch.mock.calls[0] as [string, RequestInit]
     expect(url).toBe(`https://graph.facebook.com/v21.0/${PHONE_ID_BOT}/messages`)
     expect((opciones.headers as Record<string, string>).Authorization).toBe(`Bearer ${TOKEN_BOT}`)
-  }, 20_000)
+
+    // Mensaje 3, en la MISMA conversación (que ya tiene local): como el número es el del bot, un pedido nuevo de
+    // recojo vuelve a exigir el local — no se asume el del pedido anterior.
+    mockFetch.mockClear()
+    mockCreate.mockReset()
+    mockCreate
+      .mockResolvedValueOnce({ content: [{ type: 'tool_use', id: 'toolu_3', name: 'crearPedido', input: pedidoBase }] })
+      .mockResolvedValueOnce({ content: [{ type: 'text', text: '¿En qué local lo recoges esta vez?' }] })
+    const res3 = await app.inject({
+      method: 'POST',
+      url: '/webhook',
+      payload: payload('wamid.TEST_BOT_3', 'Quiero otro igual para mañana'),
+    })
+    expect(res3.statusCode).toBe(200)
+    await esperarHasta(async () => mockFetch.mock.calls.length >= 1)
+    expect(JSON.stringify(mockCreate.mock.calls[1][0].messages)).toContain('SEDE_REQUERIDA')
+    const { rows: ordenesDespues } = await client.query(
+      `select count(*)::int as n from orders where customer_id in (select id from customers where telefono = $1)`,
+      [telefono]
+    )
+    expect(ordenesDespues[0].n).toBe(1)
+  }, 30_000)
 
   it('responder desde el panel una conversación sin sede sale por el número por el que escribió el cliente', async () => {
     await client.query(
       `insert into conversaciones (tenant_id, canal, external_id, estado, historial, sede_id, whatsapp_phone_number_id)
-       values ($1, 'whatsapp', $2, 'escalada', '[]'::jsonb, null, $3)
-       on conflict (tenant_id, canal, external_id) do update set estado = 'escalada', sede_id = null, whatsapp_phone_number_id = $3`,
+       values ($1, 'whatsapp', $2, 'escalada', jsonb_build_array(jsonb_build_object('rol', 'cliente', 'texto', 'Hola', 'en', now())), null, $3)
+       on conflict (tenant_id, canal, external_id) do update set estado = 'escalada', sede_id = null, whatsapp_phone_number_id = $3,
+         historial = jsonb_build_array(jsonb_build_object('rol', 'cliente', 'texto', 'Hola', 'en', now()))`,
       [tenantId, telefono, PHONE_ID_BOT]
     )
     const { rows } = await client.query(

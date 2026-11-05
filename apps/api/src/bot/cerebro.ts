@@ -290,6 +290,8 @@ export interface TurnoHistorial {
   rol: 'cliente' | 'bot' | 'operador'
   texto: string
   en: string
+  /** Quién del equipo escribió (solo en mensajes del operador enviados desde el panel). */
+  autor?: string
   /**
    * Mensaje traído de la sincronización de historial de Coexistence (lo que
    * el negocio y el cliente se escribieron ANTES de conectar el número).
@@ -341,7 +343,7 @@ export interface ResultadoTurno {
   motivoEscalacion?: string
   // Pedidos que crearPedido registró de verdad en este turno (vacío si ninguno)
   // — el simulador del dashboard los muestra; el webhook real no los necesita.
-  pedidosCreados?: { numero: string; estado: string; total: number }[]
+  pedidosCreados?: { numero: string; estado: string; total: number; sedeId?: string | null }[]
 }
 
 export interface OpcionesTurno {
@@ -701,7 +703,7 @@ export async function evaluarTurno(
             )
           )
           if (resultado.ok) {
-            pedidosCreados.push({ numero: resultado.numero, estado: resultado.estado, total: resultado.total })
+            pedidosCreados.push({ numero: resultado.numero, estado: resultado.estado, total: resultado.total, sedeId: resultado.sedeId })
           }
           const decision = decidirEscaladaForzadaPorTool(bloque.name, resultado)
           if (decision.forzar) {
@@ -778,7 +780,7 @@ export async function procesarMensajeEntrante(
   mensajeTexto: string
 ): Promise<ResultadoTurno | null> {
   const { rows } = await client.query(
-    `select estado, historial, sede_id, canal, contexto, pausada_por_echo, ultimo_mensaje_humano_en
+    `select estado, historial, sede_id, canal, contexto, pausada_por_echo, ultimo_mensaje_humano_en, whatsapp_phone_number_id
      from conversaciones where id = $1 and tenant_id = $2`,
     [conversacionId, tenantId]
   )
@@ -829,6 +831,17 @@ export async function procesarMensajeEntrante(
     return null
   }
 
+  // Un solo número para los dos locales (el «número del bot»): la sede de la conversación NO sale del número, así
+  // que aunque ya tenga una asignada (el local que el cliente eligió en su pedido anterior) el bot vuelve a
+  // preguntar en qué local recoge. Con el número de un local, la sede de la conversación sí manda.
+  let sedeParaElBot: string | undefined = fila.sede_id ?? undefined
+  if (fila.whatsapp_phone_number_id) {
+    const { rows: conexion } = await client.query(`select uso from whatsapp_conexiones where phone_number_id = $1`, [
+      fila.whatsapp_phone_number_id,
+    ])
+    if (conexion[0]?.uso === 'bot') sedeParaElBot = undefined
+  }
+
   const resultado = await evaluarTurno(
     client,
     tenantId,
@@ -836,15 +849,34 @@ export async function procesarMensajeEntrante(
     mensajeTexto,
     estadoNormalizado,
     fila.canal as Canal,
-    fila.sede_id ?? undefined,
+    sedeParaElBot,
     { campana: typeof fila.contexto?.campana === 'string' ? fila.contexto.campana : null, conversacionId }
   )
 
   const entradaBot: TurnoHistorial = { rol: 'bot', texto: resultado.textoRespuesta, en: new Date().toISOString() }
 
+  // El local que el cliente eligió al pedir (recojo en tienda) pasa a ser el local de la conversación; así esa
+  // sede la ve en su bandeja. Un delivery nace sin sede y no cambia nada acá. Y si el bot derivó a una persona,
+  // queda el motivo para mostrarlo en la bandeja («Reclamo · pide reembolso»).
+  const sedeElegida = [...(resultado.pedidosCreados ?? [])].reverse().find((p) => p.sedeId)?.sedeId ?? null
+  const escaloAhora = resultado.nuevoEstado === 'escalada' // (llegar aquí implica que la conversación estaba activa)
   await client.query(
-    `update conversaciones set historial = historial || $1::jsonb, estado = $2, ultimo_mensaje_en = now() where id = $3`,
-    [JSON.stringify([entradaCliente, entradaBot]), resultado.nuevoEstado, conversacionId]
+    `update conversaciones
+        set historial = historial || $1::jsonb,
+            estado = $2,
+            ultimo_mensaje_en = now(),
+            sede_id = coalesce($4::uuid, sede_id),
+            contexto = case when $5::text is not null
+                            then contexto || jsonb_build_object('ultimaEscalacion', jsonb_build_object('motivo', $5::text, 'en', now()))
+                            else contexto end
+      where id = $3`,
+    [
+      JSON.stringify([entradaCliente, entradaBot]),
+      resultado.nuevoEstado,
+      conversacionId,
+      sedeElegida,
+      escaloAhora ? (resultado.motivoEscalacion ?? 'Escalada solicitada por el bot.') : null,
+    ]
   )
 
   return resultado

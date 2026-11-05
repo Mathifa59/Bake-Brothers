@@ -1,4 +1,5 @@
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { puedeVerRuta, rutaInicial } from '@bakebrothers/domain'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import LayoutBakeOS from './components/bakeos/LayoutBakeOS'
 import Login from './pages/Login'
@@ -20,6 +21,7 @@ import Mifact from './pages/Mifact'
 // usuarios_dashboard antes de decidir qué mostrar.
 function ConGuardia({ children }) {
   const { session, perfil, cargando } = useAuth()
+  const { pathname } = useLocation()
 
   if (cargando) {
     return <div className="grid min-h-screen place-items-center text-sm text-gris">Cargando…</div>
@@ -35,14 +37,25 @@ function ConGuardia({ children }) {
       </div>
     )
   }
+  // Un empleado solo abre Pedidos, Órdenes, Conversaciones y Stock; cualquier otra ruta lo devuelve a su inicio.
+  // (El bloqueo real de los datos está en la base y en la API; esto evita pantallas vacías o con errores.)
+  if (!puedeVerRuta(perfil.rol, pathname)) return <Navigate to={rutaInicial(perfil.rol)} replace />
   return <LayoutBakeOS>{children}</LayoutBakeOS>
 }
 
 function RutaLogin() {
   const { session, cargando } = useAuth()
   if (cargando) return null
-  if (session) return <Navigate to="/resumen" replace />
+  if (session) return <Navigate to="/inicio" replace />
   return <Login />
+}
+
+// Pantalla de entrada según el rol: dirección al Resumen, un empleado a Pedidos.
+function Inicio() {
+  const { session, perfil, cargando } = useAuth()
+  if (cargando) return null
+  if (!session) return <Navigate to="/login" replace />
+  return <Navigate to={rutaInicial(perfil?.rol)} replace />
 }
 
 const protegida = (elemento) => <ConGuardia>{elemento}</ConGuardia>
@@ -66,7 +79,8 @@ export default function App() {
           <Route path="/atribucion" element={protegida(<Atribucion />)} />
           <Route path="/simulador" element={protegida(<Simulador />)} />
           <Route path="/mifact" element={protegida(<Mifact />)} />
-          <Route path="*" element={<Navigate to="/resumen" replace />} />
+          <Route path="/inicio" element={<Inicio />} />
+          <Route path="*" element={<Navigate to="/inicio" replace />} />
         </Routes>
       </HashRouter>
     </AuthProvider>

@@ -11,6 +11,7 @@ export interface ConversacionParaResponder {
   /** Número por el que escribió el cliente la última vez (desde ese se le responde). Null en conversaciones antiguas. */
   whatsappPhoneNumberId: string | null
   estado: EstadoConversacionDb
+  historial: { rol: string; en?: string | null }[]
 }
 
 /**
@@ -49,7 +50,7 @@ export async function conversacionPorId(
   id: string
 ): Promise<ConversacionParaResponder | null> {
   const { rows } = await client.query(
-    `select id, canal, external_id, sede_id, whatsapp_phone_number_id, estado from conversaciones where id = $1 and tenant_id = $2`,
+    `select id, canal, external_id, sede_id, whatsapp_phone_number_id, estado, historial from conversaciones where id = $1 and tenant_id = $2`,
     [id, tenantId]
   )
   const fila = rows[0]
@@ -61,6 +62,7 @@ export async function conversacionPorId(
     sedeId: fila.sede_id,
     whatsappPhoneNumberId: fila.whatsapp_phone_number_id ?? null,
     estado: fila.estado,
+    historial: Array.isArray(fila.historial) ? fila.historial : [],
   }
 }
 
@@ -74,13 +76,66 @@ export async function agregarMensajeOperador(
   client: pg.PoolClient,
   conversacionId: string,
   texto: string,
-  nuevoEstado: EstadoConversacionDb
+  nuevoEstado: EstadoConversacionDb,
+  // autor: nombre de quien respondió (se muestra en el chat). sedeAAsignar: si la conversación no tenía local, el
+  // de quien la atiende. atendidaPor: se guarda para mostrar «Atiende: …» en la bandeja.
+  opciones: { autor?: string; sedeAAsignar?: string | null; atendidaPor?: string | null } = {}
 ): Promise<void> {
-  const nuevoMensaje = { rol: 'operador', texto, en: new Date().toISOString() }
+  const nuevoMensaje = { rol: 'operador', texto, en: new Date().toISOString(), ...(opciones.autor ? { autor: opciones.autor } : {}) }
   await client.query(
-    `update conversaciones set historial = historial || $1::jsonb, estado = $2, ultimo_mensaje_en = now() where id = $3`,
-    [JSON.stringify([nuevoMensaje]), nuevoEstado, conversacionId]
+    `update conversaciones
+        set historial = historial || $1::jsonb,
+            estado = $2,
+            ultimo_mensaje_en = now(),
+            sede_id = coalesce(sede_id, $4::uuid),
+            contexto = case when $5::text is not null
+                            then contexto || jsonb_build_object('atendidaPor', jsonb_build_object('nombre', $5::text, 'en', now()))
+                            else contexto end
+      where id = $3`,
+    [JSON.stringify([nuevoMensaje]), nuevoEstado, conversacionId, opciones.sedeAAsignar ?? null, opciones.atendidaPor ?? null]
   )
+}
+
+/** Quién es esta persona para mostrarla en el chat: su nombre, o «Equipo <local>» (las cuentas de sede no tienen nombre), o «Dirección». */
+export async function nombreVisibleDelOperador(client: pg.PoolClient, usuarioId: string): Promise<string> {
+  const { rows } = await client.query(
+    `select u.nombre, u.rol, s.nombre as sede from usuarios_dashboard u left join sedes s on s.id = u.sede_id where u.id = $1`,
+    [usuarioId]
+  )
+  const f = rows[0]
+  if (!f) return 'Equipo'
+  if (f.nombre) return f.nombre as string
+  if (f.rol === 'admin') return 'Dirección'
+  return f.sede ? `Equipo ${f.sede}` : 'Equipo'
+}
+
+/**
+ * Tomar / devolver al bot / cerrar. Cambia el estado (el trigger de 0017 sigue siendo la barrera final) y, al
+ * tomar, deja la sede (si la conversación no tenía) y quién la atiende. Al devolver o cerrar se borra «atendidaPor».
+ * Una conversación tomada a mano nunca se auto-retorna al bot (pausada_por_echo = false).
+ */
+export async function cambiarEstadoConversacion(
+  client: pg.PoolClient,
+  conversacionId: string,
+  nuevoEstado: EstadoConversacionDb,
+  opciones: { sedeAAsignar?: string | null; atendidaPor?: string | null } = {}
+): Promise<void> {
+  await client.query(
+    `update conversaciones
+        set estado = $2,
+            pausada_por_echo = false,
+            sede_id = coalesce(sede_id, $3::uuid),
+            contexto = case when $4::text is not null
+                            then contexto || jsonb_build_object('atendidaPor', jsonb_build_object('nombre', $4::text, 'en', now()))
+                            else contexto - 'atendidaPor' end
+      where id = $1`,
+    [conversacionId, nuevoEstado, opciones.sedeAAsignar ?? null, opciones.atendidaPor ?? null]
+  )
+}
+
+/** Cambia el local de la conversación (solo dirección). Pasar null la deja «sin local». */
+export async function asignarSedeAConversacion(client: pg.PoolClient, conversacionId: string, sedeId: string | null): Promise<void> {
+  await client.query(`update conversaciones set sede_id = $2 where id = $1`, [conversacionId, sedeId])
 }
 
 /** Busca la conversación por (tenant, canal, external_id) o la crea — una fila por identidad externa (ver 0009). */

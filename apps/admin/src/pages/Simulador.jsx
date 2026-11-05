@@ -170,7 +170,7 @@ export default function Simulador() {
     fin.current?.scrollIntoView?.({ behavior: 'smooth', block: 'end' })
   }, [sedeId, mensajes, estado, campana, enviando])
 
-  if (perfil?.rol !== 'admin') return <Navigate to="/resumen" replace />
+  if (perfil?.rol !== 'admin') return <Navigate to="/inicio" replace />
 
   const info = ESTADOS[estado] ?? ESTADOS.activa
   const empezada = mensajes.length > 0
