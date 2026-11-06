@@ -61,13 +61,39 @@ describe('productoDisponibleEnSede — con sede conocida', () => {
     expect(productoDisponibleEnSede(consulta({ filas, productSizeId: TALLA_B })).disponible).toBe(true)
   })
 
-  it('una fila de un tamaño no cuenta para el producto sin tamaño, ni al revés', () => {
+  it('la fila de un tamaño no cuenta para el producto sin tamaño', () => {
     expect(
       productoDisponibleEnSede(consulta({ filas: [fila(CEDROS, { productSizeId: TALLA_A, disponible: false })] })).disponible
     ).toBe(true)
-    expect(
-      productoDisponibleEnSede(consulta({ filas: [fila(CEDROS, { disponible: false })], productSizeId: TALLA_A })).disponible
-    ).toBe(true)
+  })
+
+  it('una fila del producto entero (sin tamaño) agotada cubre TODOS sus tamaños — caso BB-2491', () => {
+    const filas = [fila(CEDROS, { disponible: false })]
+    expect(productoDisponibleEnSede(consulta({ filas, productSizeId: TALLA_A }))).toMatchObject({ disponible: false, motivo: 'agotado', enSedes: [SM] })
+    expect(productoDisponibleEnSede(consulta({ filas, productSizeId: TALLA_B })).disponible).toBe(false)
+    // …solo en la sede donde está agotada.
+    expect(productoDisponibleEnSede(consulta({ filas, productSizeId: TALLA_A, sedeId: SM })).disponible).toBe(true)
+  })
+
+  it('producto entero agotado gana sobre la fila de un tamaño que dice disponible', () => {
+    const filas = [fila(CEDROS, { disponible: false }), fila(CEDROS, { productSizeId: TALLA_A, disponible: true })]
+    expect(productoDisponibleEnSede(consulta({ filas, productSizeId: TALLA_A })).disponible).toBe(false)
+  })
+
+  it('un tamaño sin fila propia hereda el conteo de la fila del producto; con fila propia manda la suya', () => {
+    const conteoProducto = [fila(CEDROS, { cantidad: 2 })]
+    expect(productoDisponibleEnSede(consulta({ filas: conteoProducto, productSizeId: TALLA_A, cantidad: 3 }))).toMatchObject({
+      disponible: false,
+      motivo: 'cantidad_insuficiente',
+      cantidadDisponible: 2,
+    })
+    const conFilaPropia = [...conteoProducto, fila(CEDROS, { productSizeId: TALLA_A, cantidad: 10 })]
+    expect(productoDisponibleEnSede(consulta({ filas: conFilaPropia, productSizeId: TALLA_A, cantidad: 3 })).disponible).toBe(true)
+  })
+
+  it('el producto entero agotado sin sede conocida: se acepta si alguna sede lo tiene', () => {
+    const filas = [fila(CEDROS, { disponible: false })]
+    expect(productoDisponibleEnSede(consulta({ filas, productSizeId: TALLA_A, sedeId: null }))).toEqual({ disponible: true, enSedes: [SM] })
   })
 
   it('una cantidad menor a 1 se trata como 1', () => {

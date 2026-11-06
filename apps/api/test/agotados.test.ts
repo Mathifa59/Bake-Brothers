@@ -160,6 +160,33 @@ describe.skipIf(!hayBaseDeDatosReal)('lo agotado no se vende', () => {
       expect(r.ok).toBe(true)
     })
 
+    it('crearPedido: una fila del producto ENTERO agotada (sin tamaño) cubre todos sus tamaños (caso BB-2491)', async () => {
+      await fijarStock(client, [{ producto: ALFAJOR, sede: sedes.cedros, disponible: false }])
+      for (const tamano of [X10, X18]) {
+        const r = await crearPedido(
+          client,
+          tenantId,
+          'whatsapp',
+          pedido({ sedeId: sedes.cedros, items: [{ tipo: 'producto', busqueda: 'alfajor mix', tamano, cantidad: 1 }] })
+        )
+        expect(r.ok).toBe(false)
+        if (r.ok) return
+        expect(r.error).toBe('PRODUCTO_AGOTADO')
+        expect(r.detalle).toMatchObject({ productos: [{ producto: ALFAJOR, tamano, motivo: 'agotado' }] })
+      }
+      expect(await pedidosDelCliente()).toBe(0)
+      // En la otra sede sí se vende.
+      expect((await crearPedido(client, tenantId, 'whatsapp', pedido({ sedeId: sedes.sm }))).ok).toBe(true)
+    })
+
+    it('consultarPrecio: con la fila del producto ENTERO agotada, todos los tamaños salen agotados en esa sede', async () => {
+      await fijarStock(client, [{ producto: ALFAJOR, sede: sedes.cedros, disponible: false }])
+      const enCedros = await consultarPrecio(client, tenantId, 'alfajor mix', sedes.cedros)
+      expect(enCedros?.disponible).toBe(false)
+      expect(enCedros?.tamanos.every((t) => t.agotado === true)).toBe(true)
+      expect((await consultarPrecio(client, tenantId, 'alfajor mix', sedes.sm))?.disponible).toBe(true)
+    })
+
     it('crearPedido con el número del bot: el local que elige el cliente decide', async () => {
       await fijarStock(client, [{ producto: ALFAJOR, tamano: X10, sede: sedes.cedros, disponible: false }])
       const enCedros = await crearPedido(client, tenantId, 'whatsapp', pedido({ sedeElegida: 'Cedros' }))
@@ -422,6 +449,21 @@ describe.skipIf(!hayBaseDeDatosReal)('lo agotado no se vende', () => {
       expect((await pool.query(`select count(*)::int n from customers where telefono = $1`, [TEL])).rows[0].n).toBe(0)
     })
 
+    it('Nuevo pedido: una fila del producto ENTERO agotada (sin tamaño) también bloquea — reproduce BB-2491', async () => {
+      await fijarStock(pool, [{ producto: PIE, sede: sedes.cedros, disponible: false }]) // sin tamaño: producto entero
+      const r = await nuevoPedido(caja(), sedes.cedros)
+      expect(r.statusCode).toBe(409)
+      expect(r.json()).toMatchObject({
+        error: 'PRODUCTO_AGOTADO',
+        detalle: { productos: [{ producto: PIE, tamano: TAM, motivo: 'agotado', disponibleEn: expect.arrayContaining(['Santa Marina']) }] },
+      })
+      expect((await pool.query(`select count(*)::int n from customers where telefono = $1`, [TEL])).rows[0].n).toBe(0)
+      // Cualquier otro tamaño del mismo producto, en esa sede, también.
+      expect((await nuevoPedido(caja(1, 'Mini 18cm'), sedes.cedros)).statusCode).toBe(409)
+      // En la otra sede sí se vende.
+      expect((await nuevoPedido(caja(), sedes.sm)).statusCode).toBe(201)
+    })
+
     it('Nuevo pedido: el operador de la otra sede sí puede vender la misma caja', async () => {
       await fijarStock(pool, [{ producto: PIE, tamano: TAM, sede: sedes.cedros, disponible: false }])
       const r = await nuevoPedido(caja(), sedes.sm)
@@ -483,6 +525,13 @@ describe.skipIf(!hayBaseDeDatosReal)('lo agotado no se vende', () => {
       expect(r.statusCode).toBe(409)
       expect(r.json()).toMatchObject({ error: 'PRODUCTO_AGOTADO', detalle: { productos: [{ producto: PIE, tamano: TAM, disponibleEn: [] }] } })
       expect((await pool.query(`select count(*)::int n from customers where telefono = $1`, [TEL])).rows[0].n).toBe(0)
+    })
+
+    it('web: el producto ENTERO agotado (sin tamaño) en TODAS las sedes → 409', async () => {
+      await fijarStock(pool, await agotadoEnTodas(pool, PIE, [undefined]))
+      const r = await pedidoWeb()
+      expect(r.statusCode).toBe(409)
+      expect(r.json()).toMatchObject({ error: 'PRODUCTO_AGOTADO', detalle: { productos: [{ producto: PIE, tamano: TAM, disponibleEn: [] }] } })
     })
 
     it('web: sin ninguna fila de stock (lo normal hoy) todo sigue vendiéndose igual que antes', async () => {

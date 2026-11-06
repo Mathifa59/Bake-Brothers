@@ -8,6 +8,10 @@
  *  - `disponible = false` → agotado.
  *  - `cantidad` con conteo (no null) menor a lo pedido → no alcanza. `cantidad = null` es "sin conteo exacto"
  *    y nunca bloquea por cantidad.
+ *  - Una fila del producto entero (sin tamaño) cubre todos sus tamaños: si está agotada, ningún tamaño se vende
+ *    en esa sede, aunque haya fila propia del tamaño. Si el tamaño no tiene fila propia, hereda también el conteo
+ *    de la fila del producto. (La pantalla Stock siempre guarda una fila por tamaño; esto cubre filas cargadas a
+ *    mano o por una importación.) Al revés no aplica: la fila de un tamaño no cuenta para el producto sin tamaño.
  *  - Con sede conocida se mira solo esa sede. Sin sede (un delivery del bot, o la web) se acepta si ALGUNA
  *    sede activa lo tiene: el pedido lo toma después la sede que pueda cumplirlo.
  */
@@ -51,7 +55,11 @@ type EstadoSede = { ok: true } | { ok: false; motivo: MotivoNoDisponible; cantid
 
 function evaluarSede(sedeId: string, q: ConsultaDisponibilidad): EstadoSede {
   const cantidad = Math.max(1, q.cantidad)
-  const fila = q.filas.find((f) => f.sedeId === sedeId && f.productSizeId === q.productSizeId)
+  const filaProducto = q.filas.find((f) => f.sedeId === sedeId && f.productSizeId === null)
+  const filaTamano = q.productSizeId === null ? undefined : q.filas.find((f) => f.sedeId === sedeId && f.productSizeId === q.productSizeId)
+  // El producto entero agotado gana sobre cualquier fila de tamaño.
+  if (q.productSizeId !== null && filaProducto && !filaProducto.disponible) return { ok: false, motivo: 'agotado' }
+  const fila = q.productSizeId === null ? filaProducto : (filaTamano ?? filaProducto)
   if (!fila) return { ok: true }
   if (!fila.disponible) return { ok: false, motivo: 'agotado' }
   if (fila.cantidad !== null && fila.cantidad < cantidad) {
