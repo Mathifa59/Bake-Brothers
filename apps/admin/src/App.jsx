@@ -7,7 +7,9 @@ import Resumen from './pages/Resumen'
 import ControlTower from './pages/ControlTower'
 import Pedidos from './pages/Pedidos'
 import NuevoPedido from './pages/NuevoPedido'
+import Ordenes from './pages/Ordenes'
 import Produccion from './pages/Produccion'
+import PlanVitrina from './pages/PlanVitrina'
 import Stock from './pages/Stock'
 import Clientes from './pages/Clientes'
 import Atencion from './pages/Atencion'
@@ -70,7 +72,9 @@ export default function App() {
           <Route path="/control-tower" element={protegida(<ControlTower />)} />
           <Route path="/pedidos" element={protegida(<Pedidos />)} />
           <Route path="/nuevo-pedido" element={protegida(<NuevoPedido />)} />
+          <Route path="/ordenes" element={protegida(<Ordenes />)} />
           <Route path="/produccion" element={protegida(<Produccion />)} />
+          <Route path="/plan-vitrina" element={protegida(<PlanVitrina />)} />
           <Route path="/stock" element={protegida(<Stock />)} />
           <Route path="/clientes" element={protegida(<Clientes />)} />
           <Route path="/atencion" element={protegida(<Atencion />)} />

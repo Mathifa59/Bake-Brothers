@@ -20,6 +20,7 @@ import {
   Workflow,
   FlaskConical,
   FileSpreadsheet,
+  ClipboardList,
 } from 'lucide-react'
 
 /**
@@ -30,6 +31,8 @@ export const SECCIONES_ACTIVAS = [
   { ruta: '/resumen', etiqueta: 'Resumen', icono: LayoutGrid },
   { ruta: '/control-tower', etiqueta: 'Control Tower', icono: Target, conAlertas: true },
   { ruta: '/pedidos', etiqueta: 'Pedidos', icono: ShoppingBag },
+  // Mayoristas, Rappi y encargos para el día siguiente (reemplaza el grupo de WhatsApp + Excel de la noche).
+  { ruta: '/ordenes', etiqueta: 'Órdenes', icono: ClipboardList },
   { ruta: '/produccion', etiqueta: 'Producción', icono: Factory },
   { ruta: '/stock', etiqueta: 'Stock', icono: Package },
   { ruta: '/clientes', etiqueta: 'Clientes', icono: Users },

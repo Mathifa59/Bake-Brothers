@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { actualizarEstadoPedido, traerTodo, useAhora, useDatosVivos } from '../lib/datos'
 import { fechaCorta, formatoPrecio } from '../utils/formato'
 import { Cargando, ErrorCarga, Pill, Portada, Tarjeta } from '../components/bakeos/ui'
+import PlanDelDia from '../components/produccion/PlanDelDia'
 
 const ESTADOS_TABLERO = ['confirmed', 'paid', 'payment_pending', 'in_production', 'out_for_delivery']
 
@@ -125,9 +126,12 @@ export default function Produccion() {
 
   return (
     <>
-      <Portada titulo="Producción" subtitulo="Demanda y despacho" />
+      <Portada titulo="Producción" subtitulo="Qué se hace hoy y cómo va cada pedido" />
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+      <PlanDelDia />
+
+      <h2 className="mt-8 text-lg font-bold tracking-tight">Tablero de pedidos</h2>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         {FILTROS.map((f) => (
           <button
             key={f.id}

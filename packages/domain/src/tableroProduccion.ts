@@ -3,12 +3,14 @@ import { puedeTransicionar, type EstadoPedido } from './orderStatus.js'
 export type ColumnaProduccion = 'por_iniciar' | 'en_produccion' | 'listo'
 
 export const COLUMNAS_PRODUCCION: readonly { id: ColumnaProduccion; titulo: string }[] = [
-  { id: 'por_iniciar', titulo: 'Por iniciar' },
-  { id: 'en_produccion', titulo: 'En producción' },
+  { id: 'por_iniciar', titulo: 'Confirmado' },
+  { id: 'en_produccion', titulo: 'En preparación' },
   { id: 'listo', titulo: 'Listo' },
 ]
 
 /**
+ * (Vocabulario del equipo: Confirmado, En preparación, Listo, Despachado, Anulado — ver estadosEquipo.ts.)
+ *
  * Columna del tablero para el estado del pedido, o null si no aparece:
  *  - por iniciar: `confirmed` (pago contra entrega) y `paid` — los dos pueden pasar a producción.
  *  - en producción: `in_production`.
@@ -40,11 +42,11 @@ export interface AccionProduccion {
 export function accionDeProduccion(estado: EstadoPedido): AccionProduccion | null {
   const candidata: AccionProduccion | null =
     estado === 'confirmed' || estado === 'paid'
-      ? { hacia: 'in_production', etiqueta: 'Iniciar producción' }
+      ? { hacia: 'in_production', etiqueta: 'Pasar a preparación' }
       : estado === 'in_production'
         ? { hacia: 'out_for_delivery', etiqueta: 'Marcar listo' }
         : estado === 'out_for_delivery'
-          ? { hacia: 'delivered', etiqueta: 'Marcar entregado' }
+          ? { hacia: 'delivered', etiqueta: 'Despachar' }
           : null
   return candidata && puedeTransicionar(estado, candidata.hacia) ? candidata : null
 }
