@@ -10,6 +10,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import pg from 'pg'
 import { evaluarTurno, type TurnoHistorial, type ResultadoTurno } from '../src/bot/cerebro.js'
+import { env } from '../src/env.js'
 import { DATABASE_URL_PLACEHOLDER } from './testEnv.js'
 
 const hayBaseDeDatosReal =
@@ -82,6 +83,9 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
     client = await pool.connect()
     const { rows } = await client.query(`select id from tenants where slug = 'bake-brothers'`)
     tenantId = rows[0].id
+    // Con datos de pago configurados el bot cierra el pedido de recojo sin pasar a una persona (sin ellos,
+    // la conversación queda escalada para que alguien los envíe: eso lo prueba reglasLanzamiento.test.ts).
+    env.DATOS_PAGO = 'Yape 999 999 999 a nombre de Bake Brothers (datos de prueba)'
   })
 
   afterAll(async () => {
@@ -234,7 +238,7 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
       const fecha = fechaFuturaNoDomingo(10)
       const mensaje =
         `Quiero un carrot cake, tamaño individual, para recoger en tienda el ${fecha}, a las 4pm — solo recojo, no delivery. ` +
-        `Mi nombre es Ana Test y mi teléfono es ${telefono}. Voy a pagar con yape cuando llegue, no por adelantado.`
+        `Mi nombre es Ana Test y mi teléfono es ${telefono}. Voy a pagar por adelantado con yape.`
 
       try {
         const r = await conversarHastaCrearPedido(client, tenantId, mensaje)
@@ -254,7 +258,8 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
           [numeroMatch![0]]
         )
         expect(rows.length).toBe(1)
-        expect(rows[0].estado).toBe('confirmed')
+        // El cliente dijo que paga por adelantado: el pedido nace pendiente de pago.
+        expect(rows[0].estado).toBe('payment_pending')
         expect(rows[0].canal).toBe('whatsapp')
         expect(rows[0].telefono).toBe(telefono)
         expect(Number(rows[0].total)).toBe(9.9)
@@ -270,7 +275,7 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
   )
 
   it(
-    '10. Pedido de catering verde con adelanto → crearPedido, pedido real creado en payment_pending',
+    '10. Catering (aunque cumpla las reglas) → SIEMPRE lo atiende una persona: no se crea ningún pedido y la conversación se escala',
     async () => {
       const telefono = '999000002'
       await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
@@ -282,31 +287,17 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
         `Mi nombre es Carlos Test y mi teléfono es ${telefono}. Voy a pagar el adelanto por Yape.`
 
       try {
-        const r = await conversarHastaCrearPedido(client, tenantId, mensaje)
+        const r = await evaluarTurno(client, tenantId, [], mensaje, 'activa', 'whatsapp')
         expect(r.herramientasUsadas).toContain('evaluarSemaforoCateringPedido')
-        expect(r.herramientasUsadas).toContain('crearPedido')
-        expect(r.nuevoEstado).toBe('activa')
-
-        const numeroMatch = r.textoRespuesta.match(/BB-\d+/)
-        expect(numeroMatch).not.toBeNull()
+        expect(r.herramientasUsadas).toContain('escalarAHumano')
+        expect(r.nuevoEstado).toBe('escalada')
+        expect(r.pedidosCreados ?? []).toHaveLength(0)
 
         const { rows } = await client.query(
-          `select o.numero, o.estado, o.canal, o.total, c.telefono,
-                  oi.nombre_producto, oi.cantidad, oi.precio_unitario, oi.product_id, oi.catering_item_id
-           from orders o
-           join customers c on c.id = o.customer_id
-           join order_items oi on oi.order_id = o.id
-           where o.numero = $1`,
-          [numeroMatch![0]]
+          `select count(*)::int as n from orders where customer_id in (select id from customers where telefono = $1)`,
+          [telefono]
         )
-        expect(rows.length).toBe(1)
-        expect(rows[0].estado).toBe('payment_pending')
-        expect(rows[0].telefono).toBe(telefono)
-        expect(rows[0].nombre_producto).toMatch(/tequ/i)
-        expect(Number(rows[0].cantidad)).toBe(30)
-        expect(Number(rows[0].precio_unitario)).toBe(0)
-        expect(rows[0].product_id).toBeNull()
-        expect(rows[0].catering_item_id).not.toBeNull()
+        expect(rows[0].n).toBe(0)
       } finally {
         await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
         await client.query(`delete from customers where telefono = $1`, [telefono])
@@ -349,6 +340,7 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
           [numeroMatch![0]]
         )
         expect(pedidoRows.length).toBe(1)
+        // El cliente dijo que paga al recoger ("cuando llegue"): el pedido nace confirmado.
         expect(pedidoRows[0].estado).toBe('confirmed')
         expect(pedidoRows[0].telefono).toBe(telefono)
         expect(Number(pedidoRows[0].total)).toBe(30.9)
@@ -400,6 +392,7 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
           [numeroMatch![0]]
         )
         expect(pedidoRows.length).toBe(1)
+        // El cliente dijo que paga al recoger ("cuando llegue"): el pedido nace confirmado.
         expect(pedidoRows[0].estado).toBe('confirmed')
         expect(pedidoRows[0].telefono).toBe(telefono)
         // El combo cobra su precio fijo una sola vez — las líneas de

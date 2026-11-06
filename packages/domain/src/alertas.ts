@@ -18,6 +18,8 @@ export interface PedidoPreProduccion {
   horario_entrega: string
   cliente: string | null
   sede: string | null
+  /** El cliente mandó la captura de su pago y nadie lo ha confirmado ni rechazado todavía (0036). */
+  pago_por_confirmar?: boolean
 }
 
 export interface ConversacionEscalada {
@@ -46,7 +48,9 @@ export interface AlertasControlTower {
   pagadosSinEmpezar: PedidoPreProduccion[]
   /** De los pagados/confirmados sin empezar, los que se entregan hoy. Subconjunto: no suma al total. */
   paraHoySinEmpezar: PedidoPreProduccion[]
-  /** Excepciones activas: agotados + combos + escaladas + pagados sin empezar. */
+  /** Pagos reportados con captura que nadie ha confirmado ni rechazado (el más antiguo primero). El bot no los confirma solo. */
+  pagosPorConfirmar: PedidoPreProduccion[]
+  /** Excepciones activas: agotados + combos + escaladas + pagados sin empezar + pagos por confirmar. */
   total: number
 }
 
@@ -55,6 +59,9 @@ export function construirAlertas(entrada: EntradaAlertas): AlertasControlTower {
   const combosPorRevisar = entrada.pedidosPreProduccion.filter((p) => p.requiere_confirmar_combo)
   const pagadosSinEmpezar = entrada.pedidosPreProduccion.filter((p) => p.estado === 'paid')
   const paraHoySinEmpezar = sinEmpezar.filter((p) => p.fecha_entrega === entrada.hoy)
+  const pagosPorConfirmar = entrada.pedidosPreProduccion
+    .filter((p) => p.pago_por_confirmar === true)
+    .sort((a, b) => new Date(a.actualizado_en).getTime() - new Date(b.actualizado_en).getTime())
   const escaladasSinAtender = [...entrada.escaladas].sort(
     (a, b) => new Date(a.ultimo_mensaje_en).getTime() - new Date(b.ultimo_mensaje_en).getTime()
   )
@@ -66,7 +73,13 @@ export function construirAlertas(entrada: EntradaAlertas): AlertasControlTower {
       (a, b) => new Date(a.actualizado_en).getTime() - new Date(b.actualizado_en).getTime()
     ),
     paraHoySinEmpezar,
-    total: entrada.stockAgotado.length + combosPorRevisar.length + escaladasSinAtender.length + pagadosSinEmpezar.length,
+    pagosPorConfirmar,
+    total:
+      entrada.stockAgotado.length +
+      combosPorRevisar.length +
+      escaladasSinAtender.length +
+      pagadosSinEmpezar.length +
+      pagosPorConfirmar.length,
   }
 }
 

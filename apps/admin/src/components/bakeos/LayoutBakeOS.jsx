@@ -4,6 +4,7 @@ import { Bell, LogOut } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { AlertasProvider, useAlertas } from '../../context/AlertasContext'
 import { SECCIONES_ACTIVAS } from '../../config/secciones'
+import { nombreDeRol, puedeVerRuta, rutaInicial } from '@bakebrothers/domain'
 
 /** Contador naranja (el naranja oscuro, para que el número blanco se lea: contraste AA). */
 function Contador({ n, className = '' }) {
@@ -41,7 +42,7 @@ function MenuSecciones() {
   const { perfil } = useAuth()
   const { pathname } = useLocation()
   const contenedor = useRef(null)
-  const seccionesVisibles = SECCIONES_ACTIVAS.filter((s) => !s.soloAdmin || perfil?.rol === 'admin')
+  const seccionesVisibles = SECCIONES_ACTIVAS.filter((s) => puedeVerRuta(perfil?.rol, s.ruta))
 
   useEffect(() => {
     const activo = contenedor.current?.querySelector('[aria-current="page"]')
@@ -65,22 +66,24 @@ function Encabezado() {
   const total = alertas?.total ?? 0
   return (
     <header className="mx-auto flex max-w-5xl items-center justify-between px-4 pt-3">
-      <Link to="/resumen" className="flex items-center gap-2.5" aria-label="Bake OS — Resumen">
+      <Link to={rutaInicial(perfil?.rol)} className="flex items-center gap-2.5" aria-label="Bake OS — inicio">
         <span className="grid h-7 w-7 place-items-center rounded-lg bg-tinta text-[13px] font-bold text-white">B</span>
         <span className="text-sm font-semibold">Bake OS</span>
         <span className="hidden text-xs capitalize text-gris sm:inline">
-          · {perfil?.rol === 'admin' ? 'Dirección' : (perfil?.sedeNombre ?? 'Sede')}
+          · {perfil?.rol === 'admin' ? nombreDeRol('admin') : `${nombreDeRol('operador')} · ${perfil?.sedeNombre ?? 'Sede'}`}
         </span>
       </Link>
       <div className="flex items-center gap-2">
-        <Link
-          to="/control-tower"
-          aria-label={total ? `Alertas: ${total} requieren atención` : 'Alertas: sin excepciones activas'}
-          className="relative grid h-10 w-10 place-items-center rounded-xl border border-borde bg-hueso"
-        >
-          <Bell size={18} aria-hidden="true" />
-          <Contador n={total} className="absolute -right-1.5 -top-1.5" />
-        </Link>
+        {puedeVerRuta(perfil?.rol, 'control-tower') && (
+          <Link
+            to="/control-tower"
+            aria-label={total ? `Alertas: ${total} requieren atención` : 'Alertas: sin excepciones activas'}
+            className="relative grid h-10 w-10 place-items-center rounded-xl border border-borde bg-hueso"
+          >
+            <Bell size={18} aria-hidden="true" />
+            <Contador n={total} className="absolute -right-1.5 -top-1.5" />
+          </Link>
+        )}
         <button
           type="button"
           onClick={logout}

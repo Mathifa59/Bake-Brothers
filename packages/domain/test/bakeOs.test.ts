@@ -263,6 +263,28 @@ describe('Control Tower', () => {
     expect(construirAlertas({ hoy: '2026-10-05', stockAgotado: [], escaladas: [], pedidosPreProduccion: [] }).total).toBe(0)
   })
 
+  it('un pago reportado con captura y sin revisar es una alerta (el más antiguo primero) y suma al total', () => {
+    const pedido = (numero: string, actualizado_en: string, pago_por_confirmar?: boolean) => ({
+      numero,
+      estado: 'payment_pending',
+      requiere_confirmar_combo: false,
+      actualizado_en,
+      fecha_entrega: '2026-10-06',
+      horario_entrega: '4pm',
+      cliente: 'Ana',
+      sede: null,
+      pago_por_confirmar,
+    })
+    const a = construirAlertas({
+      hoy: '2026-10-05',
+      stockAgotado: [],
+      escaladas: [],
+      pedidosPreProduccion: [pedido('BB-2', '2026-10-05T12:00:00Z', true), pedido('BB-1', '2026-10-05T10:00:00Z', true), pedido('BB-3', '2026-10-05T09:00:00Z', false)],
+    })
+    expect(a.pagosPorConfirmar.map((p) => p.numero)).toEqual(['BB-1', 'BB-2'])
+    expect(a.total).toBe(2)
+  })
+
   it('antigüedad legible', () => {
     const d = (min: number) => new Date(ahora.getTime() - min * 60000).toISOString()
     expect(antiguedadLegible(d(0), ahora)).toBe('hace instantes')

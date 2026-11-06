@@ -167,7 +167,7 @@ describe.skipIf(!hayBaseDeDatosReal)('evaluarTurno — garantías forzadas por c
     expect(r.textoRespuesta).not.toBe(RESPUESTA_ESCALADA_FORZADA_FIJA)
   })
 
-  it('crearPedido rechaza y fuerza escalada si el modelo salta directo a crear un pedido de catering que NO es verde (sin llamar antes al semáforo)', async () => {
+  it('crearPedido rechaza y fuerza escalada si el modelo salta directo a crear un pedido de catering (el catering siempre lo atiende una persona)', async () => {
     // Único paso mockeado: el modelo llama a crearPedido directo, con una
     // cantidad de tequeños por debajo del mínimo real (25) — nunca llamó a
     // evaluarSemaforoCateringPedido antes. Esto es justo lo que la regla 1
@@ -213,7 +213,7 @@ describe.skipIf(!hayBaseDeDatosReal)('evaluarTurno — garantías forzadas por c
     expect(r.herramientasUsadas).toEqual(['crearPedido'])
     expect(r.nuevoEstado).toBe('escalada')
     expect(r.textoRespuesta).toBe(RESPUESTA_ESCALADA_FORZADA_FIJA)
-    expect(r.motivoEscalacion).toMatch(/catering.*no está en verde/i)
+    expect(r.motivoEscalacion).toMatch(/catering.*persona/i)
 
     // Ningún pedido real se creó — se rechazó del todo, no algo parcial.
     const numeroDespues = await client.query(

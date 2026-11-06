@@ -33,7 +33,7 @@ import GraficoArea, { etiquetaHora } from '../components/bakeos/GraficoArea'
 const consultaPedidos = (desde, hasta) => () =>
   supabase
     .from('orders')
-    .select('total, estado, creado_en')
+    .select('total, estado, creado_en, sede_id')
     .gte('creado_en', desde.toISOString())
     .lte('creado_en', hasta.toISOString())
     .order('creado_en', { ascending: true })
@@ -45,20 +45,23 @@ const consultaPedidos = (desde, hasta) => () =>
 // cortes (hoy hasta ahora / semana anterior hasta la misma hora de Lima) se
 // suman con la MISMA definición de ingreso del dominio (`cuentaComoIngreso`,
 // la lista que metricas_kpis ya replica) sobre los pedidos de esas ventanas.
-async function cargarResumen(ahora) {
+async function cargarResumen(ahora, sedeId) {
   const v = ventanasComparacion(ahora)
   const hoy = partesLima(ahora).fecha
   const [kpis, pedidosHoy, pedidosAnterior, enCurso] = await Promise.all([
-    supabase.rpc('metricas_kpis', { p_desde: hoy, p_hasta: hoy, p_sede_id: null }).single(),
+    supabase.rpc('metricas_kpis', { p_desde: hoy, p_hasta: hoy, p_sede_id: sedeId ?? null }).single(),
     traerTodo(consultaPedidos(v.hoy.desde, v.hoy.hasta)),
     traerTodo(consultaPedidos(v.semanaAnterior.desde, v.semanaAnterior.hasta)),
     traerTodo(() => supabase.from('orders').select('estado').in('estado', ['confirmed', 'paid', 'in_production'])),
   ])
   if (kpis.error) throw kpis.error
+  // Un operador ve por RLS también los pedidos SIN sede (para poder tomarlos), pero esos no son de su sede:
+  // no se suman a sus ventas (si no, se contarían en las dos sedes a la vez). El administrador ve el total.
+  const deMiSede = (p) => !sedeId || p.sede_id === sedeId
   return {
     kpis: kpis.data,
-    pedidosHoy,
-    pedidosAnterior,
+    pedidosHoy: pedidosHoy.filter(deMiSede),
+    pedidosAnterior: pedidosAnterior.filter(deMiSede),
     enProduccion: enCurso.filter((p) => p.estado === 'in_production').length,
     porIniciar: enCurso.filter((p) => p.estado !== 'in_production').length,
     ventanas: v,
@@ -135,7 +138,7 @@ export default function Resumen() {
   const { perfil } = useAuth()
   const { alertas, ahora } = useAlertas()
   const { resumen: atencion } = useAtencion()
-  const { datos, error } = useDatosVivos(() => cargarResumen(ahora), {
+  const { datos, error } = useDatosVivos(() => cargarResumen(ahora, perfil?.rol === 'admin' ? null : perfil?.sedeId), {
     tablas: ['orders'],
     deps: [ahora.getTime()],
   })

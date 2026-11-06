@@ -169,7 +169,7 @@ export default function Mifact() {
     setMarcadas(new Set(comparacion.coincidencias.filter((c) => c.confianza === 'exacta' && c.variantes.some((v) => v.codigo === 'nuevo')).map((c) => c.item.id)))
   }, [comparacion])
 
-  if (perfil?.rol !== 'admin') return <Navigate to="/resumen" replace />
+  if (perfil?.rol !== 'admin') return <Navigate to="/inicio" replace />
 
   async function elegirArchivo(e) {
     const f = e.target.files?.[0]

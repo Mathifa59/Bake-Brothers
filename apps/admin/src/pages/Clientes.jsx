@@ -37,7 +37,7 @@ export default function Clientes() {
   const [seleccionado, setSeleccionado] = useState(null) // { id, nombre }
   const [segmentoId, setSegmentoId] = useState(null)
 
-  const { pedidos, error: errorPedidos, guardando, cambiarEstado } = usePedidos({ customerId: seleccionado?.id })
+  const { pedidos, error: errorPedidos, guardando, cambiarEstado, tomarPedido, confirmarPago, rechazarPago, perfil } = usePedidos({ customerId: seleccionado?.id })
 
   const segmentos = useMemo(() => (datos ? segmentarClientes(datos.clientes, datos.pedidos) : null), [datos])
   const ultimoPedido = useMemo(() => {
@@ -155,7 +155,7 @@ export default function Clientes() {
                   ) : !pedidos ? (
                     <p className="text-sm text-gris">Cargando…</p>
                   ) : (
-                    <TablaPedidos pedidos={pedidos} guardando={guardando} onCambiarEstado={cambiarEstado} />
+                    <TablaPedidos pedidos={pedidos} guardando={guardando} onCambiarEstado={cambiarEstado} onTomar={tomarPedido} onConfirmarPago={confirmarPago} onRechazarPago={rechazarPago} perfil={perfil} />
                   )}
                 </>
               )}

@@ -4,6 +4,7 @@ import { pool, withTenantTx } from '../db.js'
 import { sedePorPhoneNumberId, encontrarOCrearConversacion } from '../repositories/conversacionesRepo.js'
 import { procesarMensajeEntrante } from './cerebro.js'
 import { enviarMensajeMeta } from './meta.js'
+import { procesarCapturaWhatsApp } from './procesarCapturaPago.js'
 import { extraerReferencia } from '@bakebrothers/domain'
 import type { MensajeWhatsAppEntrante } from './parsearMensajesWhatsApp.js'
 
@@ -34,7 +35,7 @@ async function forzarEscaladaDeSeguridad(pool: pg.Pool, conversacionId: string, 
  * quede visible en el dashboard — nunca dejar un mensaje real sin respuesta
  * y sin que nadie se entere. Esto cubre TANTO que el cerebro falle al
  * calcular la respuesta COMO que el envío real por WhatsApp falle después de
- * calcularla bien (ej. sin META_WHATSAPP_TOKEN todavía) — desde el punto de
+ * calcularla bien (ej. el número sin conexión activa en whatsapp_conexiones) — desde el punto de
  * vista del cliente, las dos son "nunca le llegó nada".
  *
  * Dos transacciones separadas a propósito (no una sola) para resolver la
@@ -53,13 +54,20 @@ export async function procesarMensajeWhatsAppEnBackground(
   try {
     conversacionId = await withTenantTx(tenantId, async (client) => {
       const sedeId = await sedePorPhoneNumberId(client, mensaje.phoneNumberId)
-      return encontrarOCrearConversacion(client, tenantId, 'whatsapp', mensaje.telefono, sedeId)
+      return encontrarOCrearConversacion(client, tenantId, 'whatsapp', mensaje.telefono, sedeId, mensaje.phoneNumberId)
     })
   } catch (err) {
     logger.error(
       { err, mensajeId: mensaje.mensajeId },
       'Fallo resolviendo/creando la conversación para un mensaje de WhatsApp entrante'
     )
+    return
+  }
+
+  // Una imagen (la captura de un pago) no pasa por el cerebro conversacional: la lee procesarCapturaPago.ts y
+  // deja el pedido como "pago reportado" para que una persona lo confirme. El bot nunca da un pago por confirmado.
+  if (mensaje.imagen) {
+    await procesarCapturaWhatsApp(logger, tenantId, conversacionId, mensaje)
     return
   }
 

@@ -30,7 +30,10 @@ vi.mock('@anthropic-ai/sdk', () => ({
 
 // El rol sale de un header de prueba (nunca del navegador real): sin header =
 // sin sesión (401), igual que el middleware verdadero sin token.
-vi.mock('../src/auth/verificarJwtOperador.js', () => ({
+vi.mock('../src/auth/verificarJwtOperador.js', async (importOriginal) => ({
+  // Se conserva el resto del módulo (p. ej. `exigirAdmin`, que usan otras rutas de la app) y solo se
+  // reemplaza la verificación del JWT.
+  ...(await importOriginal<typeof import('../src/auth/verificarJwtOperador.js')>()),
   verificarJwtOperador: async (
     req: { headers: Record<string, string | undefined>; operador?: unknown },
     reply: { code: (n: number) => { send: (b: unknown) => unknown } }
@@ -194,6 +197,7 @@ describe.skipIf(!hayBaseDeDatosReal)('POST /api/dashboard/simulador/mensaje', ()
     const cuerpo = res.json()
     expect(cuerpo.pedidosCreados).toHaveLength(1)
     const { numero, estado, total } = cuerpo.pedidosCreados[0]
+    // Recojo pagando al recoger (pagoPorAdelantado: false en el pedido del modelo mockeado): nace confirmado.
     expect(estado).toBe('confirmed')
     expect(total).toBe(12.9)
 

@@ -15,7 +15,9 @@ import { DATABASE_URL_PLACEHOLDER } from './testEnv.js'
 const hayBaseDeDatosReal =
   !!process.env.DATABASE_URL && process.env.DATABASE_URL !== DATABASE_URL_PLACEHOLDER
 
-vi.mock('../src/auth/verificarJwtOperador.js', () => ({
+vi.mock('../src/auth/verificarJwtOperador.js', async (importOriginal) => ({
+  // Se conserva el resto del módulo (p. ej. `exigirAdmin`, que usan otras rutas de la app).
+  ...(await importOriginal<typeof import('../src/auth/verificarJwtOperador.js')>()),
   verificarJwtOperador: async (
     req: { headers: Record<string, string | undefined>; operador?: unknown },
     reply: { code: (n: number) => { send: (b: unknown) => unknown } }

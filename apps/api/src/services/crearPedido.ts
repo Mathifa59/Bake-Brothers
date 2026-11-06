@@ -1,8 +1,14 @@
 import type pg from 'pg'
-import type { EstadoPedido, TipoEntrega } from '@bakebrothers/domain'
+import {
+  resolverSedeDelPedido,
+  distritoTieneCobertura,
+  parsearDistritosDelivery,
+  type EstadoPedido,
+  type TipoEntrega,
+} from '@bakebrothers/domain'
+import { env } from '../env.js'
 import { findOrCreateCustomer, siguienteNumeroDePedido, insertarPedido, type OrderItemInsert } from '../repositories/ordersRepo.js'
 import { validarYValorizarItemsTienda } from './pedidosTienda.js'
-import { validarItemsCatering } from './pedidosCatering.js'
 import { validarItemsCombo, type SeleccionComboInput } from './pedidosCombos.js'
 
 /**
@@ -54,7 +60,10 @@ export interface CrearPedidoInput {
     // entre canales.
     telefono: string
   }
+  /** Sede de la conversación (número de un local). Con el número del bot no existe y se resuelve con `sedeElegida`. */
   sedeId?: string
+  /** Lo que respondió el cliente a "¿en qué local recoges?" (o "delivery"). Solo se usa si la conversación no trae sede. */
+  sedeElegida?: string | null
   tipoEntrega: TipoEntrega
   direccion?: string | null
   distrito?: string | null
@@ -68,6 +77,8 @@ export interface CrearPedidoInput {
   // manual, vía el dashboard) → el pedido nace en payment_pending en vez de
   // confirmed.
   pagoPorAdelantado: boolean
+  /** Conversación del bot que crea el pedido (0036): enlaza la captura de pago que llegue después con este pedido. */
+  conversacionId?: string | null
   nota?: string | null
   // Pedido de prueba (simulador del bot del dashboard, ver
   // services/simuladorBot.ts): el cliente y la nota quedan marcados con
@@ -83,7 +94,25 @@ export interface CrearPedidoInput {
 export const MARCA_PRUEBA = '[PRUEBA]'
 
 export type ResultadoCrearPedido =
-  | { ok: true; numero: string; estado: EstadoPedido; subtotal: number; total: number }
+  | {
+      ok: true
+      numero: string
+      estado: EstadoPedido
+      subtotal: number
+      total: number
+      /** Sede en la que quedó el pedido (null = delivery sin sede: lo toma una sede con «Me lo quedo»). */
+      sedeId: string | null
+      /**
+       * Datos para pagar por adelantado (env DATOS_PAGO), solo en recojo en tienda y solo si están
+       * configurados. null = el cliente todavía no tiene cómo pagar: una persona se los envía.
+       */
+      datosPago: string | null
+      /**
+       * Si viene, el pedido quedó registrado pero lo debe seguir una persona (delivery por cotizar y
+       * coordinar, o datos de pago por enviar). El bot deriva la conversación con este motivo.
+       */
+      atencionHumana?: string
+    }
   | { ok: false; error: string; detalle?: unknown }
 
 export async function crearPedido(
@@ -96,8 +125,28 @@ export async function crearPedido(
     return { ok: false, error: 'SIN_ITEMS' }
   }
 
+  // Reglas de lanzamiento (decididas con el negocio, 2026-10-29) — el servidor las hace cumplir, no depende
+  // de que el modelo las recuerde:
+  //  1. El catering SIEMPRE lo cotiza y confirma una persona: el bot nunca crea un pedido de catering, ni
+  //     siquiera con el semáforo en verde (sigue consultándolo para dejarle el contexto a esa persona).
+  //  2. Pago: el delivery se paga SIEMPRE por adelantado (contraentrega no existe ahí); en recojo en tienda
+  //     el cliente elige pagar antes o al recoger ("Canceló en tienda", metodo_pago = 'contraentrega').
+  //  3. Delivery solo a los distritos con cobertura (DISTRITOS_DELIVERY).
+  if (input.items.some((i) => i.tipo === 'catering')) {
+    return { ok: false, error: 'CATERING_REQUIERE_PERSONA' }
+  }
+  if (input.tipoEntrega === 'delivery' && input.metodoPago === 'contraentrega') {
+    return { ok: false, error: 'PAGO_ADELANTADO_REQUERIDO', detalle: { mensaje: 'El delivery se paga por adelantado.' } }
+  }
+  if (input.tipoEntrega === 'delivery') {
+    if (!input.direccion || !input.distrito) return { ok: false, error: 'DIRECCION_REQUERIDA' }
+    const distritosConCobertura = parsearDistritosDelivery(env.DISTRITOS_DELIVERY)
+    if (!distritoTieneCobertura(input.distrito, distritosConCobertura)) {
+      return { ok: false, error: 'DISTRITO_SIN_COBERTURA', detalle: { distrito: input.distrito, distritosConCobertura } }
+    }
+  }
+
   const itemsProducto = input.items.filter((i): i is ItemPedidoProducto => i.tipo === 'producto')
-  const itemsCatering = input.items.filter((i): i is ItemPedidoCatering => i.tipo === 'catering')
   const itemsCombo = input.items.filter((i): i is ItemPedidoCombo => i.tipo === 'combo')
 
   const itemsParaInsertar: OrderItemInsert[] = []
@@ -121,20 +170,6 @@ export async function crearPedido(
     subtotal += resultado.subtotal
   }
 
-  if (itemsCatering.length > 0) {
-    // Re-verificación server-side: nunca confía en que el modelo solo haya
-    // llamado a esta función después de ver verde.
-    const resultado = await validarItemsCatering(
-      client,
-      itemsCatering.map((i) => ({ busquedaItem: i.busqueda, cantidad: i.cantidad })),
-      input.fechaEntregaISO
-    )
-    if (!resultado.ok) return resultado
-    itemsParaInsertar.push(...resultado.items)
-    // Los items de catering suman 0 al subtotal — no hay precio de
-    // catálogo (ver pedidosCatering.ts), lo cotiza el operador después.
-  }
-
   if (itemsCombo.length > 0) {
     // Re-verificación server-side, mismo criterio que catering arriba:
     // nunca confía en que el modelo haya clasificado bien el combo por su
@@ -153,8 +188,20 @@ export async function crearPedido(
     requiereConfirmarCombo = requiereConfirmarCombo || resultado.requiereConfirmarCombo
   }
 
-  if (input.tipoEntrega === 'delivery' && (!input.direccion || !input.distrito)) {
-    return { ok: false, error: 'DIRECCION_REQUERIDA' }
+  // Sede del pedido. Con el número de un local sale de la conversación; con el número del bot (sin sede) la
+  // EXIGE el servidor — no depende de que el modelo se acuerde de preguntar. Se resuelve ANTES de tocar nada
+  // (cliente, número de pedido): un rechazo no deja rastro.
+  const { rows: sedes } = await client.query<{ id: string; nombre: string }>(
+    `select id, nombre from sedes where activo order by nombre`
+  )
+  const sede = resolverSedeDelPedido({
+    tipoEntrega: input.tipoEntrega,
+    sedeDeLaConversacion: input.sedeId ?? null,
+    sedeElegida: input.sedeElegida ?? null,
+    sedes,
+  })
+  if (!sede.ok) {
+    return { ok: false, error: sede.error, detalle: { sedesDisponibles: sede.sedesDisponibles } }
   }
 
   const { rows: tenantRows } = await client.query<{ codigo_prefijo: string }>(
@@ -164,7 +211,13 @@ export async function crearPedido(
   const codigoPrefijo = tenantRows[0]?.codigo_prefijo
   if (!codigoPrefijo) return { ok: false, error: 'TENANT_NO_ENCONTRADO' }
 
-  const estado: EstadoPedido = input.pagoPorAdelantado ? 'payment_pending' : 'confirmed'
+  // Delivery: adelantado, siempre. Recojo: lo que elija el cliente — pagar antes (nace pendiente de pago y pasa
+  // a pagado cuando una persona verifica el comprobante en el panel) o pagar al recoger (nace confirmado y se
+  // registra como "Canceló en tienda"). El bot NUNCA pasa un pedido a pagado: eso lo hace una persona.
+  const esDelivery = input.tipoEntrega === 'delivery'
+  const pagaAlRecoger = !esDelivery && !input.pagoPorAdelantado
+  const estado: EstadoPedido = pagaAlRecoger ? 'confirmed' : 'payment_pending'
+  const metodoPagoFinal = pagaAlRecoger ? 'contraentrega' : input.metodoPago === 'contraentrega' ? 'yape' : input.metodoPago
   // delivery/total: mismo criterio que POST /api/orders — delivery en 0, lo
   // completa el operador desde el dashboard.
   const total = subtotal
@@ -185,14 +238,14 @@ export async function crearPedido(
       canal,
       estado,
       tipoEntrega: input.tipoEntrega,
-      sedeId: input.sedeId ?? null,
+      sedeId: sede.sedeId,
       direccion: input.direccion ?? null,
       distrito: input.tipoEntrega === 'delivery' ? (input.distrito ?? null) : null,
       referencia: input.referencia ?? null,
       fechaEntrega: input.fechaEntregaISO,
       horario: input.horario,
       nota: esPrueba ? `${MARCA_PRUEBA} ${input.nota ?? 'Pedido del simulador del bot'}` : (input.nota ?? null),
-      metodoPago: input.metodoPago,
+      metodoPago: metodoPagoFinal,
       cuponCodigo: null,
       subtotal,
       descuentoCupon: 0,
@@ -200,9 +253,27 @@ export async function crearPedido(
       total,
       requiereConfirmarCombo,
       campana: input.campana ?? null,
+      conversacionId: input.conversacionId ?? null,
     },
     itemsParaInsertar
   )
 
-  return { ok: true, numero, estado, subtotal, total }
+  // Qué debe hacer una persona después de este pedido. En delivery el costo de envío lo cotiza ella, así que
+  // tampoco se le dan datos de pago al cliente hasta tener el total final.
+  const datosPago = esDelivery || pagaAlRecoger ? null : (env.DATOS_PAGO ?? null)
+  const pendientes: string[] = []
+  if (esDelivery) pendientes.push('cotizar el delivery y coordinar la entrega')
+  // Los datos de pago solo hacen falta si paga por adelantado (y en delivery, cuando ya esté el total final).
+  if (!datosPago && !pagaAlRecoger) pendientes.push('enviar los datos de pago al cliente')
+
+  return {
+    ok: true,
+    numero,
+    estado,
+    subtotal,
+    total,
+    sedeId: sede.sedeId,
+    datosPago,
+    atencionHumana: pendientes.length > 0 ? `Pedido ${numero}: ${pendientes.join(' y ')}.` : undefined,
+  }
 }

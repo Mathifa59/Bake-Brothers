@@ -121,7 +121,7 @@ export default function Metricas() {
     return PRESETS.find((p) => p.key === preset).calcular()
   }, [preset, rangoPersonalizado])
 
-  const { kpis, topPorCantidad, topPorIngresos, tendencia, cargando, error } = useMetricas({
+  const { kpis, sinAsignar, topPorCantidad, topPorIngresos, tendencia, cargando, error } = useMetricas({
     desde: rango.desde,
     hasta: rango.hasta,
     sedeId,
@@ -205,6 +205,18 @@ export default function Metricas() {
             <TarjetaKpi etiqueta="Ingresos" valor={formatoMoneda(kpis.ingresos)} />
             <TarjetaKpi etiqueta="Ticket promedio" valor={formatoMoneda(kpis.ticket_promedio)} />
           </div>
+
+          {sinAsignar && Number(sinAsignar.pedidos) > 0 && (
+            <div className="mb-6 rounded-2xl border border-dashed border-caramelo/60 bg-caramelo-suave/40 p-4 text-sm">
+              <p className="font-bold text-tinta">
+                Sin asignar: {sinAsignar.pedidos} pedido{Number(sinAsignar.pedidos) === 1 ? '' : 's'} · {formatoMoneda(sinAsignar.ingresos)}
+              </p>
+              <p className="mt-1 text-gris">
+                Delivery que ninguna sede ha tomado todavía (botón «Me lo quedo» en Pedidos). No se suma a ninguna sede
+                {!sedeId && esAdmin ? '; el total de «Todas las sedes» sí lo incluye' : ''}.
+              </p>
+            </div>
+          )}
 
           <div className="mb-6 rounded-2xl border border-borde/60 bg-white p-5">
             <div className="mb-3 flex items-center justify-between">

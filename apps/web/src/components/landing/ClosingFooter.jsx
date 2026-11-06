@@ -151,6 +151,10 @@ export default function ClosingFooter({ onVisibilidadCambia }) {
             a propósito del contacto (que sigue alineado a la izquierda en
             desktop), pedido explícito del cliente. */}
         <p className="mt-10 text-center text-xs text-white/35">
+          <Link to="/privacidad" className="font-semibold text-white/50 transition-colors hover:text-white/80">
+            Política de privacidad
+          </Link>
+          <span aria-hidden="true"> · </span>
           Desarrollado por{' '}
           <a
             href="https://www.devhorses.com/"

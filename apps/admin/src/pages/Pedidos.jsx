@@ -9,7 +9,7 @@ const POR_PREPARAR = ['confirmed', 'payment_pending', 'paid', 'in_production']
 const LISTOS = ['out_for_delivery']
 
 export default function Pedidos() {
-  const { pedidos, error, guardando, cambiarEstado } = usePedidos()
+  const { pedidos, error, guardando, cambiarEstado, tomarPedido, confirmarPago, rechazarPago, perfil } = usePedidos()
   const [filtro, setFiltro] = useState('todos')
   const [busqueda, setBusqueda] = useState('')
 
@@ -84,7 +84,17 @@ export default function Pedidos() {
 
         {error && <ErrorCarga mensaje={error} />}
         {!pedidos && !error && <Cargando texto="Cargando pedidos…" />}
-        {visibles && <TablaPedidos pedidos={visibles} guardando={guardando} onCambiarEstado={cambiarEstado} />}
+        {visibles && (
+          <TablaPedidos
+            pedidos={visibles}
+            guardando={guardando}
+            onCambiarEstado={cambiarEstado}
+            onTomar={tomarPedido}
+            onConfirmarPago={confirmarPago}
+            onRechazarPago={rechazarPago}
+            perfil={perfil}
+          />
+        )}
         {pedidos && pedidos.length >= 100 && (
           <p className="mt-3 text-xs text-gris">Se muestran los 100 pedidos más recientes. Los que están en producción siempre aparecen en Producción.</p>
         )}

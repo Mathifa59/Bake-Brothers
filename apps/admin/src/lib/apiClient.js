@@ -58,6 +58,25 @@ export async function responderConversacion(conversacionId, texto) {
 }
 
 /**
+ * Tomar / devolver al bot / cerrar una conversación (o, solo dirección, asignar su local con accion = 'sede').
+ * Una conversación sin local queda en el local de quien la toma. Lanza un Error con .codigo/.detalle si falla.
+ */
+export async function gestionarConversacion(conversacionId, accion, cuerpo = {}) {
+  const res = await pedirConAuth(`/api/dashboard/conversaciones/${encodeURIComponent(conversacionId)}/${accion}`, {
+    method: 'POST',
+    body: JSON.stringify(cuerpo),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.error || `Error del servidor (${res.status})`)
+    err.codigo = data.error
+    err.detalle = data.detalle
+    throw err
+  }
+  return data
+}
+
+/**
  * Simulador del bot (solo admin): manda un mensaje "como cliente" al cerebro real
  * y devuelve su respuesta. No envía nada por WhatsApp. La conversación vive en el
  * navegador: se reenvía el historial en cada turno. Lanza un Error con .codigo/.detalle si falla.

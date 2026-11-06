@@ -19,7 +19,7 @@ async function cargarAlertas() {
       supabase
         .from('orders')
         .select(
-          'numero, estado, requiere_confirmar_combo, actualizado_en, fecha_entrega, horario_entrega, customers(nombre), sedes(nombre)'
+          'numero, estado, requiere_confirmar_combo, actualizado_en, fecha_entrega, horario_entrega, pago_reportado, pago_resultado, customers(nombre), sedes(nombre)'
         )
         .in('estado', ESTADOS_PRE_PRODUCCION)
         .order('actualizado_en', { ascending: true })
@@ -40,6 +40,8 @@ async function cargarAlertas() {
       numero: p.numero,
       estado: p.estado,
       requiere_confirmar_combo: p.requiere_confirmar_combo,
+      // Pago reportado con captura y sin revisar: el bot lo dejó listo, falta que una persona lo confirme o rechace.
+      pago_por_confirmar: p.estado === 'payment_pending' && p.pago_reportado != null && p.pago_resultado == null,
       actualizado_en: p.actualizado_en,
       fecha_entrega: p.fecha_entrega,
       horario_entrega: p.horario_entrega,

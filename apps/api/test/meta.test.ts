@@ -1,10 +1,21 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import crypto from 'node:crypto'
 
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
 
+// El token sale de whatsapp_conexiones (una por número) — acá se mockea la
+// búsqueda para probar SOLO la llamada a la Cloud API sin Postgres. La
+// búsqueda + descifrado real contra la base se prueba en
+// test/whatsappConexiones.test.ts.
+const mockObtenerToken = vi.fn()
+vi.mock('../src/bot/tokensWhatsApp.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../src/bot/tokensWhatsApp.js')>()),
+  obtenerTokenWhatsApp: (...args: unknown[]) => mockObtenerToken(...args),
+}))
+
 const { verificarFirmaWebhook, enviarMensajeMeta } = await import('../src/bot/meta.js')
+const { ConexionWhatsAppNoEncontradaError } = await import('../src/bot/tokensWhatsApp.js')
 
 const APP_SECRET = 'un-app-secret-de-prueba-no-real'
 
@@ -50,46 +61,44 @@ describe('verificarFirmaWebhook', () => {
 
 // enviarMensajeMeta — sin Postgres, sin credenciales reales de Meta: fetch
 // está mockeado, nunca sale un request real. Prueba la lógica real de la
-// llamada (URL, headers, body, manejo de error), no que "algún día funcione
-// contra la API real" — eso no se puede probar sin un token permanente
-// real, que todavía no existe (ver CLAUDE.md §9).
+// llamada (URL, headers, body, manejo de error, token por número), no que
+// "algún día funcione contra la API real" — eso solo se puede probar con un
+// número conectado de verdad (ver CLAUDE.md §9).
 describe('enviarMensajeMeta', () => {
-  const tokenOriginal = process.env.META_WHATSAPP_TOKEN
-
   beforeEach(() => {
     mockFetch.mockReset()
+    mockObtenerToken.mockReset()
   })
 
-  afterEach(() => {
-    if (tokenOriginal === undefined) delete process.env.META_WHATSAPP_TOKEN
-    else process.env.META_WHATSAPP_TOKEN = tokenOriginal
-  })
-
-  it('falla visiblemente si falta META_WHATSAPP_TOKEN — nunca en silencio', async () => {
-    delete process.env.META_WHATSAPP_TOKEN
+  it('falla visiblemente si el número no tiene conexión — nunca en silencio ni con el token de otro número', async () => {
+    mockObtenerToken.mockRejectedValueOnce(new ConexionWhatsAppNoEncontradaError('PHONE_ID'))
     await expect(enviarMensajeMeta('whatsapp', 'PHONE_ID', '51999999999', 'hola')).rejects.toThrow(
-      /META_WHATSAPP_TOKEN/
+      /No hay una conexión de WhatsApp activa para el número PHONE_ID/
     )
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
   it('rechaza canales distintos de whatsapp (Messenger/Instagram sin envío real todavía)', async () => {
-    process.env.META_WHATSAPP_TOKEN = 'token-de-prueba'
     await expect(enviarMensajeMeta('facebook', 'PAGE_ID', 'PSID', 'hola')).rejects.toThrow(/facebook/)
+    expect(mockObtenerToken).not.toHaveBeenCalled()
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
-  it('hace la llamada real correcta a la Cloud API cuando hay token (fetch mockeado)', async () => {
-    process.env.META_WHATSAPP_TOKEN = 'token-de-prueba-real'
-    mockFetch.mockResolvedValueOnce({ ok: true, text: async () => '' })
+  it('hace la llamada real correcta a la Cloud API con el token de ESE número (fetch mockeado)', async () => {
+    mockObtenerToken.mockResolvedValueOnce('token-de-negocio-de-ese-numero')
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      text: async () => JSON.stringify({ messaging_product: 'whatsapp', messages: [{ id: 'wamid.ABC123' }] }),
+    })
 
-    await enviarMensajeMeta('whatsapp', 'PHONE_ID_123', '51987654321', 'Tu pedido BB-1000 quedó confirmado 😊')
+    const resultado = await enviarMensajeMeta('whatsapp', 'PHONE_ID_123', '51987654321', 'Tu pedido BB-1000 quedó confirmado 😊')
 
+    expect(mockObtenerToken).toHaveBeenCalledWith('PHONE_ID_123')
     expect(mockFetch).toHaveBeenCalledTimes(1)
     const [url, opciones] = mockFetch.mock.calls[0] as [string, RequestInit]
     expect(url).toBe('https://graph.facebook.com/v21.0/PHONE_ID_123/messages')
     expect(opciones.method).toBe('POST')
-    expect((opciones.headers as Record<string, string>).Authorization).toBe('Bearer token-de-prueba-real')
+    expect((opciones.headers as Record<string, string>).Authorization).toBe('Bearer token-de-negocio-de-ese-numero')
     expect((opciones.headers as Record<string, string>)['Content-Type']).toBe('application/json')
 
     const body = JSON.parse(opciones.body as string)
@@ -99,10 +108,29 @@ describe('enviarMensajeMeta', () => {
       type: 'text',
       text: { body: 'Tu pedido BB-1000 quedó confirmado 😊' },
     })
+    // El wamid queda disponible para que el caller lo registre (anti-eco de Coexistence).
+    expect(resultado).toEqual({ wamid: 'wamid.ABC123' })
+  })
+
+  it('devuelve wamid null (sin romper) si Meta responde ok sin cuerpo parseable', async () => {
+    mockObtenerToken.mockResolvedValueOnce('t')
+    mockFetch.mockResolvedValueOnce({ ok: true, text: async () => '' })
+    await expect(enviarMensajeMeta('whatsapp', 'P', '51999999999', 'hola')).resolves.toEqual({ wamid: null })
+  })
+
+  it('dos números distintos usan cada uno SU token', async () => {
+    mockObtenerToken.mockImplementation(async (id: string) => `token-de-${id}`)
+    mockFetch.mockResolvedValue({ ok: true, text: async () => '' })
+
+    await enviarMensajeMeta('whatsapp', 'CEDROS', '51900000001', 'a')
+    await enviarMensajeMeta('whatsapp', 'SANTA_MARINA', '51900000002', 'b')
+
+    const auth = mockFetch.mock.calls.map(([, o]) => (o as RequestInit & { headers: Record<string, string> }).headers.Authorization)
+    expect(auth).toEqual(['Bearer token-de-CEDROS', 'Bearer token-de-SANTA_MARINA'])
   })
 
   it('lanza con el detalle real cuando Meta responde un error', async () => {
-    process.env.META_WHATSAPP_TOKEN = 'token-de-prueba'
+    mockObtenerToken.mockResolvedValueOnce('token-de-prueba')
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 401,

@@ -12,6 +12,7 @@ export function useMetricas({ desde, hasta, sedeId }) {
   const [kpis, setKpis] = useState(null)
   const [productos, setProductos] = useState(null)
   const [tendencia, setTendencia] = useState(null)
+  const [sinAsignar, setSinAsignar] = useState(null)
   const [error, setError] = useState(null)
 
   useEffect(() => {
@@ -25,6 +26,15 @@ export function useMetricas({ desde, hasta, sedeId }) {
       .then(({ data, error }) => {
         if (error) return setError(error.message)
         setKpis(data)
+      })
+
+    // Pedidos sin sede (delivery que nadie ha tomado): NO se suman a ninguna sede, van aparte.
+    supabase
+      .rpc('metricas_sin_asignar', { p_desde: desde, p_hasta: hasta })
+      .single()
+      .then(({ data, error }) => {
+        if (error) return setError(error.message)
+        setSinAsignar(data)
       })
 
     supabase
@@ -54,7 +64,7 @@ export function useMetricas({ desde, hasta, sedeId }) {
     return [...productos].sort((a, b) => b.ingresos - a.ingresos).slice(0, TOP_N)
   }, [productos])
 
-  const cargando = kpis === null || productos === null || tendencia === null
+  const cargando = kpis === null || productos === null || tendencia === null || sinAsignar === null
 
-  return { kpis, topPorCantidad, topPorIngresos, tendencia, cargando, error }
+  return { kpis, sinAsignar, topPorCantidad, topPorIngresos, tendencia, cargando, error }
 }

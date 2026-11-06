@@ -22,6 +22,7 @@ const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
 
 const { buildApp } = await import('../src/app.js')
+const { sembrarConexion, quitarConexion } = await import('./conexionDePrueba.js')
 
 const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -36,7 +37,7 @@ function payload(mensajeId: string, telefono: string, texto: string) {
             field: 'messages',
             value: {
               messaging_product: 'whatsapp',
-              metadata: { display_phone_number: '51999999999', phone_number_id: 'PHONE_ID_DE_PRUEBA' },
+              metadata: { display_phone_number: '51999999999', phone_number_id: PHONE_ID },
               contacts: [{ profile: { name: 'Cliente de prueba' }, wa_id: telefono }],
               messages: [{ from: telefono, id: mensajeId, timestamp: String(Math.floor(Date.now() / 1000)), type: 'text', text: { body: texto } }],
             },
@@ -47,6 +48,9 @@ function payload(mensajeId: string, telefono: string, texto: string) {
   }
 }
 
+// Número propio de este archivo: el webhook solo atiende números CONECTADOS, y compartir el de otros tests
+// (PHONE_ID_DE_PRUEBA) lo hacía depender de que otro archivo lo sembrara justo a tiempo.
+const PHONE_ID = 'PHONE_ID_CAMPANA_TEST'
 const TEL = '999000888'
 const TEL_PEDIDO = '999000889' // teléfono de contacto que da el cliente al pedir
 
@@ -81,12 +85,18 @@ describe.skipIf(!hayBaseDeDatosReal)('atribución de campañas — webhook real'
   const conversacion = async () =>
     (await pool.query(`select contexto, historial from conversaciones where tenant_id = $1 and external_id = $2`, [tenantId, TEL])).rows[0]
 
+  let sedeId: string
   beforeAll(async () => {
     tenantId = (await pool.query(`select id from tenants where slug = 'bake-brothers'`)).rows[0].id
+    sedeId = (await pool.query(`insert into sedes (nombre) values ('TEST campana') returning id`)).rows[0].id
+    await sembrarConexion(pool, { sedeId, phoneNumberId: PHONE_ID })
     app = await buildApp()
   })
   afterAll(async () => {
     await limpiar()
+    await quitarConexion(pool, { sedeId, phoneNumberId: PHONE_ID })
+    await pool.query(`delete from conversaciones where sede_id = $1`, [sedeId])
+    await pool.query(`delete from sedes where id = $1`, [sedeId])
     await pool.end()
   })
   beforeEach(async () => {

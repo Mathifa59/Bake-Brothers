@@ -61,3 +61,10 @@ export async function verificarJwtOperador(req: FastifyRequest, reply: FastifyRe
 
   req.operador = { id: sub, rol: fila.rol, sedeId: fila.sede_id }
 }
+
+/** preHandler adicional, SIEMPRE después de verificarJwtOperador: solo admin (ej. conectar números de WhatsApp). El rol sale de usuarios_dashboard, nunca del cliente. */
+export async function exigirAdmin(req: FastifyRequest, reply: FastifyReply) {
+  if (req.operador?.rol !== 'admin') {
+    return reply.code(403).send({ error: 'SOLO_ADMIN' })
+  }
+}

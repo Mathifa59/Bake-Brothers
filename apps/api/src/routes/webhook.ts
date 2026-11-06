@@ -5,6 +5,7 @@ import { verificarFirmaWebhook } from '../bot/meta.js'
 import { parsearMensajesWhatsApp, detectarCanalNoWhatsApp } from '../bot/parsearMensajesWhatsApp.js'
 import { procesarMensajeWhatsAppEnBackground } from '../bot/procesarWebhookWhatsApp.js'
 import { marcarMensajeComoProcesado } from '../repositories/conversacionesRepo.js'
+import { phoneNumberIdsConectados } from '../repositories/whatsappConexionesRepo.js'
 import { guardarEventoMetaSinProcesar } from '../repositories/eventosMetaRepo.js'
 import { pool, tenantPorSlug } from '../db.js'
 
@@ -74,6 +75,14 @@ export function webhookRoutes(app: FastifyInstance) {
       // esto empieza a exigir la firma sin tocar código, y cualquier request
       // sin firma válida se rechaza.
       const appSecret = process.env.META_APP_SECRET
+      // En PRODUCCIÓN la firma es obligatoria: sin META_APP_SECRET el webhook no atiende nada (503) en vez de
+      // aceptar a cualquiera. Con el número del bot conectado, un POST falso con su phone_number_id haría
+      // hablar al bot y crear pedidos. Antes de que lleguen las credenciales de Meta no se pierde nada: aún
+      // no hay ningún webhook de Meta apuntando acá.
+      if (!appSecret && env.NODE_ENV === 'production') {
+        app.log.error('POST /webhook rechazado: falta META_APP_SECRET en producción (la firma de Meta es obligatoria)')
+        return reply.code(503).send({ error: 'FIRMA_NO_CONFIGURADA' })
+      }
       if (appSecret) {
         const firma = req.headers['x-hub-signature-256'] as string | undefined
         if (!req.rawBody || !verificarFirmaWebhook(req.rawBody, firma, appSecret)) {
@@ -94,7 +103,21 @@ export function webhookRoutes(app: FastifyInstance) {
         return reply.code(200).send()
       }
 
-      const mensajes = parsearMensajesWhatsApp(req.body)
+      // Solo se atienden mensajes de números CONECTADOS (whatsapp_conexiones,
+      // conexión activa). La app de Meta es de DevHorses y puede recibir
+      // eventos de otros números/clientes: ninguno de esos debe activar al
+      // bot de Bake Brothers ni consumir idempotencia. Se loggea y se ignora
+      // (200 igual — Meta no debe reintentar algo que nunca vamos a procesar).
+      const parseados = parsearMensajesWhatsApp(req.body)
+      const conectados = await phoneNumberIdsConectados(pool, [...new Set(parseados.map((m) => m.phoneNumberId))])
+      const mensajes = parseados.filter((m) => {
+        if (conectados.has(m.phoneNumberId)) return true
+        app.log.warn(
+          { phoneNumberId: m.phoneNumberId, mensajeId: m.mensajeId },
+          'Mensaje de WhatsApp de un número NO conectado (sin conexión activa) — ignorado'
+        )
+        return false
+      })
       const mensajesNuevos = []
       for (const mensaje of mensajes) {
         // Síncrono a propósito (ver docstring de arriba) — una sola query rápida.

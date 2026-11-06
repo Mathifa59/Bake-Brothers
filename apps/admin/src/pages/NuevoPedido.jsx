@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { mismoTelefono, ultimos9 } from '@bakebrothers/domain'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { crearPedidoDashboard, obtenerComprobantePdfUrl } from '../lib/apiClient'
@@ -75,6 +77,36 @@ export default function NuevoPedido() {
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null)
   const [clienteNuevoNombre, setClienteNuevoNombre] = useState('')
   const [clienteNuevoTelefono, setClienteNuevoTelefono] = useState('')
+
+  // «Crear pedido» desde Conversaciones llega con ?telefono=…&nombre=…: se carga el cliente (si ya existe, el
+  // registrado; si no, uno nuevo con ese teléfono y el nombre que se conozca) para no volver a escribirlo.
+  const [params] = useSearchParams()
+  const telefonoDeLaConversacion = params.get('telefono')
+  const nombreDeLaConversacion = params.get('nombre') ?? ''
+  useEffect(() => {
+    if (!telefonoDeLaConversacion) return
+    let vivo = true
+    supabase
+      .from('customers')
+      .select('id, nombre, telefono')
+      .ilike('telefono', `%${ultimos9(telefonoDeLaConversacion)}%`)
+      .limit(5)
+      .then(({ data }) => {
+        if (!vivo) return
+        const existente = (data ?? []).find((c) => mismoTelefono(c.telefono, telefonoDeLaConversacion))
+        if (existente) {
+          setModoCliente('buscar')
+          setClienteSeleccionado(existente)
+        } else {
+          setModoCliente('nuevo')
+          setClienteNuevoTelefono(ultimos9(telefonoDeLaConversacion))
+          setClienteNuevoNombre(nombreDeLaConversacion)
+        }
+      })
+    return () => {
+      vivo = false
+    }
+  }, [telefonoDeLaConversacion, nombreDeLaConversacion])
 
   useEffect(() => {
     if (modoCliente !== 'buscar' || busquedaCliente.trim().length < 2) {

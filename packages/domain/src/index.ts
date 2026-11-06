@@ -97,8 +97,27 @@ export {
   esEstadoConversacion,
   puedeTransicionarConversacion,
   estadoConversacionLegible,
+  debeAutoRetornarAlBot,
+  HORAS_AUTO_RETORNO_BOT_POR_DEFECTO,
   type EstadoConversacion,
+  type ConversacionParaAutoRetorno,
 } from './conversationStatus.js'
+
+export { distritoTieneCobertura, parsearDistritosDelivery } from './coberturaDelivery.js'
+
+export {
+  evaluarPagoReportado,
+  DIAS_MAXIMOS_ANTIGUEDAD_CAPTURA,
+  type ExtraccionPago,
+  type EvaluacionPago,
+} from './pagoReportado.js'
+
+export {
+  resolverSedeDelPedido,
+  encontrarSedePorNombre,
+  type SedeDisponible,
+  type ResultadoSedePedido,
+} from './sedeDelPedido.js'
 
 export {
   referenciaDeUtm,
@@ -123,3 +142,8 @@ export {
   type SoloMifact,
   type ComparacionMifact,
 } from './mifact.js'
+
+export { RUTAS_DE_EMPLEADO, puedeVerRuta, rutaInicial, nombreDeRol, type RolPanel } from "./permisosPanel.js"
+export { HORAS_VENTANA_WHATSAPP, estadoVentana24h, ultimoMensajeDelCliente, type EstadoVentana, type MensajeConHora } from "./ventanaWhatsApp.js"
+export { motivoEscaladaLegible, type CategoriaMotivo, type MotivoLegible } from "./motivoEscalada.js"
+export { ultimos9, mismoTelefono, telefonoLegible } from "./telefono.js"
