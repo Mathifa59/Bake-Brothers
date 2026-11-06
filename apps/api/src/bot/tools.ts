@@ -200,7 +200,7 @@ export async function listarCatalogo(
             count(ps.id) > 1 as varios_tamanos
      from products p
      left join categories c on c.id = p.category_id
-     left join product_sizes ps on ps.product_id = p.id and ps.precio is not null
+     left join product_sizes ps on ps.product_id = p.id and ps.precio is not null and ps.visible_publico
      where p.tenant_id = $1 and p.disponible
        and ${sqlCoincide(`(p.nombre || ' ' || coalesce(c.nombre, '') || ' ' || coalesce(p.categoria_negocio, ''))`, '$2', '$3')}
      group by p.id, c.id

@@ -45,7 +45,7 @@ export async function siguienteNumeroDePedido(
 export interface OrderInsert {
   numero: string
   customerId: string
-  canal: 'web' | 'whatsapp' | 'facebook' | 'instagram' | 'presencial'
+  canal: 'web' | 'whatsapp' | 'facebook' | 'instagram' | 'presencial' | 'mayorista' | 'rappi'
   estado: EstadoPedido
   tipoEntrega: TipoEntrega
   // null si no se pudo resolver la sede (ej. pedidos de web todavía, o
@@ -75,6 +75,11 @@ export interface OrderInsert {
   // Referencia de campaña con la que llegó el cliente ("tt-halloween", ver
   // packages/domain campana.ts). null si no vino de ninguna.
   campana?: string | null
+  // Órdenes de equipo (0039): número de orden de Rappi, total por cotizar (mayoristas) y si se registró pasado el
+  // corte de las 10:30 p. m. Nulos/false para todo lo demás.
+  referenciaExterna?: string | null
+  totalPendiente?: boolean
+  fueraDeCorte?: boolean
 }
 
 export interface OrderItemInsert {
@@ -92,6 +97,8 @@ export interface OrderItemInsert {
   extras: string[]
   precioUnitario: number
   cantidad: number
+  // Solo la mini empanada de catering (0039): el sabor.
+  sabor?: string | null
 }
 
 export async function insertarPedido(
@@ -104,8 +111,9 @@ export async function insertarPedido(
     `insert into orders (tenant_id, numero, customer_id, canal, estado, tipo_entrega, sede_id,
                          direccion, distrito, referencia, fecha_entrega, horario_entrega,
                          nota, metodo_pago, cupon_codigo, subtotal, descuento_cupon, delivery, total,
-                         requiere_confirmar_combo, campana, conversacion_id)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+                         requiere_confirmar_combo, campana, conversacion_id,
+                         referencia_externa, total_pendiente, fuera_de_corte)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
      returning id`,
     [
       tenantId, pedido.numero, pedido.customerId, pedido.canal, pedido.estado,
@@ -115,16 +123,19 @@ export async function insertarPedido(
       pedido.requiereConfirmarCombo,
       pedido.campana ?? null,
       pedido.conversacionId ?? null,
+      pedido.referenciaExterna ?? null,
+      pedido.totalPendiente ?? false,
+      pedido.fueraDeCorte ?? false,
     ]
   )
   const orderId = rows[0].id
   for (const item of items) {
     await client.query(
-      `insert into order_items (tenant_id, order_id, product_id, catering_item_id, combo_id, nombre_producto, tamano, extras, precio_unitario, cantidad)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      `insert into order_items (tenant_id, order_id, product_id, catering_item_id, combo_id, nombre_producto, tamano, extras, precio_unitario, cantidad, sabor)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [
         tenantId, orderId, item.productId, item.cateringItemId, item.comboId, item.nombreProducto,
-        item.tamano, item.extras, item.precioUnitario, item.cantidad,
+        item.tamano, item.extras, item.precioUnitario, item.cantidad, item.sabor ?? null,
       ]
     )
   }

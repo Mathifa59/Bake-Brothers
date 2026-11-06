@@ -56,7 +56,7 @@ const aDTO = (r: Record<string, unknown>): ProductoDTO => ({
 })
 
 const SELECT_BASE = `
-  select p.*, exists(select 1 from product_sizes ps where ps.product_id = p.id) as tiene_tamanos
+  select p.*, exists(select 1 from product_sizes ps where ps.product_id = p.id and ps.visible_publico) as tiene_tamanos
   from products p
   where p.tenant_id = $1
 `
@@ -164,7 +164,7 @@ export async function buscarProductosPorTexto(
             ${sqlCoincideEstricto('p.nombre', '$3')} as estricto,
             coalesce(
               (select jsonb_agg(jsonb_build_object('tamano', ps.tamano, 'precio', ps.precio) order by ps.precio)
-                 from product_sizes ps where ps.product_id = p.id and ps.tamano is not null),
+                 from product_sizes ps where ps.product_id = p.id and ps.tamano is not null and ps.visible_publico),
               '[]'
             ) as tamanos
      from products p
