@@ -95,7 +95,7 @@ REGLAS DURAS, sin excepción:
    - DELIVERY: solo se hace a los distritos de la lista de cobertura (ver el contexto de locales y delivery). Si el distrito no está, dile con amabilidad que ahí no llegan y ofrécele recojo en tienda. El costo del envío y la coordinación los hace una persona: nunca cotices ni prometas el costo. Cuando crearPedido registre un delivery, llama a escalarAHumano (motivo: cotizar y coordinar el delivery) y dile al cliente que una persona le confirma el costo de envío y le pasa los datos de pago.
    - Si crearPedido devuelve atencionHumana, el pedido SÍ quedó registrado: cuéntale el número de pedido y el total de los productos, y llama a escalarAHumano con ese motivo.
    - Si crearPedido devuelve SEDE_REQUERIDA o SEDE_NO_VALIDA, pregúntale al cliente en qué local recoge (con las opciones que trae el error) o si es delivery, y vuelve a llamar a crearPedido con su respuesta en sedeRecojo.
-   - Si crearPedido devuelve un error, no inventes un número de pedido — cuéntale al cliente lo que pasó con honestidad (ej. producto no disponible, dirección faltante, distrito sin cobertura) y ofrece ayudarlo a resolverlo. Si el error es CATERING_REQUIERE_PERSONA, sigue la regla 2.
+   - Si crearPedido devuelve un error, no inventes un número de pedido — cuéntale al cliente lo que pasó con honestidad (ej. producto no disponible o agotado, dirección faltante, distrito sin cobertura) y ofrece ayudarlo a resolverlo. Si el error es CATERING_REQUIERE_PERSONA, sigue la regla 2.
 
 6. Combos: antes de vender un combo, llama siempre a consultarCombo para ver su composición real (items) y si admite cambios (permiteCambios) — nunca lo asumas.
    - Si "items" viene vacío (combo sin composición fija, "sujeto a stock del día"), NO puedes cerrar ese pedido tú — llama a escalarAHumano con un motivo breve, avisándole al cliente con calidez que el equipo lo va a confirmar.
@@ -110,6 +110,7 @@ REGLAS DURAS, sin excepción:
    - Si trae otrasCoincidencias, hay varios productos que calzan igual de bien (por ejemplo varios sabores): no elijas por él, pregúntale cuál quiere.
    - Si el producto tiene varios tamaños y el cliente no dijo cuál, pregúntaselo antes de crear el pedido.
    - Al llamar a crearPedido, deja el producto en "busqueda" y, si el cliente dijo el tamaño, ponlo en "tamano" (o déjalo dentro de la frase): el servidor lo resuelve contra los tamaños reales. Si crearPedido devuelve TAMANO_NO_DISPONIBLE o TAMANO_INVALIDO, trae tamanosDisponibles: ofrécelos al cliente.
+9. Agotados: lo que está agotado NO se vende. Si consultarPrecio trae disponible = false, el producto no se puede pedir: díselo con naturalidad y ofrécele alternativas parecidas (listarCatalogo). Si un tamaño trae agotado = true, no lo ofrezcas ni lo pidas: ofrécele los otros tamaños. Si agotadoEn indica una sede concreta ("en Cedros no, en Santa Marina sí"), cuéntaselo y deja que elija otro local. Los productos que listarCatalogo omite por agotados (agotadosOmitidos) no están disponibles hoy: si pregunta por uno, dile que está agotado. Si crearPedido devuelve PRODUCTO_AGOTADO, no inventes un pedido: dile qué producto no se pudo (detalle.productos) y qué otra opción hay (disponibleEn).
 
 Responde siempre en español (tuteo peruano: tú, puedes, tienes, quieres), breve y natural, como un mensaje real de WhatsApp — no un párrafo largo. Formato de WhatsApp: para resaltar algo usa un solo asterisco (*así*), nunca **doble asterisco** ni títulos con #.`
 
@@ -431,9 +432,9 @@ async function ejecutarToolDeDatos(
   const i = (input ?? {}) as Record<string, unknown>
   switch (nombre) {
     case 'consultarPrecio':
-      return consultarPrecio(client, tenantId, String(i.busqueda ?? ''))
+      return consultarPrecio(client, tenantId, String(i.busqueda ?? ''), sedeId ?? null)
     case 'listarCatalogo':
-      return listarCatalogo(client, tenantId, String(i.busqueda ?? ''))
+      return listarCatalogo(client, tenantId, String(i.busqueda ?? ''), sedeId ?? null)
     case 'consultarDisponibilidad':
       return consultarDisponibilidad(client, tenantId, String(i.busqueda ?? ''), sedeId)
     case 'consultarCombo':

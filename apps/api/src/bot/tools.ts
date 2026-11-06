@@ -9,6 +9,7 @@ import {
   sqlCoincideEstricto,
 } from '../repositories/busquedaTexto.js'
 import { buscarProductosPorTexto } from '../repositories/productsRepo.js'
+import { cargarContextoStock, disponibilidadDeSku } from '../repositories/stockRepo.js'
 
 /**
  * Funciones de solo lectura contra el catálogo real — pensadas para que un
@@ -24,14 +25,31 @@ import { buscarProductosPorTexto } from '../repositories/productsRepo.js'
 export interface TamanoConPrecio {
   tamano: string
   precio: number
+  /** true si este tamaño está agotado (en la sede de la conversación, o en todas si no hay sede). No lo ofrezcas. */
+  agotado?: boolean
+}
+
+/** Dónde está agotado un producto (solo filas de stock explícitas). */
+export interface AgotadoEn {
+  sede: string
+  /** null = el producto entero (sin tamaño). */
+  tamano: string | null
+  /** 'agotado' o 'cantidad_insuficiente' (con conteo en 0). */
+  motivo: 'agotado' | 'sin_unidades'
 }
 
 export interface PrecioProducto {
   slug: string
   nombre: string
   precioBase: number
+  /**
+   * Si se puede vender: el flag general del catálogo Y que haya al menos una presentación con stock (en la sede de la
+   * conversación si la hay; si no, en alguna sede). Si es false, dilo y no tomes el pedido de ese producto.
+   */
   disponible: boolean
   tamanos: TamanoConPrecio[]
+  /** Dónde está agotado, para decirle al cliente (p. ej. "en Cedros sí, en Santa Marina no"). Ausente si en ningún lado. */
+  agotadoEn?: AgotadoEn[]
   /**
    * Solo si el cliente mencionó un tamaño en la frase ("carrot cake individual", "mini red velvet",
    * "alfajores x10") y el producto tiene tamaños. Si `encontrado` es false, el producto SÍ existe pero no
@@ -56,22 +74,44 @@ export interface PrecioProducto {
 export async function consultarPrecio(
   client: pg.PoolClient,
   tenantId: string,
-  busqueda: string
+  busqueda: string,
+  sedeId: string | null = null
 ): Promise<PrecioProducto | null> {
   const { tamano: pedido, mejor, otras } = await buscarProductosPorTexto(client, tenantId, busqueda)
   if (!mejor) return null
 
-  const tamanos: TamanoConPrecio[] = mejor.tamanos
-    .filter((t) => t.precio !== null && t.precio !== undefined)
-    .map((t) => ({ tamano: t.tamano, precio: Number(t.precio) }))
+  // Stock: la misma regla que usan los pedidos (productoDisponibleEnSede) — lo agotado no se ofrece.
+  const ctx = await cargarContextoStock(client, [mejor.id])
+  const conPrecio = mejor.tamanos.filter((t) => t.precio !== null && t.precio !== undefined)
+  const tamanos: TamanoConPrecio[] = conPrecio
+    .map((t) => {
+      const agotado = !disponibilidadDeSku(ctx, { productId: mejor.id, productSizeId: t.id ?? null }, sedeId).disponible
+      return { tamano: t.tamano, precio: Number(t.precio), ...(agotado ? { agotado: true } : {}) }
+    })
     .sort((x, y) => x.precio - y.precio)
+
+  const hayStock =
+    conPrecio.length > 0
+      ? tamanos.some((t) => !t.agotado)
+      : disponibilidadDeSku(ctx, { productId: mejor.id, productSizeId: null }, sedeId).disponible
+
+  const etiquetaDeTamano = new Map(mejor.tamanos.map((t) => [t.id, t.tamano] as const))
+  const nombreDeSede = new Map(ctx.sedes.map((x) => [x.id, x.nombre] as const))
+  const agotadoEn: AgotadoEn[] = (ctx.filasPorProducto.get(mejor.id) ?? [])
+    .filter((f) => nombreDeSede.has(f.sedeId) && (!f.disponible || f.cantidad === 0))
+    .map((f) => ({
+      sede: nombreDeSede.get(f.sedeId)!,
+      tamano: f.productSizeId ? (etiquetaDeTamano.get(f.productSizeId) ?? null) : null,
+      motivo: f.disponible ? ('sin_unidades' as const) : ('agotado' as const),
+    }))
 
   const resultado: PrecioProducto = {
     slug: mejor.slug,
     nombre: mejor.nombre,
     precioBase: Number(mejor.precio_base),
-    disponible: mejor.disponible,
+    disponible: mejor.disponible && hayStock,
     tamanos,
+    ...(agotadoEn.length > 0 ? { agotadoEn } : {}),
   }
 
   if (pedido && tamanos.length > 0) {
@@ -151,6 +191,11 @@ export interface CatalogoListado {
   total: number
   truncado: boolean
   grupos: { categoria: string; productos: ProductoListado[] }[]
+  /**
+   * Productos que coinciden pero están agotados (en la sede de la conversación, o en todas si no hay sede) y por eso
+   * NO están en la lista. Si el cliente pregunta por uno, dile que hoy está agotado.
+   */
+  agotadosOmitidos?: string[]
   /** Solo si no hubo búsqueda o no coincidió nada: qué categorías existen, para orientar al cliente. */
   categoriasDisponibles?: { categoria: string; cantidad: number }[]
 }
@@ -172,7 +217,8 @@ const MAX_PRODUCTOS_LISTADOS = 24
 export async function listarCatalogo(
   client: pg.PoolClient,
   tenantId: string,
-  busqueda: string
+  busqueda: string,
+  sedeId: string | null = null
 ): Promise<CatalogoListado> {
   const texto = busqueda.trim()
 
@@ -195,9 +241,10 @@ export async function listarCatalogo(
   const sinTamano = extraerTamano(texto)
   const b = construirBusqueda(sinTamano.tamano && tienePalabrasDeProducto(sinTamano.texto) ? sinTamano.texto : texto)
   const { rows } = await client.query(
-    `select p.nombre, coalesce(c.nombre, 'Otros') as categoria,
+    `select p.id, p.nombre, coalesce(c.nombre, 'Otros') as categoria,
             coalesce(min(ps.precio), p.precio_base) as precio_desde,
-            count(ps.id) > 1 as varios_tamanos
+            count(ps.id) > 1 as varios_tamanos,
+            coalesce(jsonb_agg(ps.id) filter (where ps.id is not null), '[]') as tamanos_ids
      from products p
      left join categories c on c.id = p.category_id
      left join product_sizes ps on ps.product_id = p.id and ps.precio is not null
@@ -208,21 +255,34 @@ export async function listarCatalogo(
     [tenantId, b.estrictos, b.flexibles]
   )
 
-  if (rows.length === 0) {
-    return { busqueda: texto, total: 0, truncado: false, grupos: [], categoriasDisponibles: await categorias() }
+  // Lo agotado no se lista (misma regla que los pedidos). Un producto con tamaños se lista si algún tamaño tiene stock.
+  const ctx = await cargarContextoStock(client, rows.map((r) => r.id as string))
+  const hayStock = (r: (typeof rows)[number]) => {
+    const ids = r.tamanos_ids as string[]
+    return ids.length > 0
+      ? ids.some((id) => disponibilidadDeSku(ctx, { productId: r.id, productSizeId: id }, sedeId).disponible)
+      : disponibilidadDeSku(ctx, { productId: r.id, productSizeId: null }, sedeId).disponible
+  }
+  const conStock = rows.filter(hayStock)
+  const agotadosOmitidos = rows.filter((r) => !hayStock(r)).map((r) => r.nombre as string)
+  const omitidos = agotadosOmitidos.length > 0 ? { agotadosOmitidos } : {}
+
+  if (conStock.length === 0) {
+    return { busqueda: texto, total: 0, truncado: false, grupos: [], ...omitidos, categoriasDisponibles: await categorias() }
   }
 
   const grupos = new Map<string, ProductoListado[]>()
-  for (const r of rows.slice(0, MAX_PRODUCTOS_LISTADOS)) {
+  for (const r of conStock.slice(0, MAX_PRODUCTOS_LISTADOS)) {
     const lista = grupos.get(r.categoria) ?? []
     lista.push({ nombre: r.nombre, precioDesde: Number(r.precio_desde), variosTamanos: r.varios_tamanos })
     grupos.set(r.categoria, lista)
   }
   return {
     busqueda: texto,
-    total: rows.length,
-    truncado: rows.length > MAX_PRODUCTOS_LISTADOS,
+    total: conStock.length,
+    truncado: conStock.length > MAX_PRODUCTOS_LISTADOS,
     grupos: [...grupos].map(([categoria, productos]) => ({ categoria, productos })),
+    ...omitidos,
   }
 }
 

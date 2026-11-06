@@ -146,6 +146,23 @@ export async function crearPedido(
     }
   }
 
+  // Sede del pedido. Con el número de un local sale de la conversación; con el número del bot (sin sede) la
+  // EXIGE el servidor — no depende de que el modelo se acuerde de preguntar. Se resuelve ANTES de tocar nada
+  // (cliente, número de pedido): un rechazo no deja rastro. También antes de validar los productos: el stock
+  // (lo agotado no se vende) se mira en ESA sede.
+  const { rows: sedes } = await client.query<{ id: string; nombre: string }>(
+    `select id, nombre from sedes where activo order by nombre`
+  )
+  const sede = resolverSedeDelPedido({
+    tipoEntrega: input.tipoEntrega,
+    sedeDeLaConversacion: input.sedeId ?? null,
+    sedeElegida: input.sedeElegida ?? null,
+    sedes,
+  })
+  if (!sede.ok) {
+    return { ok: false, error: sede.error, detalle: { sedesDisponibles: sede.sedesDisponibles } }
+  }
+
   const itemsProducto = input.items.filter((i): i is ItemPedidoProducto => i.tipo === 'producto')
   const itemsCombo = input.items.filter((i): i is ItemPedidoCombo => i.tipo === 'combo')
 
@@ -163,7 +180,8 @@ export async function crearPedido(
         extras: [],
         cantidad: i.cantidad,
       })),
-      input.fechaEntregaISO
+      input.fechaEntregaISO,
+      sede.sedeId
     )
     if (!resultado.ok) return resultado
     itemsParaInsertar.push(...resultado.items)
@@ -180,28 +198,13 @@ export async function crearPedido(
       client,
       tenantId,
       itemsCombo.map((i) => ({ comboId: i.busqueda, cantidad: i.cantidad, seleccion: i.seleccion })),
-      canal
+      canal,
+      sede.sedeId
     )
     if (!resultado.ok) return resultado
     itemsParaInsertar.push(...resultado.items)
     subtotal += resultado.subtotal
     requiereConfirmarCombo = requiereConfirmarCombo || resultado.requiereConfirmarCombo
-  }
-
-  // Sede del pedido. Con el número de un local sale de la conversación; con el número del bot (sin sede) la
-  // EXIGE el servidor — no depende de que el modelo se acuerde de preguntar. Se resuelve ANTES de tocar nada
-  // (cliente, número de pedido): un rechazo no deja rastro.
-  const { rows: sedes } = await client.query<{ id: string; nombre: string }>(
-    `select id, nombre from sedes where activo order by nombre`
-  )
-  const sede = resolverSedeDelPedido({
-    tipoEntrega: input.tipoEntrega,
-    sedeDeLaConversacion: input.sedeId ?? null,
-    sedeElegida: input.sedeElegida ?? null,
-    sedes,
-  })
-  if (!sede.ok) {
-    return { ok: false, error: sede.error, detalle: { sedesDisponibles: sede.sedesDisponibles } }
   }
 
   const { rows: tenantRows } = await client.query<{ codigo_prefijo: string }>(

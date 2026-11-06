@@ -19,6 +19,7 @@ const ERROR_A_CODIGO_HTTP: Record<string, number> = {
   EXTRA_INVALIDO: 400,
   ANTICIPACION_INSUFICIENTE: 422,
   SIN_CUPO_DISPONIBLE: 409,
+  PRODUCTO_AGOTADO: 409,
 }
 
 const crearPedidoSchema = z.object({

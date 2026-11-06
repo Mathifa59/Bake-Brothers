@@ -101,7 +101,8 @@ export interface ProductoParaPedido {
   disponible: boolean
   anticipacion_horas: number | null
   category_id: string | null
-  tamanos: { tamano: string; precio: string }[]
+  /** `id` es el de product_sizes (el stock es por producto + tamaño). */
+  tamanos: { id?: string; tamano: string; precio: string }[]
 }
 
 /** Extras activos del tenant, indexados por slug (para validar y valorizar pedidos). */
@@ -119,7 +120,7 @@ export async function extrasActivos(
 /** Un producto que calza con lo que escribió el cliente, con sus tamaños reales. */
 export interface CandidatoProducto extends ProductoParaPedido {
   /** Precio por tamaño tal cual está en la base (puede venir null si el tamaño no tiene precio cargado). */
-  tamanos: { tamano: string; precio: string }[]
+  tamanos: { id?: string; tamano: string; precio: string }[]
 }
 
 export interface ResultadoBusquedaProducto {
@@ -163,7 +164,7 @@ export async function buscarProductosPorTexto(
             ${sqlCoincideEstricto('p.nombre', '$5')} as literal,
             ${sqlCoincideEstricto('p.nombre', '$3')} as estricto,
             coalesce(
-              (select jsonb_agg(jsonb_build_object('tamano', ps.tamano, 'precio', ps.precio) order by ps.precio)
+              (select jsonb_agg(jsonb_build_object('id', ps.id, 'tamano', ps.tamano, 'precio', ps.precio) order by ps.precio)
                  from product_sizes ps where ps.product_id = p.id and ps.tamano is not null),
               '[]'
             ) as tamanos
@@ -176,7 +177,7 @@ export async function buscarProductosPorTexto(
   )
 
   const candidatos = rows.map((r, orden) => {
-    const tamanos = r.tamanos as { tamano: string; precio: string }[]
+    const tamanos = r.tamanos as { id?: string; tamano: string; precio: string }[]
     const tieneTamano = tamano ? resolverTamano(tamano, tamanos.map((t) => t.tamano)) !== null : false
     return { r, orden, tieneTamano, tamanos }
   })

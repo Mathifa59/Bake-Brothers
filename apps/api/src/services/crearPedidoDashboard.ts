@@ -95,7 +95,7 @@ export async function crearPedidoDashboard(
   let subtotal = 0
 
   if (itemsProducto.length > 0) {
-    const resultado = await validarYValorizarItemsTienda(client, tenantId, itemsProducto, input.fechaEntregaISO)
+    const resultado = await validarYValorizarItemsTienda(client, tenantId, itemsProducto, input.fechaEntregaISO, input.sedeId)
     if (!resultado.ok) return resultado
     itemsParaInsertar.push(...resultado.items)
     subtotal += resultado.subtotal
@@ -110,7 +110,7 @@ export async function crearPedidoDashboard(
   }
 
   if (itemsCombo.length > 0) {
-    const resultado = await validarItemsCombo(client, tenantId, itemsCombo, 'presencial')
+    const resultado = await validarItemsCombo(client, tenantId, itemsCombo, 'presencial', input.sedeId)
     if (!resultado.ok) return resultado
     itemsParaInsertar.push(...resultado.items)
     subtotal += resultado.subtotal

@@ -147,3 +147,10 @@ export { RUTAS_DE_EMPLEADO, puedeVerRuta, rutaInicial, nombreDeRol, type RolPane
 export { HORAS_VENTANA_WHATSAPP, estadoVentana24h, ultimoMensajeDelCliente, type EstadoVentana, type MensajeConHora } from "./ventanaWhatsApp.js"
 export { motivoEscaladaLegible, type CategoriaMotivo, type MotivoLegible } from "./motivoEscalada.js"
 export { ultimos9, mismoTelefono, telefonoLegible } from "./telefono.js"
+export {
+  productoDisponibleEnSede,
+  type FilaStockSede,
+  type MotivoNoDisponible,
+  type ConsultaDisponibilidad,
+  type ResultadoDisponibilidad,
+} from './disponibilidadSede.js'

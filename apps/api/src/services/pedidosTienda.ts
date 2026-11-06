@@ -10,6 +10,7 @@ import {
 import { buscarProductosPorTexto, extrasActivos, type CandidatoProducto } from '../repositories/productsRepo.js'
 import { resolverTamano, resolverTamanoTexto, type TamanoPedido } from '../repositories/busquedaTexto.js'
 import { cupoMaximoDelDia, unidadesReservadas } from '../repositories/capacityRepo.js'
+import { verificarStockDeLineas } from '../repositories/stockRepo.js'
 import type { OrderItemInsert } from '../repositories/ordersRepo.js'
 
 /**
@@ -33,11 +34,17 @@ export type ResultadoItemsTienda =
   | { ok: true; items: OrderItemInsert[]; subtotal: number }
   | { ok: false; error: string; detalle?: unknown }
 
+/**
+ * `sedeId`: sede del pedido, si ya se conoce (dashboard, o el bot con un local elegido). Con ella, lo agotado
+ * se rechaza según el stock de ESA sede; sin ella (la web, o un delivery del bot sin sede todavía) se acepta si
+ * alguna sede activa lo tiene — regla en `productoDisponibleEnSede` (dominio).
+ */
 export async function validarYValorizarItemsTienda(
   client: pg.PoolClient,
   tenantId: string,
   items: ItemTiendaInput[],
-  fechaEntregaISO: string
+  fechaEntregaISO: string,
+  sedeId: string | null = null
 ): Promise<ResultadoItemsTienda> {
   // 1. Productos reales del catálogo — por slug exacto (apps/web, que ya
   // conoce el slug real del catálogo estructurado) o texto aproximado (el
@@ -112,6 +119,24 @@ export async function validarYValorizarItemsTienda(
       return { ok: false, error: 'EXTRA_INVALIDO', detalle: { extras: extrasInvalidos } }
     }
   }
+
+  // 2b. Lo agotado no se vende: stock por sede (producto + tamaño). Sin fila de stock = disponible.
+  const stock = await verificarStockDeLineas(
+    client,
+    items.map((item) => {
+      const producto = porBusqueda.get(item)!
+      const etiqueta = tamanoReal.get(item) ?? null
+      return {
+        productId: producto.id,
+        productSizeId: etiqueta ? (producto.tamanos.find((t) => t.tamano === etiqueta)?.id ?? null) : null,
+        nombre: producto.nombre,
+        tamano: etiqueta,
+        cantidad: item.cantidad,
+      }
+    }),
+    sedeId
+  )
+  if (!stock.ok) return stock
 
   // 3. Anticipación mínima por producto (catálogo real: la mayoría no tiene
   // anticipación documentada — null se trata como "sin mínimo conocido").

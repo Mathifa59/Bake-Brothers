@@ -2,6 +2,7 @@ import type pg from 'pg'
 import type { OrderItemInsert } from '../repositories/ordersRepo.js'
 import { buscarProductosPorTexto } from '../repositories/productsRepo.js'
 import { resolverTamano, resolverTamanoTexto } from '../repositories/busquedaTexto.js'
+import { verificarStockDeLineas, type LineaParaStock } from '../repositories/stockRepo.js'
 
 /**
  * Validación de items de COMBO — compartida por dos callers:
@@ -64,13 +65,21 @@ export type ResultadoItemsCombo =
   | { ok: true; items: OrderItemInsert[]; subtotal: number; requiereConfirmarCombo: boolean }
   | { ok: false; error: string; detalle?: unknown }
 
+/**
+ * `sedeId`: sede del pedido si ya se conoce. Lo agotado no se vende tampoco dentro de un combo: se verifica el
+ * stock (por sede, producto + tamaño) de lo que el pedido realmente entrega — la composición fija del combo o,
+ * si el combo permite cambios, la selección que eligió el cliente. Si es un combo con cambios y no hay selección
+ * (venta de un operador, que confirma a mano), no hay composición concreta que verificar.
+ */
 export async function validarItemsCombo(
   client: pg.PoolClient,
   tenantId: string,
   items: ItemComboInput[],
-  canalPedido: CanalPedido
+  canalPedido: CanalPedido,
+  sedeId: string | null = null
 ): Promise<ResultadoItemsCombo> {
   const itemsValidados: OrderItemInsert[] = []
+  const lineasStock: LineaParaStock[] = []
   let subtotal = 0
   let requiereConfirmarCombo = false
 
@@ -107,16 +116,33 @@ export async function validarItemsCombo(
     })
     subtotal += precioUnitario * item.cantidad
 
+    // Composición definida del combo (si la tiene), con producto y tamaño: sirve para clasificar el combo (bot)
+    // y para verificar el stock de lo que se entrega.
+    const { rows: comboItemsRows } = await client.query(
+      `select ci.product_id, ci.product_size_id, ci.cantidad, p.nombre, ps.tamano
+       from combo_items ci
+       join products p on p.id = ci.product_id
+       left join product_sizes ps on ps.id = ci.product_size_id
+       where ci.combo_id = $1`,
+      [combo.id]
+    )
+    if (!combo.permite_cambios) {
+      for (const ci of comboItemsRows) {
+        lineasStock.push({
+          productId: ci.product_id,
+          productSizeId: ci.product_size_id ?? null,
+          nombre: ci.nombre,
+          tamano: ci.tamano ?? null,
+          cantidad: Number(ci.cantidad) * item.cantidad,
+        })
+      }
+    }
+
     // Las reglas de clasificación por grupo (composición fija/sustituible/
     // inexistente) solo aplican cuando decide el bot — un operador humano
     // ya confirmó los detalles al vender, no necesita esta red de
     // seguridad (mismo criterio que ya distingue crearPedidoDashboard.ts).
     if (!esCanalBot(canalPedido)) continue
-
-    const { rows: comboItemsRows } = await client.query(
-      `select 1 from combo_items where combo_id = $1 limit 1`,
-      [combo.id]
-    )
 
     if (comboItemsRows.length === 0) {
       // Grupo 3: sin composición definida ("sujeto a stock del día") — el
@@ -178,9 +204,19 @@ export async function validarItemsCombo(
           precioUnitario: 0,
           cantidad: sel.cantidad,
         })
+        lineasStock.push({
+          productId: producto.id,
+          productSizeId: tamanoReal ? (producto.tamanos.find((t) => t.tamano === tamanoReal)?.id ?? null) : null,
+          nombre: producto.nombre,
+          tamano: tamanoReal,
+          cantidad: sel.cantidad * item.cantidad,
+        })
       }
     }
   }
+
+  const stock = await verificarStockDeLineas(client, lineasStock, sedeId)
+  if (!stock.ok) return stock
 
   return { ok: true, items: itemsValidados, subtotal, requiereConfirmarCombo }
 }
