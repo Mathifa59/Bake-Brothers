@@ -229,7 +229,7 @@ export default function FormMayorista({ empanadas, postres, mayoristas, fecha, c
         <ul className="divide-y divide-borde rounded-2xl border border-borde bg-hueso">
           {empanadas.map((p) => (
             <li key={p.id} className="flex items-center justify-between gap-2 px-3 py-2">
-              <span className="min-w-0 truncate text-[15px] font-medium">{saborCorto(p.nombre)}</span>
+              <span className="min-w-0 text-[15px] font-medium leading-snug">{saborCorto(p.nombre)}</span>
               <Stepper
                 valor={cant[clave(p.id, tamano)] ?? 0}
                 onCambio={(n) => setCant((c) => ({ ...c, [clave(p.id, tamano)]: n }))}
