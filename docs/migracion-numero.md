@@ -28,7 +28,8 @@ Cosas de la interfaz de Meta cambian seguido: donde diga *(verificar en pantalla
 - [ ] `META_APP_SECRET` (Meta → app → Configuración → Básica). **Sin esta variable el webhook responde 503 por seguridad.**
 - [ ] `DATOS_PAGO` (texto con los datos de Yape / cuentas para el cliente que paga antes). Sin ella, el bot avisa que una persona
       le pasa los datos y deriva la conversación.
-- [ ] Migraciones aplicadas a Supabase (0030 → 0038) y **Deploy** hecho con la rama `main` (el Branch de la app en Coolify en `main`).
+- [x] Migraciones 0030 y 0034 → 0038 **ya aplicadas** al Supabase real (2026-11-05). No hay que volver a correrlas.
+- [ ] **Deploy** de la API hecho con la rama `main` (el Branch de la app en Coolify en `main`, no `feature/bake-os`).
 - [ ] `https://api.bake-brothers.com/health` responde `ok`.
 - [ ] Datos `[PRUEBA]` borrados (cuando el cliente avise).
 
