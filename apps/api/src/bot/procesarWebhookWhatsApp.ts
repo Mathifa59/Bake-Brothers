@@ -6,6 +6,8 @@ import { procesarMensajeEntrante } from './cerebro.js'
 import { enviarMensajeMeta } from './meta.js'
 import { procesarCapturaWhatsApp } from './procesarCapturaPago.js'
 import { extraerReferencia } from '@bakebrothers/domain'
+import { leerConfiguracionBot } from '../repositories/configuracionBotRepo.js'
+import { atenderMensajeSinBot } from './atencionSinBot.js'
 import type { MensajeWhatsAppEntrante } from './parsearMensajesWhatsApp.js'
 
 /**
@@ -61,6 +63,26 @@ export async function procesarMensajeWhatsAppEnBackground(
       { err, mensajeId: mensaje.mensajeId },
       'Fallo resolviendo/creando la conversación para un mensaje de WhatsApp entrante'
     )
+    return
+  }
+
+  // Interruptor del bot (configuracion_bot, lo cambia el admin desde el panel sin redeploy). Apagado: nada de Claude
+  // ni de herramientas — el mensaje se anota y la conversación queda esperando a una persona (ver atencionSinBot.ts).
+  // Si la lectura de la configuración falla, se trata como apagado: nunca se llama al modelo «por las dudas».
+  let config
+  try {
+    config = await leerConfiguracionBot(pool)
+  } catch (err) {
+    logger.warn({ err, conversacionId }, 'No se pudo leer configuracion_bot — se atiende como bot apagado')
+    config = { botActivo: false, bienvenidaActiva: false, mensajeBienvenida: '' }
+  }
+  if (!config.botActivo) {
+    try {
+      await atenderMensajeSinBot(logger, tenantId, conversacionId, mensaje, config)
+    } catch (err) {
+      // Esto SÍ es un error real (no se pudo ni anotar el mensaje): se loggea y se deja visible.
+      logger.error({ err, mensajeId: mensaje.mensajeId, conversacionId }, 'No se pudo registrar un mensaje de WhatsApp con el bot apagado')
+    }
     return
   }
 

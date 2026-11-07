@@ -299,6 +299,8 @@ export interface TurnoHistorial {
   en: string
   /** Quién del equipo escribió (solo en mensajes del operador enviados desde el panel). */
   autor?: string
+  /** Mensaje fijo sin IA (la bienvenida automática del bot apagado): no lo escribió el modelo ni una persona. */
+  automatico?: boolean
   /**
    * Mensaje traído de la sincronización de historial de Coexistence (lo que
    * el negocio y el cliente se escribieron ANTES de conectar el número).

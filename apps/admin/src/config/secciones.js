@@ -20,6 +20,7 @@ import {
   Workflow,
   FlaskConical,
   FileSpreadsheet,
+  Settings,
 } from 'lucide-react'
 
 /**
@@ -41,6 +42,8 @@ export const SECCIONES_ACTIVAS = [
   { ruta: '/simulador', etiqueta: 'Simulador', icono: FlaskConical, soloAdmin: true },
   // Solo admin: cruza el Excel de productos de Mifact con el catálogo y guarda sus códigos (ver pages/Mifact.jsx).
   { ruta: '/mifact', etiqueta: 'Mifact', icono: FileSpreadsheet, soloAdmin: true },
+  // Todos: el bot (solo dirección lo cambia) y los avisos del celular (ver pages/Ajustes.jsx).
+  { ruta: '/ajustes', etiqueta: 'Ajustes', icono: Settings },
 ]
 
 /**

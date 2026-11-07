@@ -8,6 +8,11 @@ import { DATABASE_URL_PLACEHOLDER, META_VERIFY_TOKEN_DE_PRUEBA, CLAVE_CIFRADO_DE
 // de test se evalúe — no adentro de los archivos de test.
 export default defineConfig({
   test: {
+    // Los archivos de test comparten UNA base real (sedes temporales, conversaciones, pedidos de prueba y el
+    // interruptor del bot): corriendo en paralelo se pisaban entre sí y daban fallos intermitentes que no eran del
+    // código. En secuencia el resultado es determinista (~90 s). Dentro de cada archivo los tests ya van en orden.
+    fileParallelism: false,
+    setupFiles: ['./test/setupBotEncendido.ts'],
     env: {
       DATABASE_URL: process.env.DATABASE_URL ?? DATABASE_URL_PLACEHOLDER,
       META_VERIFY_TOKEN: process.env.META_VERIFY_TOKEN ?? META_VERIFY_TOKEN_DE_PRUEBA,

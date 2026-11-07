@@ -4,6 +4,7 @@ import { useConversaciones, useRespuestasRapidas } from '../hooks/useConversacio
 import { supabase } from '../lib/supabase'
 import { useAhora } from '../lib/datos'
 import { Cargando, ErrorCarga, Portada } from '../components/bakeos/ui'
+import { AvisoBotApagado } from '../components/bakeos/InterruptorBot'
 import ListaConversaciones from '../components/conversaciones/ListaConversaciones'
 import ChatConversacion from '../components/conversaciones/ChatConversacion'
 import { FILTROS_BANDEJA, clienteDe, nombreDeConversacion, ordenarBandeja, telefonoDeConversacion } from '../utils/conversaciones'
@@ -67,6 +68,7 @@ export default function Conversaciones() {
     <>
       <div className={seleccionada ? 'hidden lg:block' : ''}>
         <Portada titulo="Conversaciones" subtitulo="Chats con clientes: lo que espera a una persona, primero" accion={false} />
+        <AvisoBotApagado />
       </div>
       <div className="py-4">
         {!bandeja.conversaciones ? (

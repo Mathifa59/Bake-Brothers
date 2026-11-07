@@ -11,7 +11,8 @@
 export type RolPanel = 'admin' | 'operador'
 
 /** Rutas (sin «/») que un empleado puede abrir. */
-export const RUTAS_DE_EMPLEADO = ['pedidos', 'nuevo-pedido', 'produccion', 'conversaciones', 'stock'] as const
+// «ajustes»: ahí cada persona activa los avisos de su celular (y dirección maneja el bot).
+export const RUTAS_DE_EMPLEADO = ['pedidos', 'nuevo-pedido', 'produccion', 'conversaciones', 'stock', 'ajustes'] as const
 
 const limpiar = (ruta: string) => ruta.replace(/^#?\/*/, '').split(/[?#/]/)[0]
 
