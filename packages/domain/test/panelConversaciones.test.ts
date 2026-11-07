@@ -11,7 +11,7 @@ import {
 
 describe('permisos del panel: el empleado ve solo Pedidos, Órdenes, Conversaciones y Stock', () => {
   it('un empleado (rol operador) abre lo suyo, incluido Nuevo pedido', () => {
-    for (const r of ['pedidos', 'nuevo-pedido', 'produccion', 'conversaciones', 'stock', 'ajustes', '/pedidos', '#/stock', 'pedidos?x=1'])
+    for (const r of ['pedidos', 'nuevo-pedido', 'produccion', 'conversaciones', 'stock', 'ajustes', 'avisos', '/pedidos', '#/stock', 'pedidos?x=1'])
       expect(puedeVerRuta('operador', r)).toBe(true)
   })
   it('y NO abre lo de dirección', () => {

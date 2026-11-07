@@ -11,6 +11,7 @@
     "whatsapp:registrar": "tsx --env-file=.env scripts/registrar-conexion-whatsapp.ts",
     "mifact:emisor": "tsx --env-file=.env scripts/registrar-emisor-mifact.ts",
     "whatsapp:alta": "tsx --env-file=.env scripts/alta-numero-meta.ts",
+    "vapid:generar": "tsx scripts/generar-vapid.ts",
     "test": "vitest run"
   },
   "dependencies": {
@@ -23,12 +24,14 @@
     "jose": "^6.2.12",
     "pdfkit": "^0.20.2",
     "pg": "^8.23.0",
+    "web-push": "^4.0.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",
     "@types/pdfkit": "^0.17.6",
     "@types/pg": "^8.23.1",
+    "@types/web-push": "^3.6.4",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vitest": "^3.2.7"

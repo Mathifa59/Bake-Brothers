@@ -137,3 +137,32 @@ export async function obtenerComprobantePdfUrl(numero) {
   const blob = await res.blob()
   return URL.createObjectURL(blob)
 }
+
+// ——— Notificaciones push ———
+async function jsonOError(res) {
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.error || `Error del servidor (${res.status})`)
+    err.codigo = data.error
+    err.estado = res.status
+    throw err
+  }
+  return data
+}
+
+/** La clave pública VAPID con la que el navegador se suscribe. Lanza PUSH_NO_CONFIGURADO (503) si la API no la tiene. */
+export const traerClavePush = async () => (await jsonOError(await pedirConAuth('/api/dashboard/push/clave'))).clave
+
+export const guardarSuscripcionPush = async (suscripcion) =>
+  jsonOError(
+    await pedirConAuth('/api/dashboard/push/suscribir', {
+      method: 'POST',
+      body: JSON.stringify({ endpoint: suscripcion.endpoint, keys: suscripcion.keys, userAgent: navigator.userAgent.slice(0, 300) }),
+    })
+  )
+
+export const quitarSuscripcionPush = async (endpoint) =>
+  jsonOError(await pedirConAuth('/api/dashboard/push/desuscribir', { method: 'POST', body: JSON.stringify({ endpoint }) }))
+
+/** Manda un aviso de prueba a los dispositivos de quien lo pide. */
+export const probarPush = async () => jsonOError(await pedirConAuth('/api/dashboard/push/probar', { method: 'POST', body: '{}' }))

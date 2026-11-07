@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useConversaciones, useRespuestasRapidas } from '../hooks/useConversaciones'
 import { supabase } from '../lib/supabase'
@@ -56,6 +57,18 @@ export default function Conversaciones() {
       })
     )
   }, [todas, filtro, filtroSede, busqueda, bandeja.clientes])
+
+  // Tocar un aviso o una notificación abre esa conversación (/conversaciones?c=<id>).
+  const [params, setParams] = useSearchParams()
+  const pedida = params.get('c')
+  useEffect(() => {
+    if (!pedida || !bandeja.conversaciones) return
+    if (bandeja.conversaciones.some((c) => c.id === pedida)) {
+      setSeleccionadoId(pedida)
+      setFiltro('todas') // si ya no está «esperando», igual se ve
+    }
+    setParams({}, { replace: true })
+  }, [pedida, bandeja.conversaciones, setParams])
 
   const seleccionada = todas.find((c) => c.id === seleccionadoId) ?? null
   useEffect(() => {

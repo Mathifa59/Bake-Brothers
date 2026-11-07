@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { useConfiguracionBot } from '../hooks/useConfiguracionBot'
 import { InterruptorBot } from '../components/bakeos/InterruptorBot'
 import { Cargando, ErrorCarga, Portada, Tarjeta } from '../components/bakeos/ui'
+import AvisosCelular, { InstalarPanel } from '../components/bakeos/AvisosCelular'
 
 const MAX_BIENVENIDA = 1000
 
@@ -103,6 +104,9 @@ export default function Ajustes() {
             <Bienvenida configuracion={configuracion} />
           </>
         )}
+        <h2 className="px-1 text-xs font-bold uppercase tracking-wider text-gris">Avisos en este celular</h2>
+        <AvisosCelular />
+        <InstalarPanel />
       </div>
     </>
   )

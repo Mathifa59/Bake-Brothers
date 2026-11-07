@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation } from 'react-router-dom'
 import { Bell, LogOut } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { AlertasProvider, useAlertas } from '../../context/AlertasContext'
+import { AvisosProvider, useAvisos } from '../../context/AvisosContext'
 import { SECCIONES_ACTIVAS } from '../../config/secciones'
 import { nombreDeRol, puedeVerRuta, rutaInicial } from '@bakebrothers/domain'
 
@@ -62,8 +63,7 @@ function MenuSecciones() {
 
 function Encabezado() {
   const { logout, perfil } = useAuth()
-  const { alertas } = useAlertas()
-  const total = alertas?.total ?? 0
+  const { sinVer } = useAvisos()
   return (
     <header className="mx-auto flex max-w-5xl items-center justify-between px-4 pt-3">
       <Link to={rutaInicial(perfil?.rol)} className="flex items-center gap-2.5" aria-label="Bake OS — inicio">
@@ -74,16 +74,14 @@ function Encabezado() {
         </span>
       </Link>
       <div className="flex items-center gap-2">
-        {puedeVerRuta(perfil?.rol, 'control-tower') && (
-          <Link
-            to="/control-tower"
-            aria-label={total ? `Alertas: ${total} requieren atención` : 'Alertas: sin excepciones activas'}
-            className="relative grid h-10 w-10 place-items-center rounded-xl border border-borde bg-hueso"
-          >
-            <Bell size={18} aria-hidden="true" />
-            <Contador n={total} className="absolute -right-1.5 -top-1.5" />
-          </Link>
-        )}
+        <Link
+          to="/avisos"
+          aria-label={sinVer ? `Avisos: ${sinVer} sin ver` : 'Avisos: sin novedades'}
+          className="relative grid h-10 w-10 place-items-center rounded-xl border border-borde bg-hueso"
+        >
+          <Bell size={18} aria-hidden="true" />
+          <Contador n={sinVer} className="absolute -right-1.5 -top-1.5" />
+        </Link>
         <button
           type="button"
           onClick={logout}
@@ -107,11 +105,13 @@ export default function LayoutBakeOS({ children }) {
 
   return (
     <AlertasProvider>
-      <div className="min-h-screen pb-16">
-        <MenuSecciones />
-        <Encabezado />
-        <main className="mx-auto max-w-5xl px-4">{children}</main>
-      </div>
+      <AvisosProvider>
+        <div className="min-h-screen pb-16">
+          <MenuSecciones />
+          <Encabezado />
+          <main className="mx-auto max-w-5xl px-4">{children}</main>
+        </div>
+      </AvisosProvider>
     </AlertasProvider>
   )
 }

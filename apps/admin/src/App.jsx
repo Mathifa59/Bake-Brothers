@@ -17,6 +17,7 @@ import Metricas from './pages/Metricas'
 import Simulador from './pages/Simulador'
 import Mifact from './pages/Mifact'
 import Ajustes from './pages/Ajustes'
+import Avisos from './pages/Avisos'
 
 // Espera a saber si hay sesión y, si la hay, a leer el perfil (rol/sede) en
 // usuarios_dashboard antes de decidir qué mostrar.
@@ -81,6 +82,7 @@ export default function App() {
           <Route path="/simulador" element={protegida(<Simulador />)} />
           <Route path="/mifact" element={protegida(<Mifact />)} />
           <Route path="/ajustes" element={protegida(<Ajustes />)} />
+          <Route path="/avisos" element={protegida(<Avisos />)} />
           <Route path="/inicio" element={<Inicio />} />
           <Route path="*" element={<Navigate to="/inicio" replace />} />
         </Routes>

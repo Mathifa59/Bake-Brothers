@@ -8,6 +8,7 @@ import { procesarCapturaWhatsApp } from './procesarCapturaPago.js'
 import { extraerReferencia } from '@bakebrothers/domain'
 import { leerConfiguracionBot } from '../repositories/configuracionBotRepo.js'
 import { atenderMensajeSinBot } from './atencionSinBot.js'
+import { avisarMensajeEntrante } from './avisarMensajeEntrante.js'
 import type { MensajeWhatsAppEntrante } from './parsearMensajesWhatsApp.js'
 
 /**
@@ -78,7 +79,15 @@ export async function procesarMensajeWhatsAppEnBackground(
   }
   if (!config.botActivo) {
     try {
-      await atenderMensajeSinBot(logger, tenantId, conversacionId, mensaje, config)
+      const atendido = await atenderMensajeSinBot(logger, tenantId, conversacionId, mensaje, config)
+      // Cada mensaje lo responde una persona: tiene que enterarse (campana + push). Va aparte y nunca lanza.
+      if (atendido) {
+        await avisarMensajeEntrante(logger, tenantId, conversacionId, {
+          tipo: atendido.pasoAEsperando ? 'esperando_persona' : 'mensaje_nuevo',
+          texto: mensaje.imagen ? `[Imagen]${mensaje.texto.trim() ? ` ${mensaje.texto.trim()}` : ''}` : mensaje.texto,
+          telefono: mensaje.telefono,
+        })
+      }
     } catch (err) {
       // Esto SÍ es un error real (no se pudo ni anotar el mensaje): se loggea y se deja visible.
       logger.error({ err, mensajeId: mensaje.mensajeId, conversacionId }, 'No se pudo registrar un mensaje de WhatsApp con el bot apagado')
@@ -120,6 +129,16 @@ export async function procesarMensajeWhatsAppEnBackground(
     if (resultado) {
       await enviarMensajeMeta('whatsapp', mensaje.phoneNumberId, mensaje.telefono, resultado.textoRespuesta)
     }
+    // Con el bot encendido el equipo solo se entera de lo que le toca: el bot derivó la conversación (esperando
+    // persona) o el cliente escribió en una que ya está esperando / la tiene alguien (el bot no responde).
+    if (!resultado || resultado.nuevoEstado === 'escalada') {
+      await avisarMensajeEntrante(logger, tenantId, conversacionId, {
+        tipo: resultado ? 'esperando_persona' : 'mensaje_nuevo',
+        texto,
+        telefono: mensaje.telefono,
+        motivo: resultado?.motivoEscalacion ?? null,
+      })
+    }
   } catch (err) {
     logger.error(
       { err, mensajeId: mensaje.mensajeId, conversacionId },
@@ -131,6 +150,13 @@ export async function procesarMensajeWhatsAppEnBackground(
       `Error interno al procesar: ${err instanceof Error ? err.message : String(err)}`
     ).catch((errEscalada) => {
       logger.error({ err: errEscalada, conversacionId }, 'Además falló forzar la escalada de seguridad')
+    })
+    // El cliente se quedó sin respuesta: que una persona se entere.
+    await avisarMensajeEntrante(logger, tenantId, conversacionId, {
+      tipo: 'esperando_persona',
+      texto,
+      telefono: mensaje.telefono,
+      motivo: 'El bot no pudo responder',
     })
   }
 }
