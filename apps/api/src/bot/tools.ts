@@ -27,6 +27,14 @@ export interface TamanoConPrecio {
   precio: number
   /** true si este tamaño está agotado (en la sede de la conversación, o en todas si no hay sede). No lo ofrezcas. */
   agotado?: boolean
+  /** Solo si `agotado`: nombres de los OTROS locales donde este tamaño sí hay. Ausente si en ningún otro. */
+  disponibleEn?: string[]
+}
+
+/** Un local donde sí se puede vender el producto, con su dirección para dársela al cliente tal cual. */
+export interface LocalConStock {
+  sede: string
+  direccion: string | null
 }
 
 /** Dónde está agotado un producto (solo filas de stock explícitas). */
@@ -50,6 +58,14 @@ export interface PrecioProducto {
   tamanos: TamanoConPrecio[]
   /** Dónde está agotado, para decirle al cliente (p. ej. "en Cedros sí, en Santa Marina no"). Ausente si en ningún lado. */
   agotadoEn?: AgotadoEn[]
+  /** Nombre del local de esta conversación (ausente con el número del bot, que todavía no sabe el local). */
+  localDeLaConversacion?: string
+  /**
+   * Los OTROS locales donde SÍ hay este producto (al menos un tamaño), cada uno con su dirección. Solo viene cuando
+   * hay algo agotado (el producto o un tamaño) y existe al menos otro local con stock. Si viene, ofrécele ese local
+   * con su dirección además de otros productos; si no viene, no hay otro local que ofrecer.
+   */
+  disponibleEn?: LocalConStock[]
   /**
    * Solo si el cliente mencionó un tamaño en la frase ("carrot cake individual", "mini red velvet",
    * "alfajores x10") y el producto tiene tamaños. Si `encontrado` es false, el producto SÍ existe pero no
@@ -85,8 +101,10 @@ export async function consultarPrecio(
   const conPrecio = mejor.tamanos.filter((t) => t.precio !== null && t.precio !== undefined)
   const tamanos: TamanoConPrecio[] = conPrecio
     .map((t) => {
-      const agotado = !disponibilidadDeSku(ctx, { productId: mejor.id, productSizeId: t.id ?? null }, sedeId).disponible
-      return { tamano: t.tamano, precio: Number(t.precio), ...(agotado ? { agotado: true } : {}) }
+      const r = disponibilidadDeSku(ctx, { productId: mejor.id, productSizeId: t.id ?? null }, sedeId)
+      if (r.disponible) return { tamano: t.tamano, precio: Number(t.precio) }
+      const enOtros = r.enSedes.filter((id) => id !== sedeId).map((id) => ctx.sedes.find((x) => x.id === id)?.nombre).filter((n): n is string => !!n)
+      return { tamano: t.tamano, precio: Number(t.precio), agotado: true, ...(enOtros.length > 0 ? { disponibleEn: enOtros } : {}) }
     })
     .sort((x, y) => x.precio - y.precio)
 
@@ -105,6 +123,19 @@ export async function consultarPrecio(
       motivo: f.disponible ? ('sin_unidades' as const) : ('agotado' as const),
     }))
 
+  // Otros locales donde sí hay (algún tamaño, o el producto si no tiene tamaños). Solo importa si hay algo agotado.
+  const hayEnSede = (sId: string) =>
+    conPrecio.length > 0
+      ? conPrecio.some((t) => disponibilidadDeSku(ctx, { productId: mejor.id, productSizeId: t.id ?? null }, sId).disponible)
+      : disponibilidadDeSku(ctx, { productId: mejor.id, productSizeId: null }, sId).disponible
+  // Con local conocido solo importa si el problema es EN ESE local (si en Cedros se agotó algo pero esta conversación es
+  // de Santa Marina y allí hay todo, no hay nada que ofrecer en otro lado); sin local, si hay algo agotado en cualquiera.
+  const hayAlgoAgotado = sedeId ? !hayStock || tamanos.some((t) => t.agotado) : agotadoEn.length > 0
+  const disponibleEn: LocalConStock[] = hayAlgoAgotado
+    ? ctx.sedes.filter((x) => x.id !== sedeId && hayEnSede(x.id)).map((x) => ({ sede: x.nombre, direccion: x.direccion }))
+    : []
+  const localDeLaConversacion = sedeId ? nombreDeSede.get(sedeId) : undefined
+
   const resultado: PrecioProducto = {
     slug: mejor.slug,
     nombre: mejor.nombre,
@@ -112,6 +143,8 @@ export async function consultarPrecio(
     disponible: mejor.disponible && hayStock,
     tamanos,
     ...(agotadoEn.length > 0 ? { agotadoEn } : {}),
+    ...(localDeLaConversacion ? { localDeLaConversacion } : {}),
+    ...(disponibleEn.length > 0 ? { disponibleEn } : {}),
   }
 
   if (pedido && tamanos.length > 0) {

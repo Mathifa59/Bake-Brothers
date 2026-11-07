@@ -312,6 +312,43 @@ describe.skipIf(!hayBaseDeDatosReal)('lo agotado no se vende', () => {
       expect((await consultarPrecio(client, tenantId, 'alfajor mix'))?.disponible).toBe(false)
     })
 
+    it('consultarPrecio: dice en qué local está agotado y en cuáles SÍ hay (disponibleEn, con dirección)', async () => {
+      const { rows } = await client.query(`select nombre, direccion from sedes where id = $1`, [sedes.sm])
+      const sm = { sede: rows[0].nombre, direccion: rows[0].direccion }
+
+      // Agotada la Caja x10 solo en Cedros: en una conversación de Cedros, Santa Marina es la alternativa.
+      await fijarStock(client, [{ producto: ALFAJOR, tamano: X10, sede: sedes.cedros, disponible: false }])
+      const enCedros = await consultarPrecio(client, tenantId, 'alfajor mix', sedes.cedros)
+      expect(enCedros?.localDeLaConversacion).toBe('Cedros')
+      expect(enCedros?.disponibleEn).toEqual(expect.arrayContaining([sm]))
+      expect(enCedros?.disponibleEn?.some((l) => l.sede === 'Cedros')).toBe(false)
+      expect(enCedros?.tamanos.find((t) => t.tamano === X10)).toMatchObject({ agotado: true, disponibleEn: expect.arrayContaining(['Santa Marina']) })
+      expect(enCedros?.tamanos.find((t) => t.tamano === X18)?.disponibleEn).toBeUndefined()
+
+      // Desde Santa Marina no hay nada agotado que decir, ni otro local que ofrecer.
+      const enSm = await consultarPrecio(client, tenantId, 'alfajor mix', sedes.sm)
+      expect(enSm?.localDeLaConversacion).toBe('Santa Marina')
+      expect(enSm?.disponibleEn).toBeUndefined()
+
+      // Con el número del bot (sin local): agotadoEn dice dónde se agotó y disponibleEn dónde sí hay.
+      const sinLocal = await consultarPrecio(client, tenantId, 'alfajor mix')
+      expect(sinLocal?.localDeLaConversacion).toBeUndefined()
+      expect(sinLocal?.agotadoEn).toEqual([{ sede: 'Cedros', tamano: X10, motivo: 'agotado' }])
+      expect(sinLocal?.disponibleEn).toEqual(expect.arrayContaining([sm]))
+
+      // Producto ENTERO agotado en Cedros (fila sin tamaño): todos los tamaños salen agotados y la alternativa es la misma.
+      await fijarStock(client, [{ producto: ALFAJOR, sede: sedes.cedros, disponible: false }])
+      const entero = await consultarPrecio(client, tenantId, 'alfajor mix', sedes.cedros)
+      expect(entero?.disponible).toBe(false)
+      expect(entero?.disponibleEn).toEqual(expect.arrayContaining([sm]))
+
+      // Agotado en todos los locales: no hay otro local que ofrecer (no se inventa).
+      await fijarStock(client, await agotadoEnTodas(client, ALFAJOR, [undefined]))
+      const enTodos = await consultarPrecio(client, tenantId, 'alfajor mix', sedes.cedros)
+      expect(enTodos?.disponible).toBe(false)
+      expect(enTodos?.disponibleEn).toBeUndefined()
+    })
+
     it('consultarPrecio de un producto sin tamaños y sin ninguna fila de stock: disponible, sin avisos', async () => {
       await fijarStock(client, [], ['Tartaleta de Frutas'])
       const r = await consultarPrecio(client, tenantId, 'tartaleta de frutas', sedes.cedros)

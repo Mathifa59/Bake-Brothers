@@ -14,6 +14,7 @@ import {
 export interface SedeActiva {
   id: string
   nombre: string
+  direccion: string | null
 }
 
 export interface ContextoStock {
@@ -24,7 +25,7 @@ export interface ContextoStock {
 
 /** Sedes activas y todas las filas de stock de los productos dados. */
 export async function cargarContextoStock(client: pg.PoolClient, productIds: string[]): Promise<ContextoStock> {
-  const { rows: sedes } = await client.query<SedeActiva>(`select id, nombre from sedes where activo order by nombre`)
+  const { rows: sedes } = await client.query<SedeActiva>(`select id, nombre, direccion from sedes where activo order by nombre`)
   const filasPorProducto = new Map<string, FilaStockSede[]>()
   if (productIds.length > 0) {
     const { rows } = await client.query(
