@@ -67,7 +67,10 @@ export function ordersRoutes(app: FastifyInstance) {
     const tenant = await tenantPorSlug(req.tenantSlug)
     if (!tenant) return reply.code(404).send({ error: 'TENANT_NO_ENCONTRADO' })
 
-    return withTenantTx(req.tenantId, async (client) => {
+    // La respuesta se manda DESPUÉS del commit, nunca desde adentro de la transacción: si no, el cliente recibiría
+    // «listo» (201) antes de que el pedido esté guardado, y si el commit fallara le habríamos dicho que sí a algo que
+    // no existe. Adentro solo se decide qué responder; `reply` se usa recién cuando `withTenantTx` ya volvió.
+    const respuesta = await withTenantTx(req.tenantId, async (client): Promise<{ codigo: number; cuerpo: unknown }> => {
       // Validación + valorización de items: misma lógica que usa crearPedido
       // (tool del bot, apps/api/src/bot/tools.ts) — extraída a
       // services/pedidosTienda.ts para que ninguna de las dos rutas de
@@ -75,14 +78,14 @@ export function ordersRoutes(app: FastifyInstance) {
       const resultado = await validarYValorizarItemsTienda(client, req.tenantId, body.items, body.fechaEntrega)
       if (!resultado.ok) {
         const codigo = ERROR_A_CODIGO_HTTP[resultado.error] ?? 400
-        return reply.code(codigo).send({ error: resultado.error, detalle: resultado.detalle })
+        return { codigo, cuerpo: { error: resultado.error, detalle: resultado.detalle } }
       }
 
       // Entrega: dirección requerida si es delivery. La tarifa ya no se
       // calcula sola (0004_rediseno_alcance.sql): el operador la cotiza
       // manualmente y la ajusta desde el dashboard (Semana 3).
       if (body.tipoEntrega === 'delivery' && (!body.direccion || !body.distrito)) {
-        return reply.code(400).send({ error: 'DIRECCION_REQUERIDA' })
+        return { codigo: 400, cuerpo: { error: 'DIRECCION_REQUERIDA' } }
       }
 
       // delivery/total quedan en manos del operador (columnas conservadas
@@ -116,19 +119,23 @@ export function ordersRoutes(app: FastifyInstance) {
         resultado.items
       )
 
-      return reply.code(201).send({
-        numero,
-        estado: 'confirmed',
-        ...totales,
-        items: resultado.items.map((i) => ({
-          nombre: i.nombreProducto,
-          cantidad: i.cantidad,
-          precio: i.precioUnitario,
-          tamano: i.tamano,
-          extras: i.extras,
-        })),
-      })
+      return {
+        codigo: 201,
+        cuerpo: {
+          numero,
+          estado: 'confirmed',
+          ...totales,
+          items: resultado.items.map((i) => ({
+            nombre: i.nombreProducto,
+            cantidad: i.cantidad,
+            precio: i.precioUnitario,
+            tamano: i.tamano,
+            extras: i.extras,
+          })),
+        },
+      }
     })
+    return reply.code(respuesta.codigo).send(respuesta.cuerpo)
   })
 
   // ——————————————————————————————————————————— GET /api/orders ————
