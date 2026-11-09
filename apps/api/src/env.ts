@@ -29,6 +29,10 @@ const schema = z
     DISTRITOS_DELIVERY: z
       .string()
       .default('Chorrillos, Surco, Miraflores, San Isidro, Villa el Salvador, San Juan de Miraflores, La Victoria, Jesús María, Lince'),
+    // Modelo de Claude de la conversación del bot y de la lectura de capturas de pago (ver bot/modelos.ts). Vacío =
+    // Sonnet (el probado). Pasar a Haiku: BOT_MODELO=claude-haiku-5-5 (después de volver a probar, docs/cambio-a-haiku.md).
+    BOT_MODELO: z.string().trim().optional(),
+    BOT_MODELO_CAPTURAS: z.string().trim().optional(),
     // Datos para pagar por adelantado (texto libre: número y titular de Yape, cuentas y CCI). Si está, el
     // bot se los da al cliente de recojo apenas registra el pedido; si NO está, el bot avisa que una persona
     // se los envía y la conversación pasa al equipo para que lo haga. No lleva secretos, pero tampoco va en el código.

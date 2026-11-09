@@ -10,6 +10,7 @@ import {
   type EstadoConversacion,
 } from '@bakebrothers/domain'
 import { env } from '../env.js'
+import { resolverModelo } from './modelos.js'
 import {
   consultarPrecio,
   listarCatalogo,
@@ -32,7 +33,7 @@ type Canal = 'whatsapp' | 'facebook' | 'instagram' | 'web'
  * `procesarMensajeEntrante` es el único punto que toca `conversaciones`.
  */
 
-const MODELO = 'claude-sonnet-5'
+const MODELO = resolverModelo(env.BOT_MODELO)
 
 // Límite duro del loop de tool-use: sin esto, un caso raro donde el modelo
 // no quede "satisfecho" con el resultado de una tool podría loopear

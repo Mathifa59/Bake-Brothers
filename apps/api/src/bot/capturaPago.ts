@@ -1,5 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { ExtraccionPago } from '@bakebrothers/domain'
+import { env } from '../env.js'
+import { resolverModelo } from './modelos.js'
 
 /**
  * Lectura de la captura de un pago (Yape, Plin, transferencia) con el modelo de visión.
@@ -14,7 +16,7 @@ import type { ExtraccionPago } from '@bakebrothers/domain'
  * el llamador convierte en "revisión manual"). Todo lo que no se lea con certeza va en null: nunca se inventa.
  */
 
-const MODELO = 'claude-sonnet-5'
+const MODELO = resolverModelo(env.BOT_MODELO_CAPTURAS)
 const NOMBRE_TOOL = 'registrar_lectura_del_comprobante'
 
 const INSTRUCCIONES = `Eres un lector de comprobantes de pago peruanos (capturas de Yape, Plin, transferencias bancarias y vouchers).
