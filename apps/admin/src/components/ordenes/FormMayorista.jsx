@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
 import { CheckCircle2, History } from 'lucide-react'
 import { registrarOrdenMayorista, ultimaOrdenMayorista } from '../../lib/apiClient'
-import { mensajeDeError, saborCorto } from '../../utils/ordenes'
+import { aOpcionDeHora, mensajeDeError, saborCorto } from '../../utils/ordenes'
 import Stepper from './Stepper'
 import ListaProductos from './ListaProductos'
+import SelectorHora from './SelectorHora'
+import BarraRegistrar from './BarraRegistrar'
 
 const TAMANOS = ['Mediana', 'Grande']
 const clave = (id, tamano) => `${id}|${tamano}`
@@ -16,7 +18,7 @@ const clave = (id, tamano) => `${id}|${tamano}`
 export default function FormMayorista({ empanadas, postres, mayoristas, fecha, corte, onRegistrada, sedeId }) {
   const [clienteId, setClienteId] = useState('')
   const [nombreNuevo, setNombreNuevo] = useState('')
-  const [hora, setHora] = useState('7:30')
+  const [hora, setHora] = useState('7:30 am')
   const [tamano, setTamano] = useState('Mediana')
   const [cant, setCant] = useState({})
   const [lineasPostres, setLineasPostres] = useState([])
@@ -42,7 +44,7 @@ export default function FormMayorista({ empanadas, postres, mayoristas, fecha, c
     const c = mayoristas.find((x) => x.id === id)
     if (c) {
       if (c.tamano_habitual) setTamano(c.tamano_habitual)
-      if (c.hora_habitual) setHora(c.hora_habitual.replace(/^0/, ''))
+      if (c.hora_habitual) setHora(aOpcionDeHora(c.hora_habitual))
     }
   }
 
@@ -60,7 +62,7 @@ export default function FormMayorista({ empanadas, postres, mayoristas, fecha, c
         conteo[e.tamano] += e.cantidad
       }
       setCant(nuevo)
-      if (u.hora) setHora(u.hora.replace(/^0/, ''))
+      if (u.hora) setHora(aOpcionDeHora(u.hora))
       setTamano(conteo.Grande > conteo.Mediana ? 'Grande' : 'Mediana')
       const porId = new Map(postres.map((p) => [p.id, p]))
       setLineasPostres(u.postres.map((p) => ({ productoId: p.productoId, nombre: porId.get(p.productoId)?.nombre ?? 'Producto', tamano: p.tamano, cantidad: p.cantidad })))
@@ -189,14 +191,7 @@ export default function FormMayorista({ empanadas, postres, mayoristas, fecha, c
           <label className="mb-1 block text-sm font-semibold" htmlFor="may-hora">
             Hora de despacho
           </label>
-          <input
-            id="may-hora"
-            value={hora}
-            onChange={(e) => setHora(e.target.value)}
-            inputMode="text"
-            placeholder="7:30"
-            className="h-12 w-full rounded-xl border border-borde bg-hueso px-3 text-base outline-none focus:border-acento"
-          />
+          <SelectorHora id="may-hora" value={hora} onChange={setHora} />
         </div>
         <div>
           <span className="mb-1 block text-sm font-semibold">Tamaño</span>
@@ -213,6 +208,11 @@ export default function FormMayorista({ empanadas, postres, mayoristas, fecha, c
               </button>
             ))}
           </div>
+          {cliente?.tamano_habitual && (
+            <p className="mt-1 text-xs text-gris">
+              {tamano === cliente.tamano_habitual ? `Habitual de ${cliente.nombre}.` : `Lo habitual de ${cliente.nombre} es ${cliente.tamano_habitual.toLowerCase()}.`}
+            </p>
+          )}
         </div>
       </div>
 
@@ -268,14 +268,11 @@ export default function FormMayorista({ empanadas, postres, mayoristas, fecha, c
           {error}
         </p>
       )}
-      <button
-        type="submit"
-        disabled={!listo || enviando}
-        className="h-12 w-full rounded-xl bg-tinta text-base font-semibold text-white transition-opacity disabled:opacity-40"
-      >
-        {enviando ? 'Registrando…' : 'Registrar orden'}
-      </button>
-      <p className="text-center text-xs text-gris">El total queda por cotizar.</p>
+      <BarraRegistrar
+        deshabilitado={!listo || enviando}
+        texto={enviando ? 'Registrando…' : 'Registrar orden'}
+        resumen={total > 0 || lineasPostres.length > 0 ? `${total > 0 ? `${total} ${total === 1 ? 'empanada' : 'empanadas'}` : ''}${total > 0 && lineasPostres.length > 0 ? ' · ' : ''}${lineasPostres.length > 0 ? `${lineasPostres.length} postre(s)` : ''} · total por cotizar` : 'El total queda por cotizar.'}
+      />
     </form>
   )
 }

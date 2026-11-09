@@ -43,3 +43,45 @@ export const hoyMasDias = (iso, dias) => {
   d.setUTCDate(d.getUTCDate() + dias)
   return d.toISOString().slice(0, 10)
 }
+
+// ——— Hora de despacho/entrega ———
+const PRIMERA_HORA_MIN = 6 * 60 // 6:00 a. m.
+const ULTIMA_HORA_MIN = 21 * 60 + 30 // 9:30 p. m.
+const PASO_MIN = 15
+
+/** Minutos desde la medianoche → «7:30 am» / «1:30 pm» (el texto que entiende el servidor y se lee bien). */
+function textoDeMinutos(min) {
+  const h24 = Math.floor(min / 60)
+  const m = min % 60
+  const sufijo = h24 >= 12 ? 'pm' : 'am'
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12
+  return `${h12}:${String(m).padStart(2, '0')} ${sufijo}`
+}
+
+/** Las horas del selector, de 15 en 15 minutos: { valor: '7:30 am', etiqueta: '7:30 a. m.' }. */
+export function opcionesDeHora() {
+  const lista = []
+  for (let min = PRIMERA_HORA_MIN; min <= ULTIMA_HORA_MIN; min += PASO_MIN) {
+    const valor = textoDeMinutos(min)
+    lista.push({ valor, etiqueta: valor.replace(' am', ' a. m.').replace(' pm', ' p. m.') })
+  }
+  return lista
+}
+
+/**
+ * Lleva una hora escrita de cualquier forma («7:30», «07:30», «1:30 pm», «16:00», «4pm») al formato del selector.
+ * Sin am/pm se toma tal cual en reloj de 24 h: «7:30» es la mañana (los despachos de mayoristas son de madrugada) y
+ * «16:00» las 4 p. m. Si no se entiende, se devuelve tal cual.
+ */
+export function aOpcionDeHora(texto) {
+  const crudo = String(texto ?? '').trim().toLowerCase()
+  const m = crudo.match(/^(\d{1,2})(?:[:.h](\d{2}))?\s*(a\.?\s?m\.?|p\.?\s?m\.?)?$/)
+  if (!m) return String(texto ?? '')
+  let h = Number(m[1])
+  const min = m[2] ? Number(m[2]) : 0
+  const sufijo = m[3]?.replace(/[\s.]/g, '')
+  if (min > 59 || h > 23) return String(texto ?? '')
+  if (sufijo === 'pm' && h < 12) h += 12
+  else if (sufijo === 'am' && h === 12) h = 0
+  return textoDeMinutos(h * 60 + min)
+}

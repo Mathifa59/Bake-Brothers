@@ -13,7 +13,7 @@ import FormMayorista from '../components/ordenes/FormMayorista'
 import FormRappi from '../components/ordenes/FormRappi'
 
 const PESTANAS = [
-  { id: 'lista', etiqueta: 'Órdenes' },
+  { id: 'lista', etiqueta: 'Del día' },
   { id: 'mayorista', etiqueta: 'Mayorista' },
   { id: 'rappi', etiqueta: 'Rappi' },
 ]

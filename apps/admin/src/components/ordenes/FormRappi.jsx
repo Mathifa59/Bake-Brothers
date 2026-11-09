@@ -3,6 +3,8 @@ import { CheckCircle2 } from 'lucide-react'
 import { registrarOrdenRappi } from '../../lib/apiClient'
 import { mensajeDeError } from '../../utils/ordenes'
 import ListaProductos from './ListaProductos'
+import SelectorHora from './SelectorHora'
+import BarraRegistrar from './BarraRegistrar'
 
 /**
  * Registro rápido de la orden de la tablet de Rappi: número de orden, productos y el total tal cual lo dice la
@@ -98,13 +100,7 @@ export default function FormRappi({ productos, fecha, corte, onRegistrada, sedeI
           <label className="mb-1 block text-sm font-semibold" htmlFor="rap-hora">
             Hora (opcional)
           </label>
-          <input
-            id="rap-hora"
-            value={hora}
-            onChange={(e) => setHora(e.target.value)}
-            placeholder="1:30 pm"
-            className="h-12 w-full rounded-xl border border-borde bg-hueso px-3 text-base outline-none focus:border-acento"
-          />
+          <SelectorHora id="rap-hora" value={hora} onChange={setHora} vacio="Sin hora" />
         </div>
       </div>
 
@@ -147,13 +143,11 @@ export default function FormRappi({ productos, fecha, corte, onRegistrada, sedeI
           {error}
         </p>
       )}
-      <button
-        type="submit"
-        disabled={!listo || enviando}
-        className="h-12 w-full rounded-xl bg-tinta text-base font-semibold text-white transition-opacity disabled:opacity-40"
-      >
-        {enviando ? 'Registrando…' : 'Registrar orden de Rappi'}
-      </button>
+      <BarraRegistrar
+        deshabilitado={!listo || enviando}
+        texto={enviando ? 'Registrando…' : 'Registrar orden de Rappi'}
+        resumen={listo ? `Orden ${referencia.trim()} · S/ ${totalNum.toFixed(2)}` : 'Falta el n.º de orden, un producto y el total.'}
+      />
     </form>
   )
 }
