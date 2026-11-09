@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { estadoLegible } from '@bakebrothers/domain'
+import { palabraDeEstado } from '../../utils/estadosPedido'
 import { supabase } from '../../lib/supabase'
 import { formatoPrecio } from '../../utils/formato'
 import { Pill } from '../bakeos/ui'
@@ -45,7 +45,7 @@ export default function PanelContexto({ conversacion, cliente, alCargarPedidos }
         <span className="font-semibold">{formatoPrecio(p.total)}</span>
       </div>
       <div className="mt-1 flex flex-wrap items-center gap-1.5">
-        <Pill tono="neutro">{estadoLegible(p.estado, p.tipo_entrega)}</Pill>
+        <Pill tono="neutro">{palabraDeEstado(p.estado)}</Pill>
         {p.pago_reportado && !p.pago_resultado && <Pill tono="prioridad">Pago por revisar</Pill>}
       </div>
     </li>

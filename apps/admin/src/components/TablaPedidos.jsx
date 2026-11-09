@@ -1,5 +1,6 @@
 import { Fragment } from 'react'
-import { ESTADOS_PEDIDO, puedeTransicionar, estadoLegible } from '@bakebrothers/domain'
+import { ESTADOS_PEDIDO, puedeTransicionar } from '@bakebrothers/domain'
+import { palabraDeEstado } from '../utils/estadosPedido'
 import { formatoPrecio } from '../utils/formato'
 import { Pill } from './bakeos/ui'
 
@@ -17,10 +18,10 @@ function SelectorEstado({ pedido, guardando, onCambiarEstado, bloqueado }) {
       aria-label={`Estado del pedido ${pedido.numero}`}
       className="rounded-lg border border-borde bg-hueso px-2 py-1.5 text-xs font-semibold outline-none focus:border-acento"
     >
-      <option value={pedido.estado}>{estadoLegible(pedido.estado, pedido.tipo_entrega)}</option>
+      <option value={pedido.estado}>{palabraDeEstado(pedido.estado)}</option>
       {ESTADOS_PEDIDO.filter((e) => puedeTransicionar(pedido.estado, e)).map((e) => (
         <option key={e} value={e}>
-          → {estadoLegible(e, pedido.tipo_entrega)}
+          → {palabraDeEstado(e)}
         </option>
       ))}
     </select>
