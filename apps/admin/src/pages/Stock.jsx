@@ -1,43 +1,100 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Search } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { Portada } from '../components/bakeos/ui'
+import { traerTodo } from '../lib/datos'
+import { Cargando, ErrorCarga, Portada, Tarjeta } from '../components/bakeos/ui'
 
-// Arma la lista plana de SKUs: un producto sin tamaños es un solo SKU
-// (product_size_id null); un producto con tamaños es un SKU por tamaño —
-// mismo criterio que la tabla `stock` (ver 0004_rediseno_alcance.sql).
-// Devuelve también los productos que se venden por tamaños: si de alguno hay una fila de stock del PRODUCTO ENTERO
-// (sin tamaño), esa fila cubre todos sus tamaños (regla única de disponibilidad, packages/domain) y la pantalla
-// tiene que mostrarla para poder levantarla — antes quedaba invisible y solo se borraba en la base.
-function armarSkus(productos, tamanos) {
-  const tamanosPorProducto = new Map()
+/**
+ * Stock por sede, pensado primero para el celular: una lista de tarjetas por producto, agrupadas por categoría (la
+ * categoría es el título de la sección, no se repite en cada fila). Cada producto muestra su nombre en una línea y
+ * debajo sus tamaños; cada uno con un interruptor grande Disponible/Agotado y un campo chico, opcional, de cantidad.
+ *
+ * Criterio de la tabla `stock` (ver 0004): un producto sin tamaños es un solo SKU (product_size_id null); uno con
+ * tamaños es un SKU por tamaño. Sin fila de stock = disponible. Una fila del PRODUCTO ENTERO (sin tamaño) en un
+ * producto con tamaños cubre todos sus tamaños (regla única de disponibilidad, packages/domain): si existe en la sede,
+ * se muestra primero, como «Todos los tamaños», para poder verla y levantarla.
+ */
+
+const TIPOS_EN_ORDEN = ['Tortas y Kekes', 'Postres', 'Postres en Caja', 'Alfajores', 'Empanadas', 'Sándwiches', 'Cajitas Dulces', 'Bebidas']
+const posicionDeTipo = (t) => {
+  const i = TIPOS_EN_ORDEN.indexOf(t)
+  return i === -1 ? TIPOS_EN_ORDEN.length : i
+}
+const sinTildes = (s) => String(s ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+
+const NOMBRE_ENTERO = 'Todos los tamaños'
+
+/** Productos con sus tamaños vendibles (los que tienen precio; el tamaño oculto de empanadas no cuenta). */
+function armarCatalogo(productos, tamanos) {
+  const porProducto = new Map()
   for (const t of tamanos) {
-    if (!tamanosPorProducto.has(t.product_id)) tamanosPorProducto.set(t.product_id, [])
-    tamanosPorProducto.get(t.product_id).push(t)
+    if (!porProducto.has(t.product_id)) porProducto.set(t.product_id, [])
+    porProducto.get(t.product_id).push(t)
   }
-  const skus = []
-  const conTamanos = []
-  for (const p of productos) {
-    const suyos = tamanosPorProducto.get(p.id)
-    if (suyos && suyos.length > 0) conTamanos.push({ id: p.id, nombre: p.nombre, categoria: p.categoria_negocio })
-    if (!suyos || suyos.length === 0) {
-      skus.push({ key: p.id, productId: p.id, productSizeId: null, nombre: p.nombre, categoria: p.categoria_negocio })
-    } else {
-      for (const t of suyos) {
-        skus.push({
-          key: `${p.id}:${t.id}`,
-          productId: p.id,
-          productSizeId: t.id,
-          nombre: `${p.nombre} — ${t.tamano}`,
-          categoria: p.categoria_negocio,
-        })
-      }
-    }
-  }
-  return { skus: skus.sort((a, b) => a.categoria.localeCompare(b.categoria) || a.nombre.localeCompare(b.nombre)), conTamanos }
+  return productos.map((p) => ({
+    id: p.id,
+    nombre: p.nombre,
+    tipo: p.tipo || 'Otros',
+    orden: p.orden ?? 0,
+    tamanos: (porProducto.get(p.id) ?? []).sort((a, b) => Number(a.precio ?? 0) - Number(b.precio ?? 0)),
+  }))
 }
 
-const SUFIJO_ENTERO = 'Todos los tamaños'
+/** El estado de un SKU según su fila de stock (sin fila = disponible). */
+const estadoDe = (fila) => ({
+  disponible: fila ? fila.disponible : true,
+  sinUnidades: Boolean(fila && fila.disponible && fila.cantidad === 0),
+})
+
+function Interruptor({ disponible, ocupado, onClick, etiqueta }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={disponible}
+      aria-label={`${etiqueta}: ${disponible ? 'disponible' : 'agotado'}`}
+      disabled={ocupado}
+      onClick={onClick}
+      className={`flex h-11 w-[104px] shrink-0 items-center justify-center gap-2 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 ${
+        disponible ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+      }`}
+    >
+      <span aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${disponible ? 'bg-green-600' : 'bg-red-600'}`} />
+      {disponible ? 'Disponible' : 'Agotado'}
+    </button>
+  )
+}
+
+function FilaSku({ producto, fila, sku, guardando, onToggle, onCantidad }) {
+  const { disponible, sinUnidades } = estadoDe(fila)
+  return (
+    <li className="flex items-center gap-2 py-2">
+      <div className="min-w-0 flex-1">
+        {sku.etiqueta && <p className={`text-sm leading-snug ${sku.entero ? 'font-bold' : 'font-medium'}`}>{sku.etiqueta}</p>}
+        {sku.entero && <p className="text-[11px] leading-tight text-gris">Cubre todos los tamaños</p>}
+        {sinUnidades && <p className="text-[11px] font-semibold leading-tight text-red-700">Sin unidades (0)</p>}
+      </div>
+      <input
+        type="number"
+        inputMode="numeric"
+        min="0"
+        key={`${sku.key}:${fila?.cantidad ?? ''}`}
+        defaultValue={fila?.cantidad ?? ''}
+        placeholder="Cant."
+        aria-label={`Cantidad de ${`${producto.nombre} ${sku.etiqueta}`.trim()} (opcional)`}
+        onBlur={(e) => onCantidad(sku, e.target.value)}
+        className="h-11 w-16 shrink-0 rounded-xl border border-borde bg-hueso px-1 text-center text-sm outline-none placeholder:text-gris/60 focus:border-acento"
+      />
+      <Interruptor
+        disponible={disponible}
+        ocupado={guardando === sku.key}
+        onClick={() => onToggle(sku)}
+        etiqueta={`${producto.nombre} ${sku.etiqueta}`.trim()}
+      />
+    </li>
+  )
+}
 
 export default function Stock() {
   const { perfil } = useAuth()
@@ -45,11 +102,13 @@ export default function Stock() {
 
   const [sedes, setSedes] = useState([])
   const [sedeId, setSedeId] = useState(esAdmin ? null : perfil?.sedeId ?? null)
-  const [skus, setSkus] = useState(null)
-  const [conTamanos, setConTamanos] = useState([])
+  const [catalogo, setCatalogo] = useState(null)
   const [stockPorSku, setStockPorSku] = useState(new Map()) // key -> { id, disponible, cantidad }
   const [error, setError] = useState(null)
+  const [errorAccion, setErrorAccion] = useState(null)
   const [guardando, setGuardando] = useState(null)
+  const [busqueda, setBusqueda] = useState('')
+  const [soloAgotados, setSoloAgotados] = useState(false)
 
   useEffect(() => {
     supabase
@@ -67,15 +126,11 @@ export default function Stock() {
 
   useEffect(() => {
     Promise.all([
-      supabase.from('products').select('id, nombre, categoria_negocio').order('nombre'),
-      supabase.from('product_sizes').select('id, product_id, tamano').not('precio', 'is', null),
-    ]).then(([productos, tamanos]) => {
-      if (productos.error) return setError(productos.error.message)
-      if (tamanos.error) return setError(tamanos.error.message)
-      const armado = armarSkus(productos.data, tamanos.data)
-      setSkus(armado.skus)
-      setConTamanos(armado.conTamanos)
-    })
+      traerTodo(() => supabase.from('products').select('id, nombre, tipo, orden').order('nombre')),
+      traerTodo(() => supabase.from('product_sizes').select('id, product_id, tamano, precio').not('precio', 'is', null)),
+    ])
+      .then(([productos, tamanos]) => setCatalogo(armarCatalogo(productos, tamanos)))
+      .catch((err) => setError(err.message ?? String(err)))
   }, [])
 
   const cargarStockDeSede = (sede) => {
@@ -99,8 +154,9 @@ export default function Stock() {
 
   const toggleDisponible = async (sku) => {
     setGuardando(sku.key)
+    setErrorAccion(null)
     const existente = stockPorSku.get(sku.key)
-    const nuevoValor = existente ? !existente.disponible : false // sin fila = disponible implícito; el primer toggle marca agotado
+    const nuevoValor = existente ? !existente.disponible : false // sin fila = disponible implícito; el primer toque marca agotado
     let resultado
     if (existente) {
       resultado = await supabase.from('stock').update({ disponible: nuevoValor, actualizado_en: new Date().toISOString() }).eq('id', existente.id).select().single()
@@ -112,10 +168,7 @@ export default function Stock() {
         .single()
     }
     setGuardando(null)
-    if (resultado.error) {
-      alert(`No se pudo actualizar el stock: ${resultado.error.message}`)
-      return
-    }
+    if (resultado.error) return setErrorAccion(`No se pudo actualizar el stock: ${resultado.error.message}`)
     cargarStockDeSede(sedeId)
   }
 
@@ -123,6 +176,9 @@ export default function Stock() {
     const cantidad = cantidadTexto === '' ? null : Number(cantidadTexto)
     if (cantidad !== null && (!Number.isInteger(cantidad) || cantidad < 0)) return
     const existente = stockPorSku.get(sku.key)
+    if ((existente?.cantidad ?? null) === cantidad) return // sin cambios: no se escribe
+    if (!existente && cantidad === null) return
+    setErrorAccion(null)
     let resultado
     if (existente) {
       resultado = await supabase.from('stock').update({ cantidad, actualizado_en: new Date().toISOString() }).eq('id', existente.id).select().single()
@@ -133,129 +189,149 @@ export default function Stock() {
         .select()
         .single()
     }
-    if (resultado.error) {
-      alert(`No se pudo guardar la cantidad: ${resultado.error.message}`)
-      return
-    }
+    if (resultado.error) return setErrorAccion(`No se pudo guardar la cantidad: ${resultado.error.message}`)
     cargarStockDeSede(sedeId)
   }
 
   const sedeSeleccionada = useMemo(() => sedes.find((s) => s.id === sedeId), [sedes, sedeId])
 
-  // Las filas del PRODUCTO ENTERO que existen en esta sede, de productos que se venden por tamaños: van justo arriba
-  // de los tamaños de ese producto, marcadas como «Todos los tamaños».
-  const filasDeProductoEntero = useMemo(
-    () =>
-      conTamanos
-        .filter((p) => stockPorSku.has(p.id))
-        .map((p) => ({ key: p.id, productId: p.id, productSizeId: null, nombre: `${p.nombre} — ${SUFIJO_ENTERO}`, categoria: p.categoria, entero: true, productoNombre: p.nombre })),
-    [conTamanos, stockPorSku]
-  )
-  const skusMostrados = useMemo(() => {
-    if (!skus) return null
-    if (filasDeProductoEntero.length === 0) return skus
-    const porProducto = new Map(filasDeProductoEntero.map((f) => [f.productId, f]))
-    const lista = []
-    const yaPuestos = new Set()
-    for (const sku of skus) {
-      const entera = porProducto.get(sku.productId)
-      if (entera && !yaPuestos.has(sku.productId)) {
-        lista.push(entera)
-        yaPuestos.add(sku.productId)
+  // Por producto: las filas (SKUs) que se muestran, con su fila de stock; y cuáles están agotadas.
+  const productos = useMemo(() => {
+    if (!catalogo) return null
+    return catalogo.map((p) => {
+      const skus = []
+      if (p.tamanos.length === 0) {
+        skus.push({ key: p.id, productId: p.id, productSizeId: null, etiqueta: '' }) // sin tamaños: el nombre del producto ya lo dice todo
+      } else {
+        if (stockPorSku.has(p.id)) skus.push({ key: p.id, productId: p.id, productSizeId: null, etiqueta: NOMBRE_ENTERO, entero: true })
+        for (const t of p.tamanos) skus.push({ key: `${p.id}:${t.id}`, productId: p.id, productSizeId: t.id, etiqueta: t.tamano })
       }
-      lista.push(sku)
-    }
-    return lista
-  }, [skus, filasDeProductoEntero])
+      const filas = skus.map((sku) => {
+        const fila = stockPorSku.get(sku.key)
+        const { disponible, sinUnidades } = estadoDe(fila)
+        return { sku, fila, agotado: !disponible || sinUnidades }
+      })
+      return { ...p, filas }
+    })
+  }, [catalogo, stockPorSku])
 
-  if (error) return <p className="p-6 text-sm text-red-600">Error: {error}</p>
+  const totalAgotados = useMemo(() => (productos ?? []).reduce((n, p) => n + p.filas.filter((f) => f.agotado).length, 0), [productos])
+
+  // Aplica buscador y «Solo agotados», y agrupa por categoría en el orden del negocio.
+  const secciones = useMemo(() => {
+    if (!productos) return null
+    const q = sinTildes(busqueda).trim()
+    const grupos = new Map()
+    for (const p of productos) {
+      if (q) {
+        const texto = sinTildes(`${p.nombre} ${p.tipo} ${p.tamanos.map((t) => t.tamano).join(' ')}`)
+        if (!q.split(/\s+/).every((palabra) => texto.includes(palabra))) continue
+      }
+      const filas = soloAgotados ? p.filas.filter((f) => f.agotado) : p.filas
+      if (filas.length === 0) continue
+      if (!grupos.has(p.tipo)) grupos.set(p.tipo, [])
+      grupos.get(p.tipo).push({ ...p, filas })
+    }
+    return [...grupos.entries()]
+      .sort(([a], [b]) => posicionDeTipo(a) - posicionDeTipo(b) || a.localeCompare(b, 'es'))
+      .map(([tipo, lista]) => ({ tipo, productos: lista.sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre, 'es')) }))
+  }, [productos, busqueda, soloAgotados])
+
+  if (error) return <ErrorCarga mensaje={`Error: ${error}`} />
+
+  const hayEnteroAgotado = (productos ?? []).some((p) => p.filas.some((f) => f.sku.entero && f.agotado))
+  const totalVisibles = (secciones ?? []).reduce((n, s) => n + s.productos.length, 0)
 
   return (
     <>
       <Portada titulo="Stock" subtitulo="Disponibilidad de productos por sede" />
-      <div className="py-4">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="space-y-3 py-4 pb-10">
         {esAdmin ? (
           <select
             value={sedeId ?? ''}
             onChange={(e) => setSedeId(e.target.value)}
-            className="rounded-lg border border-borde bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-acento"
+            aria-label="Local"
+            className="h-11 w-full rounded-xl border border-borde bg-hueso px-3 text-base font-semibold outline-none focus:border-acento"
           >
             {sedes.map((s) => (
-              <option key={s.id} value={s.id}>{s.nombre}</option>
+              <option key={s.id} value={s.id}>
+                {s.nombre}
+              </option>
             ))}
           </select>
         ) : (
-          <span className="rounded-full bg-acento-suave px-3 py-1.5 text-xs font-bold text-acento-oscuro">
+          <span className="inline-block rounded-full bg-acento-suave px-3 py-1.5 text-xs font-bold text-acento-oscuro">
             {sedeSeleccionada?.nombre ?? 'Tu sede'}
           </span>
         )}
-      </div>
 
-      {filasDeProductoEntero.some((f) => stockPorSku.get(f.key)?.disponible === false) && (
-        <p role="note" className="mb-4 rounded-xl bg-acento-suave p-3 text-sm text-acento-oscuro">
-          Hay productos marcados <b>agotados en todos sus tamaños</b> (filas «{SUFIJO_ENTERO}»). Mientras estén agotados no se vende ningún tamaño en esta sede.
-          Toca «Agotado» para levantarlos.
-        </p>
-      )}
+        <label className="flex h-11 items-center gap-2 rounded-xl border border-borde bg-hueso px-3">
+          <Search size={16} className="shrink-0 text-gris" aria-hidden="true" />
+          <input
+            type="search"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar producto o tamaño"
+            aria-label="Buscar producto o tamaño"
+            className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-gris/70"
+          />
+        </label>
 
-      {!skusMostrados ? (
-        <p className="text-sm text-gris">Cargando catálogo…</p>
-      ) : (
-        <div className="overflow-x-auto rounded-2xl border border-borde/60 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-borde/60 bg-hueso text-xs font-bold uppercase tracking-wide text-gris">
-              <tr>
-                <th className="px-4 py-3">Categoría</th>
-                <th className="px-4 py-3">Producto</th>
-                <th className="px-4 py-3">Disponible</th>
-                <th className="px-4 py-3">Cantidad (opcional)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {skusMostrados.map((sku) => {
-                const fila = stockPorSku.get(sku.key)
-                const disponible = fila ? fila.disponible : true
-                return (
-                  <tr key={sku.key} className="border-b border-borde/40 last:border-0">
-                    <td className="px-4 py-3 capitalize text-gris">{sku.categoria}</td>
-                    <td className="px-4 py-3">
-                      {sku.entero ? (
-                        <>
-                          {sku.productoNombre} — <span className="font-semibold">{SUFIJO_ENTERO}</span>
-                        </>
-                      ) : (
-                        sku.nombre
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => toggleDisponible(sku)}
-                        disabled={guardando === sku.key}
-                        className={`rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${
-                          disponible ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        } disabled:opacity-50`}
-                      >
-                        {disponible ? 'Disponible' : 'Agotado'}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      <input
-                        type="number"
-                        min="0"
-                        defaultValue={fila?.cantidad ?? ''}
-                        placeholder="sin conteo"
-                        onBlur={(e) => guardarCantidad(sku, e.target.value)}
-                        className="w-28 rounded-lg border border-borde bg-white px-2 py-1.5 text-xs outline-none focus:border-acento"
-                      />
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            aria-pressed={soloAgotados}
+            onClick={() => setSoloAgotados((v) => !v)}
+            className={`h-11 rounded-full px-4 text-sm font-semibold transition-colors ${
+              soloAgotados ? 'bg-red-100 text-red-800' : 'bg-borde/60 text-gris'
+            }`}
+          >
+            Solo agotados{totalAgotados > 0 ? ` (${totalAgotados})` : ''}
+          </button>
+          {productos && (
+            <p className="text-xs text-gris" aria-live="polite">
+              {totalVisibles} producto{totalVisibles === 1 ? '' : 's'}
+            </p>
+          )}
         </div>
-      )}
+
+        {hayEnteroAgotado && (
+          <p role="note" className="rounded-xl bg-acento-suave p-3 text-sm text-acento-oscuro">
+            Hay productos <b>agotados en todos sus tamaños</b> (filas «{NOMBRE_ENTERO}»). Mientras estén agotados no se vende ningún tamaño en esta sede.
+            Toca «Agotado» para levantarlos.
+          </p>
+        )}
+        {errorAccion && (
+          <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">
+            {errorAccion}
+          </p>
+        )}
+
+        {!secciones ? (
+          <Cargando texto="Cargando catálogo…" />
+        ) : secciones.length === 0 ? (
+          <Tarjeta className="text-center text-sm text-gris">
+            {soloAgotados && !busqueda ? 'No hay nada agotado en esta sede.' : 'Ningún producto coincide con lo que buscas.'}
+          </Tarjeta>
+        ) : (
+          secciones.map((s) => (
+            <section key={s.tipo} aria-label={s.tipo} className="pt-2">
+              <h2 className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wider text-gris">{s.tipo}</h2>
+              <div className="grid gap-3 md:grid-cols-2">
+                {s.productos.map((p) => (
+                  <Tarjeta key={p.id} className="p-3">
+                    <h3 className="text-[15px] font-semibold leading-snug">{p.nombre}</h3>
+                    <ul className="mt-1 divide-y divide-borde/60">
+                      {p.filas.map(({ sku, fila }) => (
+                        <FilaSku key={sku.key} producto={p} fila={fila} sku={sku} guardando={guardando} onToggle={toggleDisponible} onCantidad={guardarCantidad} />
+                      ))}
+                    </ul>
+                  </Tarjeta>
+                ))}
+              </div>
+            </section>
+          ))
+        )}
       </div>
     </>
   )
