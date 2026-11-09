@@ -154,3 +154,4 @@ export {
   type ConsultaDisponibilidad,
   type ResultadoDisponibilidad,
 } from './disponibilidadSede.js'
+export { ESTADOS_EQUIPO, estadoEquipo, type EstadoEquipo } from './estadosEquipo.js'

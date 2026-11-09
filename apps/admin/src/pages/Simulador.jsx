@@ -33,7 +33,7 @@ const ESTADOS = {
   atendida_por_operador: { texto: 'Atendida por una persona', tono: 'lila' },
 }
 
-const ESTADO_PEDIDO = { confirmed: 'Confirmado', payment_pending: 'Pendiente de pago' }
+const ESTADO_PEDIDO = { confirmed: 'Confirmado', payment_pending: 'Por pagar' }
 
 // La conversación se guarda en sessionStorage: ir a Producción a ver el pedido y volver no debe borrar el chat.
 function leerSesion() {
