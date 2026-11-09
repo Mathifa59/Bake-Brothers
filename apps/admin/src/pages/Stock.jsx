@@ -6,6 +6,9 @@ import { Portada } from '../components/bakeos/ui'
 // Arma la lista plana de SKUs: un producto sin tamaños es un solo SKU
 // (product_size_id null); un producto con tamaños es un SKU por tamaño —
 // mismo criterio que la tabla `stock` (ver 0004_rediseno_alcance.sql).
+// Devuelve también los productos que se venden por tamaños: si de alguno hay una fila de stock del PRODUCTO ENTERO
+// (sin tamaño), esa fila cubre todos sus tamaños (regla única de disponibilidad, packages/domain) y la pantalla
+// tiene que mostrarla para poder levantarla — antes quedaba invisible y solo se borraba en la base.
 function armarSkus(productos, tamanos) {
   const tamanosPorProducto = new Map()
   for (const t of tamanos) {
@@ -13,8 +16,10 @@ function armarSkus(productos, tamanos) {
     tamanosPorProducto.get(t.product_id).push(t)
   }
   const skus = []
+  const conTamanos = []
   for (const p of productos) {
     const suyos = tamanosPorProducto.get(p.id)
+    if (suyos && suyos.length > 0) conTamanos.push({ id: p.id, nombre: p.nombre, categoria: p.categoria_negocio })
     if (!suyos || suyos.length === 0) {
       skus.push({ key: p.id, productId: p.id, productSizeId: null, nombre: p.nombre, categoria: p.categoria_negocio })
     } else {
@@ -29,8 +34,10 @@ function armarSkus(productos, tamanos) {
       }
     }
   }
-  return skus.sort((a, b) => a.categoria.localeCompare(b.categoria) || a.nombre.localeCompare(b.nombre))
+  return { skus: skus.sort((a, b) => a.categoria.localeCompare(b.categoria) || a.nombre.localeCompare(b.nombre)), conTamanos }
 }
+
+const SUFIJO_ENTERO = 'Todos los tamaños'
 
 export default function Stock() {
   const { perfil } = useAuth()
@@ -39,6 +46,7 @@ export default function Stock() {
   const [sedes, setSedes] = useState([])
   const [sedeId, setSedeId] = useState(esAdmin ? null : perfil?.sedeId ?? null)
   const [skus, setSkus] = useState(null)
+  const [conTamanos, setConTamanos] = useState([])
   const [stockPorSku, setStockPorSku] = useState(new Map()) // key -> { id, disponible, cantidad }
   const [error, setError] = useState(null)
   const [guardando, setGuardando] = useState(null)
@@ -64,7 +72,9 @@ export default function Stock() {
     ]).then(([productos, tamanos]) => {
       if (productos.error) return setError(productos.error.message)
       if (tamanos.error) return setError(tamanos.error.message)
-      setSkus(armarSkus(productos.data, tamanos.data))
+      const armado = armarSkus(productos.data, tamanos.data)
+      setSkus(armado.skus)
+      setConTamanos(armado.conTamanos)
     })
   }, [])
 
@@ -132,6 +142,32 @@ export default function Stock() {
 
   const sedeSeleccionada = useMemo(() => sedes.find((s) => s.id === sedeId), [sedes, sedeId])
 
+  // Las filas del PRODUCTO ENTERO que existen en esta sede, de productos que se venden por tamaños: van justo arriba
+  // de los tamaños de ese producto, marcadas como «Todos los tamaños».
+  const filasDeProductoEntero = useMemo(
+    () =>
+      conTamanos
+        .filter((p) => stockPorSku.has(p.id))
+        .map((p) => ({ key: p.id, productId: p.id, productSizeId: null, nombre: `${p.nombre} — ${SUFIJO_ENTERO}`, categoria: p.categoria, entero: true, productoNombre: p.nombre })),
+    [conTamanos, stockPorSku]
+  )
+  const skusMostrados = useMemo(() => {
+    if (!skus) return null
+    if (filasDeProductoEntero.length === 0) return skus
+    const porProducto = new Map(filasDeProductoEntero.map((f) => [f.productId, f]))
+    const lista = []
+    const yaPuestos = new Set()
+    for (const sku of skus) {
+      const entera = porProducto.get(sku.productId)
+      if (entera && !yaPuestos.has(sku.productId)) {
+        lista.push(entera)
+        yaPuestos.add(sku.productId)
+      }
+      lista.push(sku)
+    }
+    return lista
+  }, [skus, filasDeProductoEntero])
+
   if (error) return <p className="p-6 text-sm text-red-600">Error: {error}</p>
 
   return (
@@ -156,7 +192,14 @@ export default function Stock() {
         )}
       </div>
 
-      {!skus ? (
+      {filasDeProductoEntero.some((f) => stockPorSku.get(f.key)?.disponible === false) && (
+        <p role="note" className="mb-4 rounded-xl bg-acento-suave p-3 text-sm text-acento-oscuro">
+          Hay productos marcados <b>agotados en todos sus tamaños</b> (filas «{SUFIJO_ENTERO}»). Mientras estén agotados no se vende ningún tamaño en esta sede.
+          Toca «Agotado» para levantarlos.
+        </p>
+      )}
+
+      {!skusMostrados ? (
         <p className="text-sm text-gris">Cargando catálogo…</p>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-borde/60 bg-white">
@@ -170,13 +213,21 @@ export default function Stock() {
               </tr>
             </thead>
             <tbody>
-              {skus.map((sku) => {
+              {skusMostrados.map((sku) => {
                 const fila = stockPorSku.get(sku.key)
                 const disponible = fila ? fila.disponible : true
                 return (
                   <tr key={sku.key} className="border-b border-borde/40 last:border-0">
                     <td className="px-4 py-3 capitalize text-gris">{sku.categoria}</td>
-                    <td className="px-4 py-3">{sku.nombre}</td>
+                    <td className="px-4 py-3">
+                      {sku.entero ? (
+                        <>
+                          {sku.productoNombre} — <span className="font-semibold">{SUFIJO_ENTERO}</span>
+                        </>
+                      ) : (
+                        sku.nombre
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <button
                         onClick={() => toggleDisponible(sku)}
