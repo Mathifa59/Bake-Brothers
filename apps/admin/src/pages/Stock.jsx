@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -47,47 +47,70 @@ const estadoDe = (fila) => ({
   sinUnidades: Boolean(fila && fila.disponible && fila.cantidad === 0),
 })
 
-function Interruptor({ disponible, ocupado, onClick, etiqueta }) {
+function Interruptor({ disponible, sinUnidades, atenuado, ocupado, onClick, etiqueta }) {
+  // «Sin unidades»: la fila dice Disponible pero tiene cantidad 0, y con 0 unidades NO se vende (el bot, Nuevo pedido
+  // y la web lo rechazan igual que a un agotado): se muestra como no vendible, sin cambiar lo guardado.
+  const estado = sinUnidades ? 'sin_unidades' : disponible ? 'disponible' : 'agotado'
+  const ESTILO = {
+    disponible: ['bg-green-100 text-green-800', 'bg-green-600', 'Disponible'],
+    agotado: ['bg-red-100 text-red-800', 'bg-red-600', 'Agotado'],
+    sin_unidades: ['bg-amber-100 text-amber-900', 'bg-amber-600', 'Sin unidades'],
+  }[estado]
   return (
     <button
       type="button"
       role="switch"
       aria-checked={disponible}
-      aria-label={`${etiqueta}: ${disponible ? 'disponible' : 'agotado'}`}
+      aria-label={`${etiqueta}: ${estado === 'sin_unidades' ? 'sin unidades (no se vende)' : estado}`}
       disabled={ocupado}
       onClick={onClick}
-      className={`flex h-11 w-[104px] shrink-0 items-center justify-center gap-2 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 ${
-        disponible ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+      className={`flex h-11 w-[104px] shrink-0 items-center justify-center gap-2 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 ${ESTILO[0]} ${
+        atenuado ? 'opacity-50' : ''
       }`}
     >
-      <span aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${disponible ? 'bg-green-600' : 'bg-red-600'}`} />
-      {disponible ? 'Disponible' : 'Agotado'}
+      <span aria-hidden="true" className={`h-2.5 w-2.5 shrink-0 rounded-full ${ESTILO[1]}`} />
+      <span className={estado === 'sin_unidades' ? 'text-xs leading-tight' : ''}>{ESTILO[2]}</span>
     </button>
   )
 }
 
-function FilaSku({ producto, fila, sku, guardando, onToggle, onCantidad }) {
+function FilaSku({ producto, fila, sku, bloqueado, guardando, onToggle, onCantidad }) {
   const { disponible, sinUnidades } = estadoDe(fila)
   return (
     <li className="flex items-center gap-2 py-2">
       <div className="min-w-0 flex-1">
         {sku.etiqueta && <p className={`text-sm leading-snug ${sku.entero ? 'font-bold' : 'font-medium'}`}>{sku.etiqueta}</p>}
         {sku.entero && <p className="text-[11px] leading-tight text-gris">Cubre todos los tamaños</p>}
-        {sinUnidades && <p className="text-[11px] font-semibold leading-tight text-red-700">Sin unidades (0)</p>}
+        {bloqueado && <p className="text-[11px] font-semibold leading-tight text-red-800">Bloqueado por {NOMBRE_ENTERO}</p>}
+        {sinUnidades && !bloqueado && (
+          <p className="text-[11px] font-semibold leading-tight text-amber-900">Sin unidades (0): no se vende hasta poner unidades o borrar la cantidad</p>
+        )}
       </div>
       <input
         type="number"
         inputMode="numeric"
+        enterKeyHint="done"
         min="0"
         key={`${sku.key}:${fila?.cantidad ?? ''}`}
         defaultValue={fila?.cantidad ?? ''}
         placeholder="Cant."
         aria-label={`Cantidad de ${`${producto.nombre} ${sku.etiqueta}`.trim()} (opcional)`}
         onBlur={(e) => onCantidad(sku, e.target.value)}
-        className="h-11 w-16 shrink-0 rounded-xl border border-borde bg-hueso px-1 text-center text-sm outline-none placeholder:text-gris/60 focus:border-acento"
+        onKeyDown={(e) => {
+          // «Ir» / Enter del teclado del celular: guarda y cierra el teclado (el guardado de onBlur no se repite).
+          if (e.key !== 'Enter') return
+          e.preventDefault()
+          onCantidad(sku, e.currentTarget.value)
+          e.currentTarget.blur()
+        }}
+        className={`h-11 w-16 shrink-0 rounded-xl border border-borde bg-hueso px-1 text-center text-sm outline-none placeholder:text-gris/60 focus:border-acento ${
+          bloqueado ? 'opacity-50' : ''
+        }`}
       />
       <Interruptor
         disponible={disponible}
+        sinUnidades={sinUnidades}
+        atenuado={bloqueado}
         ocupado={guardando === sku.key}
         onClick={() => onToggle(sku)}
         etiqueta={`${producto.nombre} ${sku.etiqueta}`.trim()}
@@ -109,6 +132,9 @@ export default function Stock() {
   const [guardando, setGuardando] = useState(null)
   const [busqueda, setBusqueda] = useState('')
   const [soloAgotados, setSoloAgotados] = useState(false)
+  // Enter y salir de la casilla disparan el guardado los dos: este registro evita escribir dos veces lo mismo.
+  const cantidadGuardada = useRef(new Map()) // sede:sku -> última cantidad escrita (o null)
+  const cantidadEnVuelo = useRef(new Set())
 
   useEffect(() => {
     supabase
@@ -176,21 +202,30 @@ export default function Stock() {
     const cantidad = cantidadTexto === '' ? null : Number(cantidadTexto)
     if (cantidad !== null && (!Number.isInteger(cantidad) || cantidad < 0)) return
     const existente = stockPorSku.get(sku.key)
-    if ((existente?.cantidad ?? null) === cantidad) return // sin cambios: no se escribe
+    const claveSede = `${sedeId}:${sku.key}`
+    const guardadaAntes = cantidadGuardada.current.has(claveSede) ? cantidadGuardada.current.get(claveSede) : (existente?.cantidad ?? null)
+    if (guardadaAntes === cantidad) return // sin cambios: no se escribe
     if (!existente && cantidad === null) return
+    if (cantidadEnVuelo.current.has(claveSede)) return
+    cantidadEnVuelo.current.add(claveSede)
     setErrorAccion(null)
-    let resultado
-    if (existente) {
-      resultado = await supabase.from('stock').update({ cantidad, actualizado_en: new Date().toISOString() }).eq('id', existente.id).select().single()
-    } else {
-      resultado = await supabase
-        .from('stock')
-        .insert({ sede_id: sedeId, product_id: sku.productId, product_size_id: sku.productSizeId, disponible: true, cantidad })
-        .select()
-        .single()
+    try {
+      let resultado
+      if (existente) {
+        resultado = await supabase.from('stock').update({ cantidad, actualizado_en: new Date().toISOString() }).eq('id', existente.id).select().single()
+      } else {
+        resultado = await supabase
+          .from('stock')
+          .insert({ sede_id: sedeId, product_id: sku.productId, product_size_id: sku.productSizeId, disponible: true, cantidad })
+          .select()
+          .single()
+      }
+      if (resultado.error) return setErrorAccion(`No se pudo guardar la cantidad: ${resultado.error.message}`)
+      cantidadGuardada.current.set(claveSede, cantidad)
+      cargarStockDeSede(sedeId)
+    } finally {
+      cantidadEnVuelo.current.delete(claveSede)
     }
-    if (resultado.error) return setErrorAccion(`No se pudo guardar la cantidad: ${resultado.error.message}`)
-    cargarStockDeSede(sedeId)
   }
 
   const sedeSeleccionada = useMemo(() => sedes.find((s) => s.id === sedeId), [sedes, sedeId])
@@ -206,10 +241,15 @@ export default function Stock() {
         if (stockPorSku.has(p.id)) skus.push({ key: p.id, productId: p.id, productSizeId: null, etiqueta: NOMBRE_ENTERO, entero: true })
         for (const t of p.tamanos) skus.push({ key: `${p.id}:${t.id}`, productId: p.id, productSizeId: t.id, etiqueta: t.tamano })
       }
+      // La fila del producto entero manda sobre los tamaños (regla única de disponibilidad): si está agotada, NINGÚN
+      // tamaño se vende; si está en 0 unidades, no se venden los tamaños que no tienen fila propia. Los tamaños se
+      // muestran atenuados con «Bloqueado por Todos los tamaños», sin tocar lo que tienen guardado.
+      const entero = p.tamanos.length > 0 ? stockPorSku.get(p.id) : undefined
       const filas = skus.map((sku) => {
         const fila = stockPorSku.get(sku.key)
         const { disponible, sinUnidades } = estadoDe(fila)
-        return { sku, fila, agotado: !disponible || sinUnidades }
+        const bloqueado = Boolean(entero && !sku.entero && (entero.disponible === false || (entero.cantidad === 0 && !fila)))
+        return { sku, fila, bloqueado, agotado: !disponible || sinUnidades }
       })
       return { ...p, filas }
     })
@@ -322,8 +362,8 @@ export default function Stock() {
                   <Tarjeta key={p.id} className="p-3">
                     <h3 className="text-[15px] font-semibold leading-snug">{p.nombre}</h3>
                     <ul className="mt-1 divide-y divide-borde/60">
-                      {p.filas.map(({ sku, fila }) => (
-                        <FilaSku key={sku.key} producto={p} fila={fila} sku={sku} guardando={guardando} onToggle={toggleDisponible} onCantidad={guardarCantidad} />
+                      {p.filas.map(({ sku, fila, bloqueado }) => (
+                        <FilaSku key={sku.key} producto={p} fila={fila} sku={sku} bloqueado={bloqueado} guardando={guardando} onToggle={toggleDisponible} onCantidad={guardarCantidad} />
                       ))}
                     </ul>
                   </Tarjeta>
