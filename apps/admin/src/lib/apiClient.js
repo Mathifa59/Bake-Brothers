@@ -58,6 +58,40 @@ export async function responderConversacion(conversacionId, texto) {
 }
 
 /**
+ * Plantillas aprobadas de Meta que se pueden mandar a esa conversación (se leen de Meta en el momento).
+ * Devuelve { plantillas, noSoportadas, ventanaAbierta }. Lanza un Error con .codigo/.detalle si falla.
+ */
+export async function plantillasDeConversacion(conversacionId) {
+  const res = await pedirConAuth(`/api/dashboard/conversaciones/${encodeURIComponent(conversacionId)}/plantillas`)
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.error || `Error del servidor (${res.status})`)
+    err.codigo = data.error
+    err.detalle = data.detalle
+    err.faltan = data.faltan
+    throw err
+  }
+  return data
+}
+
+/** Envía una plantilla aprobada. `valores` es { [clave de variable]: texto }. Lanza un Error con .codigo/.detalle si falla. */
+export async function enviarPlantillaConversacion(conversacionId, { nombre, idioma, valores }) {
+  const res = await pedirConAuth(`/api/dashboard/conversaciones/${encodeURIComponent(conversacionId)}/plantilla`, {
+    method: 'POST',
+    body: JSON.stringify({ nombre, idioma, valores }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.error || `Error del servidor (${res.status})`)
+    err.codigo = data.error
+    err.detalle = data.detalle
+    err.faltan = data.faltan
+    throw err
+  }
+  return data
+}
+
+/**
  * Tomar / devolver al bot / cerrar una conversación (o, solo dirección, asignar su local con accion = 'sede').
  * Una conversación sin local queda en el local de quien la toma. Lanza un Error con .codigo/.detalle si falla.
  */

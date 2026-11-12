@@ -108,10 +108,24 @@ export { mismoTelefono, telefonoLegible }
 
 /** Texto de la ventana de 24 h → mensaje de error legible cuando el servidor la rechaza. */
 export function mensajeDeErrorDeEnvio(err) {
-  if (err?.codigo === 'VENTANA_24H_CERRADA') {
-    return 'La ventana de 24 horas está cerrada: WhatsApp solo permite enviar plantillas aprobadas.'
+  switch (err?.codigo) {
+    case 'VENTANA_24H_CERRADA':
+      return 'La ventana de 24 horas está cerrada: WhatsApp solo permite enviar plantillas aprobadas. Elige una plantilla.'
+    case 'SIN_ACCESO_A_LA_CONVERSACION':
+      return 'Esta conversación es de otro local.'
+    case 'TRANSICION_NO_VALIDA':
+      return 'La conversación ya cambió de estado. Se actualizó la lista.'
+    case 'CONVERSACION_NO_TOMADA':
+      return 'Primero toma la conversación para poder escribirle.'
+    case 'PLANTILLAS_NO_DISPONIBLES':
+      return 'No se pudieron leer las plantillas de WhatsApp. Intenta de nuevo en un momento.'
+    case 'PLANTILLA_NO_APROBADA':
+      return 'Esa plantilla ya no está aprobada en WhatsApp. Elige otra.'
+    case 'FALTAN_VARIABLES':
+      return 'Completa todos los campos de la plantilla.'
+    case 'ENVIO_FALLIDO':
+      return 'WhatsApp no aceptó el mensaje. No se envió nada.'
+    default:
+      return err?.message ?? 'No se pudo completar la acción.'
   }
-  if (err?.codigo === 'SIN_ACCESO_A_LA_CONVERSACION') return 'Esta conversación es de otro local.'
-  if (err?.codigo === 'TRANSICION_NO_VALIDA') return 'La conversación ya cambió de estado. Se actualizó la lista.'
-  return err?.message ?? 'No se pudo completar la acción.'
 }

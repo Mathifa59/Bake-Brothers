@@ -145,6 +145,19 @@ export {
 
 export { RUTAS_DE_EMPLEADO, puedeVerRuta, rutaInicial, nombreDeRol, type RolPanel } from "./permisosPanel.js"
 export { HORAS_VENTANA_WHATSAPP, estadoVentana24h, ultimoMensajeDelCliente, type EstadoVentana, type MensajeConHora } from "./ventanaWhatsApp.js"
+export {
+  normalizarPlantillaMeta,
+  completarPlantilla,
+  textoDePlantilla,
+  variablesDeTexto,
+  limpiarValorVariable,
+  type PlantillaWhatsApp,
+  type VariablePlantilla,
+  type BotonPlantilla,
+  type ComponenteEnvio,
+  type ParametroEnvio,
+  type ResultadoCompletarPlantilla,
+} from "./plantillasWhatsApp.js"
 export { motivoEscaladaLegible, type CategoriaMotivo, type MotivoLegible } from "./motivoEscalada.js"
 export { ultimos9, mismoTelefono, telefonoLegible } from "./telefono.js"
 export {

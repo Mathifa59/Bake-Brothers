@@ -51,3 +51,10 @@ export async function obtenerTokenWhatsApp(phoneNumberId: string): Promise<strin
   if (!conexion) throw new ConexionWhatsAppNoEncontradaError(phoneNumberId)
   return descifrarToken(conexion.tokenCifrado, claveCifradoTokens())
 }
+
+/** Igual que obtenerTokenWhatsApp, pero devuelve también el WABA del número (hace falta para leer sus plantillas). */
+export async function obtenerConexionConToken(phoneNumberId: string): Promise<{ wabaId: string; token: string }> {
+  const conexion = await conexionActivaPorPhoneNumberId(pool, phoneNumberId)
+  if (!conexion) throw new ConexionWhatsAppNoEncontradaError(phoneNumberId)
+  return { wabaId: conexion.wabaId, token: descifrarToken(conexion.tokenCifrado, claveCifradoTokens()) }
+}

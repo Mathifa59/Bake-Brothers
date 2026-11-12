@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { gestionarConversacion, responderConversacion } from '../lib/apiClient'
+import { enviarPlantillaConversacion, gestionarConversacion, responderConversacion } from '../lib/apiClient'
 import { traerTodo } from '../lib/datos'
 import { reproducirAvisoEscalada } from '../utils/sonidoAviso'
 import { indexarClientes } from '../utils/conversaciones'
@@ -84,6 +84,8 @@ export function useConversaciones() {
     if (!limpio) return Promise.resolve(false)
     return ejecutar(conversacion, () => responderConversacion(conversacion.id, limpio))
   }
+  const enviarPlantilla = (conversacion, datos) =>
+    ejecutar(conversacion, () => enviarPlantillaConversacion(conversacion.id, datos))
   const tomar = (conversacion, sedeId) =>
     ejecutar(conversacion, () => gestionarConversacion(conversacion.id, 'tomar', sedeId ? { sedeId } : {}))
   const devolverAlBot = (conversacion) => ejecutar(conversacion, () => gestionarConversacion(conversacion.id, 'devolver'))
@@ -99,6 +101,7 @@ export function useConversaciones() {
     errorAccion,
     limpiarError: () => setErrorAccion(null),
     enviarMensaje,
+    enviarPlantilla,
     tomar,
     devolverAlBot,
     cerrar,

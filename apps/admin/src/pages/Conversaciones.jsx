@@ -127,6 +127,7 @@ export default function Conversaciones() {
                   onCerrar={bandeja.cerrar}
                   onAsignarSede={bandeja.asignarSede}
                   onEnviar={bandeja.enviarMensaje}
+                  onEnviarPlantilla={bandeja.enviarPlantilla}
                   respuestas={respuestas}
                 />
               )}

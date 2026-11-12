@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { withTenantTx } from '../db.js'
 import { exigirAdmin, verificarJwtOperador } from '../auth/verificarJwtOperador.js'
 import { responderConversacion } from '../services/responderConversacion.js'
+import { enviarPlantillaConversacion, plantillasDeConversacion } from '../services/plantillasConversacion.js'
 import { asignarSedeDeConversacion, gestionarConversacion, type AccionConversacion } from '../services/gestionarConversacion.js'
 
 const ERROR_A_CODIGO_HTTP: Record<string, number> = {
@@ -17,10 +18,24 @@ const ERROR_A_CODIGO_HTTP: Record<string, number> = {
   // El envío falló contra la Cloud API real de Meta (o falta el token
   // todavía) — es un fallo de un servicio externo, no un error del cliente.
   ENVIO_FALLIDO: 502,
+  // No se pudo leer la lista de plantillas de Meta (servicio externo).
+  PLANTILLAS_NO_DISPONIBLES: 502,
+  PLANTILLAS_SOLO_WHATSAPP: 422,
+  PLANTILLA_NO_APROBADA: 422,
+  PLANTILLA_NO_SOPORTADA: 422,
+  FALTAN_VARIABLES: 422,
+  // Hay que tomar la conversación antes de escribirle.
+  CONVERSACION_NO_TOMADA: 409,
 }
 
 const responderConversacionSchema = z.object({
   texto: z.string().trim().min(1),
+})
+
+const plantillaSchema = z.object({
+  nombre: z.string().trim().min(1).max(512),
+  idioma: z.string().trim().min(2).max(16),
+  valores: z.record(z.string(), z.string().max(2000)).default({}),
 })
 
 const idSchema = z.object({ id: z.string().uuid() })
@@ -46,6 +61,25 @@ export function dashboardConversacionesRoutes(app: FastifyInstance) {
       return reply.code(200).send(resultado)
     }
   )
+
+  // Plantillas aprobadas de Meta: se leen de Meta (no se escriben a mano) y sirven para escribirle a un cliente cuya
+  // ventana de 24 horas ya cerró. El envío valida contra la lista real de Meta.
+  app.get('/api/dashboard/conversaciones/:id/plantillas', { preHandler: verificarJwtOperador }, async (req, reply) => {
+    const { id } = idSchema.parse(req.params)
+    const operador = req.operador!
+    const resultado = await withTenantTx(req.tenantId, (client) => plantillasDeConversacion(client, req.tenantId, operador, id))
+    if (!resultado.ok) return reply.code(ERROR_A_CODIGO_HTTP[resultado.error] ?? 502).send(resultado)
+    return reply.code(200).send(resultado)
+  })
+
+  app.post('/api/dashboard/conversaciones/:id/plantilla', { preHandler: verificarJwtOperador }, async (req, reply) => {
+    const { id } = idSchema.parse(req.params)
+    const entrada = plantillaSchema.parse(req.body)
+    const operador = req.operador!
+    const resultado = await withTenantTx(req.tenantId, (client) => enviarPlantillaConversacion(client, req.tenantId, operador, id, entrada))
+    if (!resultado.ok) return reply.code(ERROR_A_CODIGO_HTTP[resultado.error] ?? 502).send(resultado)
+    return reply.code(200).send(resultado)
+  })
 
   // Tomar / devolver al bot / cerrar. Solo cambian el estado de la conversación (y, al tomar una sin local, le
   // ponen el local de quien la toma); no mandan ningún mensaje.

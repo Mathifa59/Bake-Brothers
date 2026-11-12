@@ -1,6 +1,7 @@
 import crypto from 'node:crypto'
 import { env } from '../env.js'
-import { obtenerTokenWhatsApp } from './tokensWhatsApp.js'
+import { normalizarPlantillaMeta, type ComponenteEnvio, type PlantillaWhatsApp } from '@bakebrothers/domain'
+import { obtenerConexionConToken, obtenerTokenWhatsApp } from './tokensWhatsApp.js'
 
 /**
  * Verifica X-Hub-Signature-256 de un webhook de Meta: HMAC-SHA256 del body
@@ -80,6 +81,61 @@ export async function enviarMensajeMeta(
   if (!res.ok) {
     throw new Error(`enviarMensajeMeta: la Cloud API de Meta respondió ${res.status} — ${cuerpo}`)
   }
+  return { wamid: extraerWamid(cuerpo) }
+}
+
+/**
+ * Las plantillas APROBADAS del WABA de ese número, leídas de Meta (`GET /{waba_id}/message_templates`): no se
+ * escriben a mano en Bake OS. Devuelve todas las aprobadas, con `soportada` indicando cuáles se pueden mandar desde el
+ * panel (solo texto). Sigue la paginación de Meta (hasta 5 páginas de 100). Falla visible si Meta responde error.
+ */
+export async function listarPlantillasMeta(remitentePhoneNumberId: string): Promise<PlantillaWhatsApp[]> {
+  const { wabaId, token } = await obtenerConexionConToken(remitentePhoneNumberId)
+  const campos = 'name,language,status,category,parameter_format,components'
+  let url: string | null = `https://graph.facebook.com/${env.META_GRAPH_VERSION}/${encodeURIComponent(wabaId)}/message_templates?fields=${campos}&status=APPROVED&limit=100`
+  const plantillas: PlantillaWhatsApp[] = []
+  for (let pagina = 0; url && pagina < 5; pagina++) {
+    const res: Response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    const cuerpo = await res.text().catch(() => '')
+    if (!res.ok) throw new Error(`listarPlantillasMeta: la Cloud API de Meta respondió ${res.status} — ${cuerpo}`)
+    let json: { data?: unknown[]; paging?: { next?: unknown } } = {}
+    try {
+      json = JSON.parse(cuerpo)
+    } catch {
+      throw new Error('listarPlantillasMeta: Meta devolvió una respuesta que no es JSON')
+    }
+    for (const t of json.data ?? []) {
+      const status = (t as { status?: unknown })?.status
+      if (status !== undefined && status !== 'APPROVED') continue
+      const p = normalizarPlantillaMeta(t)
+      if (p) plantillas.push(p)
+    }
+    url = typeof json.paging?.next === 'string' ? json.paging.next : null
+  }
+  return plantillas.sort((a, b) => a.nombre.localeCompare(b.nombre) || a.idioma.localeCompare(b.idioma))
+}
+
+/** Envía una plantilla aprobada (`type: template`). Los `componentes` salen de `completarPlantilla` del dominio. */
+export async function enviarPlantillaMeta(
+  remitentePhoneNumberId: string,
+  destinatarioId: string,
+  nombre: string,
+  idioma: string,
+  componentes: ComponenteEnvio[]
+): Promise<ResultadoEnvioMeta> {
+  const token = await obtenerTokenWhatsApp(remitentePhoneNumberId)
+  const res = await fetch(`https://graph.facebook.com/${env.META_GRAPH_VERSION}/${remitentePhoneNumberId}/messages`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to: destinatarioId,
+      type: 'template',
+      template: { name: nombre, language: { code: idioma }, ...(componentes.length ? { components: componentes } : {}) },
+    }),
+  })
+  const cuerpo = await res.text().catch(() => '')
+  if (!res.ok) throw new Error(`enviarPlantillaMeta: la Cloud API de Meta respondió ${res.status} — ${cuerpo}`)
   return { wamid: extraerWamid(cuerpo) }
 }
 

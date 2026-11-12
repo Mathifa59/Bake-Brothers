@@ -79,9 +79,9 @@ export async function agregarMensajeOperador(
   nuevoEstado: EstadoConversacionDb,
   // autor: nombre de quien respondió (se muestra en el chat). sedeAAsignar: si la conversación no tenía local, el
   // de quien la atiende. atendidaPor: se guarda para mostrar «Atiende: …» en la bandeja.
-  opciones: { autor?: string; sedeAAsignar?: string | null; atendidaPor?: string | null } = {}
+  opciones: { autor?: string; sedeAAsignar?: string | null; atendidaPor?: string | null; plantilla?: string } = {}
 ): Promise<void> {
-  const nuevoMensaje = { rol: 'operador', texto, en: new Date().toISOString(), ...(opciones.autor ? { autor: opciones.autor } : {}) }
+  const nuevoMensaje = { rol: 'operador', texto, en: new Date().toISOString(), ...(opciones.autor ? { autor: opciones.autor } : {}), ...(opciones.plantilla ? { plantilla: opciones.plantilla } : {}) }
   await client.query(
     `update conversaciones
         set historial = historial || $1::jsonb,
