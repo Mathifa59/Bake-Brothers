@@ -7,6 +7,8 @@ import {
   diaSemanaLegible,
   sumarDiasISO,
   parsearDistritosDelivery,
+  conAvisoPrimeraHora,
+  textoContextoCortes,
   type EstadoConversacion,
 } from '@bakebrothers/domain'
 import { env } from '../env.js'
@@ -118,6 +120,9 @@ REGLAS DURAS, sin excepción:
    - Con el número del bot el local todavía no está elegido: usa agotadoEn para decir en cuál se agotó y disponibleEn para el que sí tiene, y deja que elija.
    - Los productos que listarCatalogo omite por agotados (agotadosOmitidos) se agotaron en el local de esta conversación: si pregunta por uno, dile que se agotó en ese local y llama a consultarPrecio para saber si otro local lo tiene.
    - Si crearPedido devuelve PRODUCTO_AGOTADO, no inventes un pedido: dile qué producto no se pudo y en qué local (detalle.sedeId y detalle.productos), y ofrécele disponibleEn (con su dirección, que ya tienes en LOCALES Y HORARIOS) u otro producto.
+10. Corte del día y atención fuera de horario: el contexto de cada turno te dice la hora de Lima, si ya pasó el corte del día y si hay personas atendiendo.
+   - Pasado el corte (8:00 p. m.) NO ofrezcas entrega ni recojo para hoy: toma el pedido para mañana o un día posterior y explícaselo con amabilidad. Si crearPedido devuelve CORTE_DEL_DIA, usa detalle.fechaMinima para ofrecer la fecha más cercana; no insistas con hoy.
+   - Si nadie atiende ahora y derivas a una persona (escalarAHumano, o un pedido que sigue una persona), dile «te escribimos a primera hora»; nunca prometas una hora exacta ni una respuesta inmediata.
 
 Responde siempre en español (tuteo peruano: tú, puedes, tienes, quieres), breve y natural, como un mensaje real de WhatsApp — no un párrafo largo. Formato de WhatsApp: para resaltar algo usa un solo asterisco (*así*), nunca **doble asterisco** ni títulos con #.`
 
@@ -365,6 +370,8 @@ export interface OpcionesTurno {
   campana?: string | null
   // Conversación en la que se crea el pedido (0036): enlaza la captura de pago que llegue después.
   conversacionId?: string | null
+  // Instante «actual» (hora de Lima para los cortes): solo lo fijan los tests y las pruebas guionadas.
+  ahora?: Date
 }
 
 /**
@@ -544,7 +551,8 @@ function construirInputCrearPedido(
   sedeId: string | undefined,
   esPrueba: boolean,
   campana: string | null,
-  conversacionId: string | null
+  conversacionId: string | null,
+  ahora?: Date
 ): CrearPedidoInput {
   const i = (inputCrudo ?? {}) as Record<string, unknown>
   const items = Array.isArray(i.items) ? (i.items as Record<string, unknown>[]) : []
@@ -552,6 +560,7 @@ function construirInputCrearPedido(
     esPrueba,
     campana,
     conversacionId,
+    ahora,
     cliente: {
       nombre: String(i.clienteNombre ?? ''),
       telefono: String(i.clienteTelefono ?? ''),
@@ -617,7 +626,7 @@ export async function evaluarTurno(
 ): Promise<ResultadoTurno> {
   if (REGEX_ALERGIA.test(mensajeEntrante)) {
     return {
-      textoRespuesta: RESPUESTA_ALERGIA_FIJA,
+      textoRespuesta: conAvisoPrimeraHora(RESPUESTA_ALERGIA_FIJA, opciones.ahora ?? new Date()),
       nuevoEstado: escalarSiCorresponde(estadoActual),
       herramientasUsadas: [],
       motivoEscalacion: 'Mención de alergia/intolerancia/"libre de" — escalada automática, sin pasar por el modelo.',
@@ -639,6 +648,7 @@ export async function evaluarTurno(
   const anthropic = new Anthropic({ apiKey: obtenerApiKey() })
 
   const mensajes = construirMensajesParaModelo(historialPrevio, mensajeEntrante)
+  const ahoraDelTurno = opciones.ahora ?? new Date()
 
   const herramientasUsadas: string[] = []
   const pedidosCreados: NonNullable<ResultadoTurno['pedidosCreados']> = []
@@ -654,7 +664,7 @@ export async function evaluarTurno(
     const respuesta = await anthropic.messages.create({
       model: MODELO,
       max_tokens: 1024,
-      system: `${SYSTEM_PROMPT}\n\n${contextoFechaActual()}${contextoLocales}${contextoSede}`,
+      system: `${SYSTEM_PROMPT}\n\n${contextoFechaActual(ahoraDelTurno)}\n${textoContextoCortes(ahoraDelTurno)}${contextoLocales}${contextoSede}`,
       tools: TOOLS,
       messages: mensajes,
     })
@@ -671,9 +681,12 @@ export async function evaluarTurno(
         .trim()
 
       const escaladaForzadaSinAvisoDelModelo = debeEscalar && !elModeloLlamoEscalarAHumano
-      const textoRespuesta = escaladaForzadaSinAvisoDelModelo
+      const textoBase = escaladaForzadaSinAvisoDelModelo
         ? RESPUESTA_ESCALADA_FORZADA_FIJA
         : texto || 'Perdona, no supe cómo responder eso — ¿quieres que te contacte alguien del equipo?'
+      // Fuera del horario de las personas, todo lo que pasa a una persona dice «te escribimos a primera hora»
+      // (lo garantiza el servidor aunque el modelo no lo haya dicho).
+      const textoRespuesta = debeEscalar ? conAvisoPrimeraHora(textoBase, ahoraDelTurno) : textoBase
 
       return {
         textoRespuesta,
@@ -709,7 +722,8 @@ export async function evaluarTurno(
               sedeId,
               opciones.esPrueba === true,
               opciones.campana ?? null,
-              opciones.conversacionId ?? null
+              opciones.conversacionId ?? null,
+              opciones.ahora
             )
           )
           if (resultado.ok) {
@@ -768,7 +782,7 @@ export async function evaluarTurno(
   // Se agotaron las vueltas del loop sin una respuesta final — nunca se deja
   // a un cliente real sin respuesta ni se loopea indefinido quemando plata.
   return {
-    textoRespuesta: 'Dame un toque, quiero confirmar bien esto con el equipo antes de decirte algo 🙏',
+    textoRespuesta: conAvisoPrimeraHora('Dame un toque, quiero confirmar bien esto con el equipo antes de decirte algo 🙏', ahoraDelTurno),
     nuevoEstado: escalarSiCorresponde(estadoActual),
     herramientasUsadas,
     motivoEscalacion: motivoEscalacion ?? 'Se alcanzó el límite de iteraciones del loop de tool-use sin una respuesta final.',

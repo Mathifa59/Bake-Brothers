@@ -1,0 +1,28 @@
+{
+  "id": "19-datos-de-pago-ausentes",
+  "titulo": "Sin datos de cobro configurados el bot NO los inventa: deriva a una persona (requiere DATOS_PAGO sin configurar)",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "Quiero un carrot cake individual para mañana a las 10 am, recojo en Cedros. Soy Ana Torres, 999000111. Pago por adelantado con Yape."
+    },
+    {
+      "cliente": "Sí, confírmalo"
+    }
+  ],
+  "esperado": {
+    "estadoFinal": "escalada",
+    "pedidoCreado": true,
+    "textoNoContieneRegex": [
+      "Yape[: ]+\\+?\\d",
+      "\\b9\\d{8}\\b",
+      "CCI|cuenta"
+    ]
+  }
+}

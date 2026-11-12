@@ -1,0 +1,29 @@
+{
+  "id": "05-tamano-oculto",
+  "titulo": "Un tamaño oculto no se ofrece (el producto sí existe)",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [
+    {
+      "tipo": "ocultar_tamano",
+      "slug": "torta-carrot-cake",
+      "tamano": "Mini 16cm"
+    }
+  ],
+  "turnos": [
+    {
+      "cliente": "¿Cuánto cuesta el carrot cake mini?"
+    }
+  ],
+  "esperado": {
+    "estadoFinal": "activa",
+    "textoNoContieneRegex": [
+      "49[.,]90"
+    ],
+    "pedidoCreado": false
+  }
+}

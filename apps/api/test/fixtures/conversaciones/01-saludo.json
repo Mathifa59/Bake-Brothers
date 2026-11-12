@@ -1,0 +1,23 @@
+{
+  "id": "01-saludo",
+  "titulo": "Saludo simple: responde con calidez, tutea y no crea nada",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "Hola, buenas tardes"
+    }
+  ],
+  "esperado": {
+    "estadoFinal": "activa",
+    "pedidoCreado": false,
+    "textoNoContieneRegex": [
+      "\\b(vos|sos|tenés|querés|podés|mirá|decime|fijate)\\b"
+    ]
+  }
+}

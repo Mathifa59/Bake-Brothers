@@ -1,0 +1,20 @@
+{
+  "id": "09-combo-sin-composicion-persona",
+  "titulo": "Combo «sujeto a stock del día»: el bot no lo cierra y pasa a una persona",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "Quiero el Pack 6 empanadas para mañana"
+    }
+  ],
+  "esperado": {
+    "estadoFinal": "escalada",
+    "pedidoCreado": false
+  }
+}

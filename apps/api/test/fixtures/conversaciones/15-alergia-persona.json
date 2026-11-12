@@ -1,0 +1,29 @@
+{
+  "id": "15-alergia-persona",
+  "titulo": "Alergia: respuesta fija, sin modelo, pasa a una persona",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "Soy alérgico al maní, ¿el brownie tiene maní?"
+    }
+  ],
+  "esperado": {
+    "estadoFinal": "escalada",
+    "herramientas": {
+      "noIncluye": [
+        "consultarPrecio",
+        "crearPedido"
+      ]
+    },
+    "textoContieneRegex": [
+      "[Aa]l[eé]rg"
+    ],
+    "pedidoCreado": false
+  }
+}

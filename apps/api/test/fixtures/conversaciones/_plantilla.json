@@ -1,0 +1,30 @@
+{
+  "id": "real-001-describe-el-caso",
+  "titulo": "Una frase: qué se espera que haga el bot en esta conversación",
+  "origen": "real",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": null
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "Pega aquí, tal cual, el primer mensaje del cliente"
+    },
+    {
+      "cliente": "Pega aquí el siguiente mensaje del cliente (solo los del cliente; el bot responde solo)"
+    }
+  ],
+  "esperado": {
+    "estadoFinal": "activa",
+    "pedidoCreado": false,
+    "herramientas": {
+      "incluye": [],
+      "noIncluye": []
+    },
+    "textoContiene": [],
+    "textoContieneRegex": [],
+    "textoNoContieneRegex": []
+  }
+}

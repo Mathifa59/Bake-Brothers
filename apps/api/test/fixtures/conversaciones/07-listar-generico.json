@@ -1,0 +1,28 @@
+{
+  "id": "07-listar-generico",
+  "titulo": "Pedido genérico: lista opciones y pregunta cuál, no elige por el cliente",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "¿Qué empanadas tienen?"
+    }
+  ],
+  "esperado": {
+    "estadoFinal": "activa",
+    "herramientas": {
+      "incluye": [
+        "listarCatalogo"
+      ]
+    },
+    "textoContieneRegex": [
+      "[Cc]arne"
+    ],
+    "pedidoCreado": false
+  }
+}

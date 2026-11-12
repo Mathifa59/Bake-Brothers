@@ -1,0 +1,22 @@
+{
+  "id": "12-delivery-sin-cobertura",
+  "titulo": "Delivery a un distrito sin cobertura: no registra nada y ofrece recojo",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "Quiero una caja de alfajor mix x10 con delivery a Ate para mañana. Soy Pedro Díaz, 999000114, av. Central 45. Pago por Yape."
+    }
+  ],
+  "esperado": {
+    "pedidoCreado": false,
+    "textoContieneRegex": [
+      "[Rr]ecojo|recoger"
+    ]
+  }
+}

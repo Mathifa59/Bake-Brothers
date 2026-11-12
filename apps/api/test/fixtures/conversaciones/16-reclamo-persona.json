@@ -1,0 +1,20 @@
+{
+  "id": "16-reclamo-persona",
+  "titulo": "Reclamo o reembolso: pasa a una persona y no discute",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "Mi pedido llegó en mal estado y quiero que me devuelvan el dinero"
+    }
+  ],
+  "esperado": {
+    "estadoFinal": "escalada",
+    "pedidoCreado": false
+  }
+}

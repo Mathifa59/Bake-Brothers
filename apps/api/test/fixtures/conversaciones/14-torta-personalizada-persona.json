@@ -1,0 +1,20 @@
+{
+  "id": "14-torta-personalizada-persona",
+  "titulo": "Torta personalizada con foto: no promete el diseño, pasa a una persona",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "Quiero una torta personalizada con la foto de mi hija para su cumpleaños"
+    }
+  ],
+  "esperado": {
+    "estadoFinal": "escalada",
+    "pedidoCreado": false
+  }
+}

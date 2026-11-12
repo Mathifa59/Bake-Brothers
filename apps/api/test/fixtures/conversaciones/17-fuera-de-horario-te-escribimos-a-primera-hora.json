@@ -1,0 +1,23 @@
+{
+  "id": "17-fuera-de-horario-te-escribimos-a-primera-hora",
+  "titulo": "De noche, lo que pasa a una persona dice «te escribimos a primera hora»",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T23:30:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "Quiero 50 tequeños para el sábado"
+    }
+  ],
+  "esperado": {
+    "estadoFinal": "escalada",
+    "textoContieneRegex": [
+      "primera hora"
+    ],
+    "pedidoCreado": false
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "id": "03-precio-actualizado-en-el-panel",
+  "titulo": "Una sola fuente de verdad: si el administrador cambia un precio, el bot lo dice al instante",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [
+    {
+      "tipo": "precio_tamano",
+      "slug": "torta-carrot-cake",
+      "tamano": "Individual",
+      "precio": 11.5
+    }
+  ],
+  "turnos": [
+    {
+      "cliente": "¿Cuánto cuesta el carrot cake individual?"
+    }
+  ],
+  "esperado": {
+    "estadoFinal": "activa",
+    "textoContieneRegex": [
+      "11[.,]50"
+    ],
+    "textoNoContieneRegex": [
+      "9[.,]90"
+    ],
+    "pedidoCreado": false
+  }
+}

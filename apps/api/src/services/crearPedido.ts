@@ -1,6 +1,8 @@
 import type pg from 'pg'
 import {
   resolverSedeDelPedido,
+  validarFechaPorCorte,
+  ultimos9,
   distritoTieneCobertura,
   parsearDistritosDelivery,
   type EstadoPedido,
@@ -89,6 +91,8 @@ export interface CrearPedidoInput {
   // Referencia de campaña de la conversación ("tt-halloween"): se guarda en
   // orders.campana para la atribución del dashboard.
   campana?: string | null
+  /** Instante «actual» para el corte del día. Solo lo fijan los tests; en producción es el momento real. */
+  ahora?: Date
 }
 
 export const MARCA_PRUEBA = '[PRUEBA]'
@@ -134,6 +138,26 @@ export async function crearPedido(
   //  3. Delivery solo a los distritos con cobertura (DISTRITOS_DELIVERY).
   if (input.items.some((i) => i.tipo === 'catering')) {
     return { ok: false, error: 'CATERING_REQUIERE_PERSONA' }
+  }
+  // 4. Corte del día (8:00 p. m. clientes; 11:00 p. m. mayoristas): pasado el corte no se toma nada para hoy. La
+  //    entrega es la fecha del pedido, así que vale para recojo y delivery. Se rechaza ANTES de tocar nada.
+  {
+    const { rows } = await client.query<{ es_mayorista: boolean }>(
+      `select bool_or(es_mayorista) as es_mayorista from customers
+        where tenant_id = $1 and right(regexp_replace(coalesce(telefono, ''), '\D', '', 'g'), 9) = $2`,
+      [tenantId, ultimos9(input.cliente.telefono)]
+    )
+    const corte = validarFechaPorCorte(input.fechaEntregaISO, input.ahora ?? new Date(), rows[0]?.es_mayorista ? 'mayorista' : 'cliente')
+    if (!corte.ok) {
+      return {
+        ok: false,
+        error: 'CORTE_DEL_DIA',
+        detalle: {
+          mensaje: `Pasaron las ${corte.corte}: ya no se toman pedidos para hoy. Ofrece mañana o un día posterior.`,
+          fechaMinima: corte.fechaMinima,
+        },
+      }
+    }
   }
   if (input.tipoEntrega === 'delivery' && input.metodoPago === 'contraentrega') {
     return { ok: false, error: 'PAGO_ADELANTADO_REQUERIDO', detalle: { mensaje: 'El delivery se paga por adelantado.' } }

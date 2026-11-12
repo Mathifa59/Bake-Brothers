@@ -1,0 +1,27 @@
+{
+  "id": "08-combo-composicion-fija",
+  "titulo": "Combo de composición fija: cierra el pedido (recojo, paga al recoger)",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "Quiero el Pack Tres Delicias para mañana a las 10 am, recojo en Cedros. Soy Ana Torres, 999000111, pago al recoger."
+    },
+    {
+      "cliente": "Sí, confírmalo por favor"
+    }
+  ],
+  "esperado": {
+    "pedidoCreado": true,
+    "herramientas": {
+      "incluye": [
+        "crearPedido"
+      ]
+    }
+  }
+}

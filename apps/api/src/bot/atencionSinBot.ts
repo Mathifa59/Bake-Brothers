@@ -4,7 +4,7 @@ import { pool, withTenantTx } from '../db.js'
 import { enviarMensajeMeta } from './meta.js'
 import type { ConfiguracionBot } from '../repositories/configuracionBotRepo.js'
 import type { MensajeWhatsAppEntrante } from './parsearMensajesWhatsApp.js'
-import { extraerReferencia } from '@bakebrothers/domain'
+import { conAvisoPrimeraHora, extraerReferencia } from '@bakebrothers/domain'
 
 /**
  * Atención SOLO por personas (el bot apagado desde el panel, ver configuracion_bot / 0040).
@@ -90,7 +90,8 @@ export async function registrarMensajeSinBot(
   return {
     estadoPrevio,
     pasoAEsperando: sinAtender,
-    bienvenida: saludar ? config.mensajeBienvenida : null,
+    // Fuera del horario de las personas, el saludo fijo también dice «te escribimos a primera hora».
+    bienvenida: saludar ? conAvisoPrimeraHora(config.mensajeBienvenida, ahora) : null,
     sedeId: fila.sede_id ?? null,
   }
 }

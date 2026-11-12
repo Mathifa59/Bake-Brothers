@@ -1,0 +1,28 @@
+{
+  "id": "04-producto-oculto",
+  "titulo": "Un producto oculto desde el panel no existe para el bot (no inventa precio ni lo ofrece)",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [
+    {
+      "tipo": "ocultar_producto",
+      "slug": "pie-manzana"
+    }
+  ],
+  "turnos": [
+    {
+      "cliente": "¿Tienen pie de manzana? ¿Cuánto cuesta?"
+    }
+  ],
+  "esperado": {
+    "estadoFinal": "activa",
+    "textoNoContieneRegex": [
+      "6[.,]90"
+    ],
+    "pedidoCreado": false
+  }
+}

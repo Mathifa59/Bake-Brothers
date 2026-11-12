@@ -1,0 +1,26 @@
+{
+  "id": "11-delivery-pago-adelantado-y-persona",
+  "titulo": "Delivery: pago adelantado, el pedido se registra y una persona cotiza el envío (escala)",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "Quiero una caja de alfajor mix x10 con delivery a Surco para mañana a las 11 am. Soy Rosa Vega, 999000113, calle Los Pinos 123. Pago por Yape."
+    },
+    {
+      "cliente": "Sí, confírmalo"
+    }
+  ],
+  "esperado": {
+    "estadoFinal": "escalada",
+    "pedidoCreado": true,
+    "textoNoContieneRegex": [
+      "\\b9\\d{8}\\b"
+    ]
+  }
+}

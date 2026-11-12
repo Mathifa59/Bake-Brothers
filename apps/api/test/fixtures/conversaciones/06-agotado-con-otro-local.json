@@ -1,0 +1,31 @@
+{
+  "id": "06-agotado-con-otro-local",
+  "titulo": "Agotado en un local: lo dice con el nombre del local y ofrece el que sí tiene",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [
+    {
+      "tipo": "stock_agotado",
+      "slug": "pie-manzana",
+      "tamano": "Individual",
+      "sede": "Cedros"
+    }
+  ],
+  "turnos": [
+    {
+      "cliente": "Quiero un pie de manzana individual"
+    }
+  ],
+  "esperado": {
+    "estadoFinal": "activa",
+    "textoContiene": [
+      "Cedros",
+      "Santa Marina"
+    ],
+    "pedidoCreado": false
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "id": "02-precio-con-tamano",
+  "titulo": "Precio de un producto con el tamaño en la misma frase",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "¿Cuánto cuesta el carrot cake individual?"
+    }
+  ],
+  "esperado": {
+    "estadoFinal": "activa",
+    "herramientas": {
+      "incluye": [
+        "consultarPrecio"
+      ]
+    },
+    "textoContieneRegex": [
+      "9[.,]90"
+    ],
+    "pedidoCreado": false
+  }
+}

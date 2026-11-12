@@ -1,0 +1,24 @@
+{
+  "id": "10-recojo-pregunta-el-local",
+  "titulo": "Número del bot (sin local): antes de cerrar un recojo pregunta en qué local",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": null
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "Quiero una caja de alfajor mix x10 para mañana, la recojo. Soy Luis Rojas, 999000112, pago al recoger."
+    }
+  ],
+  "esperado": {
+    "estadoFinal": "activa",
+    "textoContieneRegex": [
+      "Cedros",
+      "Santa Marina"
+    ],
+    "pedidoCreado": false
+  }
+}

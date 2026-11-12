@@ -75,7 +75,7 @@ describe.skipIf(!hayBaseDeDatosReal)('bot apagado: la atiende una persona', () =
   let sedeId: string
   let app: Awaited<ReturnType<typeof buildApp>>
   const PHONE_ID = 'PHONE_ID_BOT_APAGADO'
-  const TELEFONOS = ['999300001', '999300002', '999300003', '999300004', '999300005', '999300006', '999300007', '999300008', '999300009']
+  const TELEFONOS = ['999300001', '999300002', '999300003', '999300004', '999300005', '999300006', '999300007', '999300008', '999300009', '999300010']
 
   const conversacion = async (telefono: string) =>
     (await client.query(`select estado, historial, contexto from conversaciones where tenant_id = $1 and canal = 'whatsapp' and external_id = $2`, [tenantId, telefono])).rows[0]
@@ -85,6 +85,15 @@ describe.skipIf(!hayBaseDeDatosReal)('bot apagado: la atiende una persona', () =
     await esperar(700) // el procesamiento corre en segundo plano, después del 200
   }
   const llamadasAMeta = () => mockFetch.mock.calls.filter(([url]) => String(url).includes('graph.facebook.com'))
+
+  // La bienvenida agrega «te escribimos a primera hora» fuera del horario de las personas (7:30 a. m.–10:00 p. m. de
+  // Lima): estos tests fijan la hora a mediodía para que no dependan de cuándo se corran.
+  beforeAll(() => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-13T12:00:00-05:00') })
+  })
+  afterAll(() => {
+    vi.useRealTimers()
+  })
 
   beforeAll(async () => {
     client = await pool.connect()
@@ -171,6 +180,22 @@ describe.skipIf(!hayBaseDeDatosReal)('bot apagado: la atiende una persona', () =
     c = await conversacion(TELEFONOS[4])
     expect(c.historial).toHaveLength(3)
     expect(mockCreate).not.toHaveBeenCalled()
+  })
+
+  it('apagado + bienvenida FUERA de horario: el saludo agrega «te escribimos a primera hora»', async () => {
+    vi.setSystemTime(new Date('2026-11-13T23:10:00-05:00'))
+    try {
+      mockConfig.mockResolvedValue(APAGADO_CON_BIENVENIDA)
+      await enviar(texto('wamid.APAGADO_NOCHE', TELEFONOS[9], 'Hola, ¿están abiertos?'))
+      const salida = llamadasAMeta()
+      expect(salida).toHaveLength(1)
+      const cuerpo = JSON.parse(salida[0][1].body).text.body as string
+      expect(cuerpo.startsWith(BIENVENIDA)).toBe(true)
+      expect(cuerpo).toContain('te escribimos a primera hora')
+      expect(cuerpo).toContain('7:30 a. m.')
+    } finally {
+      vi.setSystemTime(new Date('2026-11-13T12:00:00-05:00'))
+    }
   })
 
   it('apagado + bienvenida: si el envío falla, la conversación igual queda esperando persona y no se anota un saludo que no salió', async () => {
