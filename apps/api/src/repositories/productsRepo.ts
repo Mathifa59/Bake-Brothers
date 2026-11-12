@@ -56,7 +56,7 @@ const aDTO = (r: Record<string, unknown>): ProductoDTO => ({
 })
 
 const SELECT_BASE = `
-  select p.*, exists(select 1 from product_sizes ps where ps.product_id = p.id and ps.activo) as tiene_tamanos
+  select p.*, exists(select 1 from product_sizes ps where ps.product_id = p.id and ps.activo and ps.visible_publico) as tiene_tamanos
   from products p
   where p.tenant_id = $1
     and p.disponible -- lo oculto (0042: disponible = activo) no aparece en ningún listado
@@ -166,7 +166,7 @@ export async function buscarProductosPorTexto(
             ${sqlCoincideEstricto('p.nombre', '$3')} as estricto,
             coalesce(
               (select jsonb_agg(jsonb_build_object('id', ps.id, 'tamano', ps.tamano, 'precio', ps.precio) order by ps.precio)
-                 from product_sizes ps where ps.product_id = p.id and ps.tamano is not null and ps.activo),
+                 from product_sizes ps where ps.product_id = p.id and ps.tamano is not null and ps.activo and ps.visible_publico),
               '[]'
             ) as tamanos
      from products p

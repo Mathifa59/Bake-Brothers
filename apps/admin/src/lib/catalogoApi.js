@@ -44,7 +44,8 @@ export const catalogoApi = {
     const filas = await traerTodo(() => supabase.from('products').select(CAMPOS_PRODUCTO).order('orden').order('nombre'))
     return filas.map((p) => ({
       ...p,
-      product_sizes: [...(p.product_sizes ?? [])].sort(ordenarTamanos),
+      // Los tamaños que no son públicos (p. ej. la «Mediana» de las empanadas, de Órdenes) no se editan aquí.
+      product_sizes: [...(p.product_sizes ?? [])].filter((t) => t.visible_publico !== false).sort(ordenarTamanos),
       product_photos: [...(p.product_photos ?? [])].sort((a, b) => (b.principal ? 1 : 0) - (a.principal ? 1 : 0) || a.orden - b.orden),
     }))
   },

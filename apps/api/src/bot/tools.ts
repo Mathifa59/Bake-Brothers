@@ -280,7 +280,7 @@ export async function listarCatalogo(
             coalesce(jsonb_agg(ps.id) filter (where ps.id is not null), '[]') as tamanos_ids
      from products p
      left join categories c on c.id = p.category_id
-     left join product_sizes ps on ps.product_id = p.id and ps.precio is not null and ps.activo
+     left join product_sizes ps on ps.product_id = p.id and ps.precio is not null and ps.activo and ps.visible_publico
      where p.tenant_id = $1 and p.disponible
        and ${sqlCoincide(`(p.nombre || ' ' || coalesce(c.nombre, '') || ' ' || coalesce(p.categoria_negocio, ''))`, '$2', '$3')}
      group by p.id, c.id
