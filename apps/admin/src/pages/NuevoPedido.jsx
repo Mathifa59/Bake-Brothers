@@ -1,3 +1,4 @@
+import FotoProducto from '../components/bakeos/FotoProducto'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { mismoTelefono, ultimos9 } from '@bakebrothers/domain'
@@ -6,19 +7,7 @@ import { supabase } from '../lib/supabase'
 import { crearPedidoDashboard, obtenerComprobantePdfUrl } from '../lib/apiClient'
 import { Portada } from '../components/bakeos/ui'
 
-// Placeholder simple para productos sin foto_url — a propósito no es la
-// versión con gradiente de apps/web (ProductImage.jsx): es una herramienta
-// interna, no la vitrina de cara al cliente.
-function FotoProducto({ url, nombre }) {
-  if (url) {
-    return <img src={url} alt={nombre} className="h-10 w-10 rounded-lg object-cover" />
-  }
-  return (
-    <div className="grid h-10 w-10 place-items-center rounded-lg bg-hueso text-gris" aria-hidden="true">
-      🥐
-    </div>
-  )
-}
+// FotoProducto (components/bakeos): foto con respaldo a un ícono si no hay o no carga.
 
 const METODOS_PAGO = ['yape', 'plin', 'transferencia', 'tarjeta', 'contraentrega']
 
@@ -37,7 +26,7 @@ export default function NuevoPedido() {
   useEffect(() => {
     Promise.all([
       supabase.from('products').select('id, slug, nombre, precio_base, foto_url').eq('disponible', true).order('nombre'),
-      supabase.from('product_sizes').select('id, product_id, tamano, precio').not('precio', 'is', null),
+      supabase.from('product_sizes').select('id, product_id, tamano, precio').eq('activo', true).not('precio', 'is', null),
       supabase
         .from('combos')
         .select('id, nombre, precio_promo, canal_permitido')
@@ -506,7 +495,7 @@ export default function NuevoPedido() {
                       }}
                       className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-hueso"
                     >
-                      {tipoNuevoItem === 'producto' && <FotoProducto url={o.foto_url} nombre={o.nombre} />}
+                      {tipoNuevoItem === 'producto' && <FotoProducto url={o.foto_url} nombre={o.nombre} className="h-10 w-10" />}
                       <span>
                         {o.nombre}
                         {tipoNuevoItem === 'combo' ? ` — S/ ${Number(o.precio_promo).toFixed(2)}` : ''}

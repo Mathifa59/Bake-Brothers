@@ -9,6 +9,7 @@ import Pedidos from './pages/Pedidos'
 import NuevoPedido from './pages/NuevoPedido'
 import Produccion from './pages/Produccion'
 import Stock from './pages/Stock'
+import Catalogo from './pages/Catalogo'
 import Clientes from './pages/Clientes'
 import Atencion from './pages/Atencion'
 import Atribucion from './pages/Atribucion'
@@ -74,6 +75,7 @@ export default function App() {
           <Route path="/nuevo-pedido" element={protegida(<NuevoPedido />)} />
           <Route path="/produccion" element={protegida(<Produccion />)} />
           <Route path="/stock" element={protegida(<Stock />)} />
+          <Route path="/catalogo" element={protegida(<Catalogo />)} />
           <Route path="/clientes" element={protegida(<Clientes />)} />
           <Route path="/atencion" element={protegida(<Atencion />)} />
           <Route path="/conversaciones" element={protegida(<Conversaciones />)} />

@@ -4,7 +4,7 @@
 //   - app_api (la API y el bot) sigue leyendo — y escribiendo donde ya podía —,
 //   - authenticated del personal (está en usuarios_dashboard) lee,
 //   - authenticated que NO es del personal (cualquier sesión) ve 0 filas,
-//   - nadie escribe desde el navegador, y anon no entra.
+//   - desde el navegador solo escribe el administrador (0042) y solo el catálogo (no sedes); anon no entra.
 // Corre contra un Postgres con el esquema y el fixture local de auth (Docker); todo
 // dentro de una transacción que se revierte, no deja nada.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -16,6 +16,8 @@ const hayBaseDeDatosReal =
   !!process.env.DATABASE_URL && process.env.DATABASE_URL !== DATABASE_URL_PLACEHOLDER
 
 const TABLAS = ['products', 'product_sizes', 'catering_items', 'combo_items', 'combos', 'sedes'] as const
+// 0042: estas cinco las edita el administrador desde el panel (sedes sigue sin escritura desde el navegador).
+const TABLAS_EDITABLES = ['products', 'product_sizes', 'catering_items', 'combo_items', 'combos'] as const
 
 describe.skipIf(!hayBaseDeDatosReal)('0032 — RLS del catálogo con roles reales', () => {
   const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL })
@@ -65,7 +67,8 @@ describe.skipIf(!hayBaseDeDatosReal)('0032 — RLS del catálogo con roles reale
         [t]
       )
       expect(rows[0].relrowsecurity, t).toBe(true)
-      expect(rows[0].politicas, t).toEqual([`app_api_${t}`, `personal_lee_${t}`])
+      const esperadas = [`app_api_${t}`, `personal_lee_${t}`, ...((TABLAS_EDITABLES as readonly string[]).includes(t) ? [`admin_escribe_${t}`] : [])].sort()
+      expect(rows[0].politicas, t).toEqual(esperadas)
     }
   })
 
@@ -104,10 +107,63 @@ describe.skipIf(!hayBaseDeDatosReal)('0032 — RLS del catálogo con roles reale
     expect(r.combos).toBeGreaterThan(0)
   })
 
-  it.each(TABLAS)('nadie escribe %s desde el navegador (authenticated no tiene INSERT/UPDATE/DELETE)', async (t) => {
-    for (const sql of [`delete from ${t}`, `update ${t} set id = id`]) {
+  it('sedes: nadie escribe desde el navegador (ni el administrador)', async () => {
+    for (const sql of [`delete from sedes`, `update sedes set id = id`]) {
       await expect(como('authenticated', personalAdmin, () => client.query(sql)), sql).rejects.toThrow(/permission denied/)
     }
+  })
+
+  // 0042: el administrador edita el catálogo desde el panel; el empleado no; y a los pedidos no se les rompe el historial
+  // (products, combos y catering_items no se borran: se ocultan).
+  it('el ADMINISTRADOR edita el catálogo y el EMPLEADO no (RLS)', async () => {
+    const admin = await como('authenticated', personalAdmin, async () => {
+      const upd = await client.query(`update products set orden = orden where slug = 'alfajor-mix'`)
+      const ins = await client.query(`insert into combos (nombre, precio_normal, precio_promo, canal_permitido, permite_cambios, activo) values ('admin-test', 1, 1, 'ambos', false, false)`)
+      const tam = await client.query(`update product_sizes set activo = true where product_id = (select id from products where slug = 'alfajor-mix')`)
+      return { upd: upd.rowCount, ins: ins.rowCount, tam: tam.rowCount }
+    })
+    expect(admin).toEqual({ upd: 1, ins: 1, tam: 2 })
+
+    const op = await como('authenticated', personalOperador, async () => {
+      const upd = await client.query(`update products set orden = orden where slug = 'alfajor-mix'`)
+      const tam = await client.query(`delete from product_sizes where product_id = (select id from products where slug = 'alfajor-mix')`)
+      return { upd: upd.rowCount, tam: tam.rowCount }
+    })
+    expect(op).toEqual({ upd: 0, tam: 0 }) // RLS filtra: no cambia nada
+    await expect(
+      como('authenticated', personalOperador, () => client.query(`insert into combos (nombre, precio_normal, precio_promo, canal_permitido, permite_cambios, activo) values ('op-test', 1, 1, 'ambos', false, false)`))
+    ).rejects.toThrow(/row-level security/)
+  })
+
+  it.each(['products', 'combos', 'catering_items'] as const)('%s no se borra desde el navegador, ni siquiera el administrador (se oculta)', async (t) => {
+    await expect(como('authenticated', personalAdmin, () => client.query(`delete from ${t}`))).rejects.toThrow(/permission denied/)
+  })
+
+  it('fotos: el administrador las escribe, el empleado las lee y no las escribe; la primera es la principal y products.foto_url la refleja', async () => {
+    const prod = (await client.query(`select id from products where slug = 'alfajor-mix'`)).rows[0].id
+    const f = await como('authenticated', personalAdmin, async () => {
+      await client.query(`insert into product_photos (product_id, url, ruta) values ($1, 'https://x.test/a.webp', 'productos/a.webp')`, [prod])
+      await client.query(`insert into product_photos (product_id, url, ruta, orden) values ($1, 'https://x.test/b.webp', 'productos/b.webp', 1)`, [prod])
+      const fotos = (await client.query(`select ruta, principal from product_photos where product_id = $1 order by orden`, [prod])).rows
+      const espejo = (await client.query(`select foto_url from products where id = $1`, [prod])).rows[0].foto_url
+      // borrar la principal: la que queda pasa a ser la principal y el espejo la sigue
+      await client.query(`delete from product_photos where product_id = $1 and principal`, [prod])
+      const despues = (await client.query(`select ruta, principal from product_photos where product_id = $1`, [prod])).rows
+      const espejo2 = (await client.query(`select foto_url from products where id = $1`, [prod])).rows[0].foto_url
+      return { fotos, espejo, despues, espejo2 }
+    })
+    expect(f.fotos).toEqual([{ ruta: 'productos/a.webp', principal: true }, { ruta: 'productos/b.webp', principal: false }])
+    expect(f.espejo).toBe('https://x.test/a.webp')
+    expect(f.despues).toEqual([{ ruta: 'productos/b.webp', principal: true }])
+    expect(f.espejo2).toBe('https://x.test/b.webp')
+
+    await client.query(`insert into product_photos (product_id, url, ruta) values ($1, 'https://x.test/c.webp', 'productos/c.webp')`, [prod])
+    expect(await como('authenticated', personalOperador, () => contar('product_photos'))).toBeGreaterThan(0)
+    await expect(
+      como('authenticated', personalOperador, () => client.query(`insert into product_photos (product_id, url, ruta) values ($1, 'x', 'y')`, [prod]))
+    ).rejects.toThrow(/row-level security/)
+    expect(await como('authenticated', sesionSinPanel, () => contar('product_photos'))).toBe(0)
+    await expect(como('anon', null, () => contar('product_photos'))).rejects.toThrow(/permission denied/)
   })
 
   it.each(TABLAS)('anon (sin sesión) no entra a %s', async (t) => {

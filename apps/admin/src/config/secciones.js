@@ -33,6 +33,8 @@ export const SECCIONES_ACTIVAS = [
   { ruta: '/pedidos', etiqueta: 'Pedidos', icono: ShoppingBag },
   { ruta: '/produccion', etiqueta: 'Producción', icono: Factory },
   { ruta: '/stock', etiqueta: 'Stock', icono: Package },
+  // Solo dirección: productos, combos y catering (precios, fotos, activo/oculto, orden). Ver pages/Catalogo.jsx.
+  { ruta: '/catalogo', etiqueta: 'Catálogo', icono: BookOpen },
   { ruta: '/clientes', etiqueta: 'Clientes', icono: Users },
   { ruta: '/atencion', etiqueta: 'Atención', icono: Headset },
   { ruta: '/conversaciones', etiqueta: 'Conversaciones', icono: MessageCircle },

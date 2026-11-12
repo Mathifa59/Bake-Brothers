@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { traerTodo } from '../lib/datos'
 import { Cargando, ErrorCarga, Portada, Tarjeta } from '../components/bakeos/ui'
+import FotoProducto from '../components/bakeos/FotoProducto'
 
 /**
  * Stock por sede, pensado primero para el celular: una lista de tarjetas por producto, agrupadas por categoría (la
@@ -37,7 +38,8 @@ function armarCatalogo(productos, tamanos) {
     nombre: p.nombre,
     tipo: p.tipo || 'Otros',
     orden: p.orden ?? 0,
-    tamanos: (porProducto.get(p.id) ?? []).sort((a, b) => Number(a.precio ?? 0) - Number(b.precio ?? 0)),
+    foto_url: p.foto_url ?? null,
+    tamanos: (porProducto.get(p.id) ?? []).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0) || Number(a.precio ?? 0) - Number(b.precio ?? 0)),
   }))
 }
 
@@ -152,8 +154,8 @@ export default function Stock() {
 
   useEffect(() => {
     Promise.all([
-      traerTodo(() => supabase.from('products').select('id, nombre, tipo, orden').order('nombre')),
-      traerTodo(() => supabase.from('product_sizes').select('id, product_id, tamano, precio').not('precio', 'is', null)),
+      traerTodo(() => supabase.from('products').select('id, nombre, tipo, orden, foto_url').eq('disponible', true).order('nombre')),
+      traerTodo(() => supabase.from('product_sizes').select('id, product_id, tamano, precio, orden').eq('activo', true).not('precio', 'is', null)),
     ])
       .then(([productos, tamanos]) => setCatalogo(armarCatalogo(productos, tamanos)))
       .catch((err) => setError(err.message ?? String(err)))
@@ -360,7 +362,10 @@ export default function Stock() {
               <div className="grid gap-3 md:grid-cols-2">
                 {s.productos.map((p) => (
                   <Tarjeta key={p.id} className="p-3">
-                    <h3 className="text-[15px] font-semibold leading-snug">{p.nombre}</h3>
+                    <div className="flex items-center gap-2.5">
+                      <FotoProducto url={p.foto_url} nombre={p.nombre} className="h-11 w-11" />
+                      <h3 className="min-w-0 flex-1 text-[15px] font-semibold leading-snug">{p.nombre}</h3>
+                    </div>
                     <ul className="mt-1 divide-y divide-borde/60">
                       {p.filas.map(({ sku, fila, bloqueado }) => (
                         <FilaSku key={sku.key} producto={p} fila={fila} sku={sku} bloqueado={bloqueado} guardando={guardando} onToggle={toggleDisponible} onCantidad={guardarCantidad} />
