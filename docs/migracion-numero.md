@@ -19,7 +19,7 @@ Cosas de la interfaz de Meta cambian seguido: donde diga *(verificar en pantalla
 - [ ] **Método de pago** cargado en la WABA (sin él, Meta no deja enviar mensajes iniciados por el negocio).
 - [ ] **Usuario del sistema** con permisos `whatsapp_business_messaging` y `whatsapp_business_management`, y su **token que no vence**
       generado y guardado en el gestor de contraseñas (nunca en el repo ni en el chat).
-- [ ] En la configuración de la app: **URL de la política de privacidad** = `https://www.bake-brothers.com/privacidad` y la app en
+- [ ] En la configuración de la app: **URL de la política de privacidad** = `https://www.bakebrothers.pe/privacidad` y la app en
       modo **Live** (Meta lo exige).
 - [ ] Plantillas enviadas a aprobar (`docs/plantillas-whatsapp.md`). No bloquean la salida, pero conviene que ya estén aprobadas.
 

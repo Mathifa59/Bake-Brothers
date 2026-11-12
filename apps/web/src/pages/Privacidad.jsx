@@ -12,7 +12,7 @@ function Seccion({ titulo, children }) {
   )
 }
 
-/** Política de privacidad (bake-brothers.com/privacidad). Meta la exige para poner la app de WhatsApp en modo Live. */
+/** Política de privacidad (www.bakebrothers.pe/privacidad). Meta la exige para poner la app de WhatsApp en modo Live. */
 export default function Privacidad() {
   useEffect(() => {
     document.title = 'Política de privacidad · Bake Brothers'

@@ -4,7 +4,7 @@
  *
  *   VAPID_PUBLIC_KEY=...    (la que el panel le pide a la API; no es secreta)
  *   VAPID_PRIVATE_KEY=...   (SECRETA)
- *   VAPID_SUBJECT=https://dashboard.bake-brothers.com   (opcional; una URL https o un mailto:)
+ *   VAPID_SUBJECT=https://dashboard.bakebrothers.pe   (opcional; una URL https o un mailto:)
  *
  * Si se regeneran, los celulares que ya activaron avisos tienen que volver a activarlos (la clave pública cambió).
  *
@@ -15,4 +15,4 @@ import { generateVAPIDKeys } from 'web-push'
 const { publicKey, privateKey } = generateVAPIDKeys()
 console.log(`VAPID_PUBLIC_KEY=${publicKey}`)
 console.log(`VAPID_PRIVATE_KEY=${privateKey}`)
-console.log('VAPID_SUBJECT=https://dashboard.bake-brothers.com')
+console.log('VAPID_SUBJECT=https://dashboard.bakebrothers.pe')

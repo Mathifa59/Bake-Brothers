@@ -37,7 +37,7 @@ export function leerConfigVapid(): ConfigVapid | null {
   const publica = process.env.VAPID_PUBLIC_KEY?.trim()
   const privada = process.env.VAPID_PRIVATE_KEY?.trim()
   if (!publica || !privada) return null
-  return { publica, privada, asunto: process.env.VAPID_SUBJECT?.trim() || 'https://dashboard.bake-brothers.com' }
+  return { publica, privada, asunto: process.env.VAPID_SUBJECT?.trim() || 'https://dashboard.bakebrothers.pe' }
 }
 
 export const LARGO_MAXIMO_CUERPO = 140

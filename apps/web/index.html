@@ -14,10 +14,10 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Bake Brothers" />
     <meta property="og:locale" content="es_PE" />
-    <meta property="og:url" content="https://www.bake-brothers.com/" />
+    <meta property="og:url" content="https://www.bakebrothers.pe/" />
     <meta property="og:title" content="Bake Brothers · Pastelería Artesanal en Chorrillos" />
     <meta property="og:description" content="Pastelería artesanal en Chorrillos, Lima — todo hecho a mano. Pide por WhatsApp." />
-    <meta property="og:image" content="https://www.bake-brothers.com/video/alfajores-mix-og.jpg" />
+    <meta property="og:image" content="https://www.bakebrothers.pe/video/alfajores-mix-og.jpg" />
     <meta property="og:image:type" content="image/jpeg" />
     <meta property="og:image:width" content="1280" />
     <meta property="og:image:height" content="720" />
@@ -26,9 +26,41 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Bake Brothers · Pastelería Artesanal en Chorrillos" />
     <meta name="twitter:description" content="Pastelería artesanal en Chorrillos, Lima — todo hecho a mano. Pide por WhatsApp." />
-    <meta name="twitter:image" content="https://www.bake-brothers.com/video/alfajores-mix-og.jpg" />
+    <meta name="twitter:image" content="https://www.bakebrothers.pe/video/alfajores-mix-og.jpg" />
 
-    <link rel="canonical" href="https://www.bake-brothers.com/" />
+    <link rel="canonical" href="https://www.bakebrothers.pe/" />
+
+    <!-- Datos estructurados (schema.org): un Bakery por local. Sin horarios a propósito: el sábado de Cedros
+         está por confirmar y un dato equivocado en Google es peor que ninguno. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Bakery",
+            "@id": "https://www.bakebrothers.pe/#cedros",
+            "name": "Bake Brothers Cedros",
+            "url": "https://www.bakebrothers.pe/",
+            "image": "https://www.bakebrothers.pe/video/alfajores-mix-og.jpg",
+            "logo": "https://www.bakebrothers.pe/img/logo-landing.png",
+            "telephone": "+51912944096",
+            "address": { "@type": "PostalAddress", "streetAddress": "Av. Alameda Los Horizontes 820", "addressLocality": "Chorrillos", "addressRegion": "Lima", "addressCountry": "PE" },
+            "sameAs": ["https://instagram.com/bakebrothers.pe", "https://facebook.com/bakebrothers.pe"]
+          },
+          {
+            "@type": "Bakery",
+            "@id": "https://www.bakebrothers.pe/#santa-marina",
+            "name": "Bake Brothers Santa Marina",
+            "url": "https://www.bakebrothers.pe/",
+            "image": "https://www.bakebrothers.pe/video/alfajores-mix-og.jpg",
+            "logo": "https://www.bakebrothers.pe/img/logo-landing.png",
+            "telephone": "+51912944096",
+            "address": { "@type": "PostalAddress", "streetAddress": "Av. Defensores del Morro 2270", "addressLocality": "Chorrillos", "addressRegion": "Lima", "addressCountry": "PE" },
+            "sameAs": ["https://instagram.com/bakebrothers.pe", "https://facebook.com/bakebrothers.pe"]
+          }
+        ]
+      }
+    </script>
 
     <!-- Poster del primer video: es el LCP de la página, se precarga a propósito. -->
     <link rel="preload" as="image" href="/video/alfajores-mix-poster.webp" fetchpriority="high" />

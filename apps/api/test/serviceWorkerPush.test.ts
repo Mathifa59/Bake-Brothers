@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url'
 import { payloadDeAviso } from '../src/services/avisos.js'
 
 const SW = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '../../admin/public/sw.js'), 'utf8')
-const ORIGEN = 'https://dashboard.bake-brothers.com'
+const ORIGEN = 'https://dashboard.bakebrothers.pe'
 
 function cargarSw() {
   const oyentes: Record<string, (e: unknown) => void> = {}

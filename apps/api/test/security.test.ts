@@ -52,7 +52,15 @@ describe('CORS — orígenes de las apps propias', () => {
       })
     )
 
-  it.each(['https://dashboard.bake-brothers.com', 'https://bake-brothers-admin.vercel.app', 'https://www.bake-brothers.com'])(
+  it.each([
+    'https://dashboard.bakebrothers.pe',
+    'https://www.bakebrothers.pe',
+    'https://bakebrothers.pe',
+    // dominios anteriores: se mantienen mientras dure la transición
+    'https://dashboard.bake-brothers.com',
+    'https://bake-brothers-admin.vercel.app',
+    'https://www.bake-brothers.com',
+  ])(
     'permite %s',
     async (origen) => {
       const res = await preflight(origen)
@@ -73,6 +81,9 @@ describe('CORS — orígenes de las apps propias', () => {
     'https://bake-brothers-admin-evil.vercel.app', // otro equipo: no termina en el slug del equipo
     'https://bake-brothers-admin-x-mathias-projects-eaced134.vercel.app.evil.example', // sufijo falso
     'http://bake-brothers-admin-x-mathias-projects-eaced134.vercel.app', // sin https
+    'https://dashboard.bakebrothers.pe.evil.example', // sufijo falso del dominio nuevo
+    'https://evil-bakebrothers.pe', // parecido, otro dominio
+    'http://dashboard.bakebrothers.pe', // sin https
   ])('rechaza el origen parecido %s', async (origen) => {
     const res = await preflight(origen)
     expect(res.headers['access-control-allow-origin']).toBeUndefined()

@@ -72,7 +72,7 @@ describe.skipIf(!hayBaseDeDatosReal)('avisos y push', () => {
   const vapid = () => {
     process.env.VAPID_PUBLIC_KEY = 'clave-publica-de-prueba'
     process.env.VAPID_PRIVATE_KEY = 'clave-privada-de-prueba'
-    process.env.VAPID_SUBJECT = 'https://dashboard.bake-brothers.com'
+    process.env.VAPID_SUBJECT = 'https://dashboard.bakebrothers.pe'
   }
   const sinVapid = () => {
     delete process.env.VAPID_PUBLIC_KEY

@@ -29,6 +29,11 @@ declare module 'fastify' {
 // apps/web sí lo está, se restringe a una lista explícita: la landing real
 // en Vercel (con su alias de rama) + localhost para desarrollo.
 const ORIGENES_PERMITIDOS = [
+  // Dominios nuevos (2026-11): la landing vive en www.bakebrothers.pe (el dominio raíz y bake-brothers.com
+  // redirigen ahí) y el panel en dashboard.bakebrothers.pe. Los anteriores se dejan mientras dure la transición.
+  'https://www.bakebrothers.pe',
+  'https://bakebrothers.pe',
+  'https://dashboard.bakebrothers.pe',
   'https://bake-brothers.com',
   // El dominio raíz redirige a "www" como versión oficial en Vercel — el
   // navegador manda Origin con "www", así que hace falta el permiso aparte
