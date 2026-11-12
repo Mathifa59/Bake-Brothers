@@ -1,23 +1,31 @@
 /**
  * Reglas de anticipación mínima y capacidad de producción.
  *
- * Convención de fechas: la fecha de entrega es un `YYYY-MM-DD` local y la
- * anticipación se mide contra las 00:00 de ese día. Es deliberadamente
- * conservador: un pedido para "mañana" hecho a las 23:00 cuenta como 1 h de
- * anticipación, no 10 (no prometemos la franja horaria).
+ * Convención de fechas: la fecha de entrega es un `YYYY-MM-DD` **de Lima** y la
+ * anticipación se mide contra las 00:00 (hora de Lima) de ese día — nunca con el
+ * huso del servidor o del dispositivo (en Coolify es UTC: 5 horas de diferencia).
+ * Es deliberadamente conservador: un pedido para "mañana" hecho a las 23:00 cuenta
+ * como 1 h de anticipación, no 10 (no prometemos la franja horaria).
  */
 
-const parseISODate = (iso: string): Date | null => {
-  const [y, m, d] = iso.split('-').map(Number)
-  if (!y || !m || !d) return null
-  return new Date(y, m - 1, d)
+import { inicioDiaLima } from './zonaLima.js'
+
+const ISO_FECHA = /^(\d{4})-(\d{2})-(\d{2})$/
+
+/** Parsea un YYYY-MM-DD a (año, mes, día) o null si no es una fecha de calendario válida. */
+const parseISODate = (iso: string): { y: number; m: number; d: number } | null => {
+  const r = ISO_FECHA.exec(iso)
+  if (!r) return null
+  const [y, m, d] = [Number(r[1]), Number(r[2]), Number(r[3])]
+  const t = new Date(Date.UTC(y, m - 1, d))
+  if (t.getUTCFullYear() !== y || t.getUTCMonth() !== m - 1 || t.getUTCDate() !== d) return null
+  return { y, m, d }
 }
 
-/** Horas entre `ahora` y las 00:00 del día de entrega. NaN si la fecha es inválida. */
+/** Horas entre `ahora` y las 00:00 (Lima) del día de entrega. NaN si la fecha es inválida. */
 export function horasDeAnticipacion(fechaEntregaISO: string, ahora: Date = new Date()): number {
-  const entrega = parseISODate(fechaEntregaISO)
-  if (!entrega) return NaN
-  return (entrega.getTime() - ahora.getTime()) / 3_600_000
+  if (!parseISODate(fechaEntregaISO)) return NaN
+  return (inicioDiaLima(fechaEntregaISO).getTime() - ahora.getTime()) / 3_600_000
 }
 
 export function cumpleAnticipacionMinima(params: {
@@ -31,10 +39,10 @@ export function cumpleAnticipacionMinima(params: {
   return horas >= anticipacionHorasMinima
 }
 
-/** true si `fechaISO` (parseada como fecha local, no UTC) cae en domingo. */
+/** true si `fechaISO` (un día de calendario, sin huso) cae en domingo. */
 export function esDomingo(fechaISO: string): boolean {
-  const fecha = parseISODate(fechaISO)
-  return fecha !== null && fecha.getDay() === 0
+  const f = parseISODate(fechaISO)
+  return f !== null && new Date(Date.UTC(f.y, f.m - 1, f.d)).getUTCDay() === 0
 }
 
 /**
