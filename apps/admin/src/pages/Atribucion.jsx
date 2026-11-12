@@ -57,7 +57,7 @@ export default function Atribucion() {
 
   return (
     <>
-      <Portada titulo="Atribución" subtitulo="De dónde llegan los pedidos: canal y campaña" />
+      <Portada titulo="Origen de clientes" subtitulo="De qué canal o campaña llegó cada cliente o pedido" />
 
       <div className="mt-5 flex flex-wrap items-end gap-3">
         <div className="flex gap-1 rounded-xl border border-borde bg-hueso p-1" role="group" aria-label="Agrupar por">
@@ -121,7 +121,17 @@ export default function Atribucion() {
           </p>
 
           {grupos.length === 0 ? (
-            <p className="mt-4 text-sm text-gris">No hay pedidos en este rango.</p>
+            desde || hasta ? (
+              <p className="mt-4 text-sm text-gris">No hay pedidos en este rango.</p>
+            ) : (
+              <div className="mt-4 rounded-xl bg-lila-suave/60 p-4 text-sm leading-relaxed">
+                <p className="font-bold text-tinta">Todavía no hay datos de origen.</p>
+                <p className="mt-1">
+                  Esta pantalla se activa con los links de campaña de Instagram y Facebook: cuando alguien entra por uno de
+                  ellos y escribe por WhatsApp, el pedido queda con su canal y su campaña.
+                </p>
+              </div>
+            )
           ) : (
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {grupos.map((g) => (

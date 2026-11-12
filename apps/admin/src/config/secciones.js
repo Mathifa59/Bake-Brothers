@@ -18,10 +18,10 @@ import {
   LineChart,
   UserCog,
   Workflow,
-  FlaskConical,
   FileSpreadsheet,
   Settings,
 } from 'lucide-react'
+import { MIFACT_ACTIVO } from './funciones'
 
 /**
  * Menú de secciones de Bake OS: solo las que funcionan con datos reales.
@@ -37,11 +37,11 @@ export const SECCIONES_ACTIVAS = [
   { ruta: '/atencion', etiqueta: 'Atención', icono: Headset },
   { ruta: '/conversaciones', etiqueta: 'Conversaciones', icono: MessageCircle },
   { ruta: '/metricas', etiqueta: 'Métricas', icono: TrendingUp },
-  { ruta: '/atribucion', etiqueta: 'Atribución', icono: PieChart },
-  // Solo admin: prueba el cerebro real del bot sin WhatsApp (ver pages/Simulador.jsx).
-  { ruta: '/simulador', etiqueta: 'Simulador', icono: FlaskConical, soloAdmin: true },
-  // Solo admin: cruza el Excel de productos de Mifact con el catálogo y guarda sus códigos (ver pages/Mifact.jsx).
-  { ruta: '/mifact', etiqueta: 'Mifact', icono: FileSpreadsheet, soloAdmin: true },
+  // Antes «Atribución»: de qué canal o campaña llegó cada cliente o pedido (ver pages/Atribucion.jsx).
+  { ruta: '/atribucion', etiqueta: 'Origen de clientes', icono: PieChart },
+  // Solo admin y solo con VITE_MIFACT_ACTIVO=true: cruza el Excel de productos de Mifact con el catálogo y
+  // guarda sus códigos (ver pages/Mifact.jsx). Oculto por defecto en producción.
+  ...(MIFACT_ACTIVO ? [{ ruta: '/mifact', etiqueta: 'Mifact', icono: FileSpreadsheet, soloAdmin: true }] : []),
   // Todos: el bot (solo dirección lo cambia) y los avisos del celular (ver pages/Ajustes.jsx).
   { ruta: '/ajustes', etiqueta: 'Ajustes', icono: Settings },
 ]

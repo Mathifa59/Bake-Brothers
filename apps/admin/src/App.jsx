@@ -14,8 +14,8 @@ import Atencion from './pages/Atencion'
 import Atribucion from './pages/Atribucion'
 import Conversaciones from './pages/Conversaciones'
 import Metricas from './pages/Metricas'
-import Simulador from './pages/Simulador'
 import Mifact from './pages/Mifact'
+import { MIFACT_ACTIVO } from './config/funciones'
 import Ajustes from './pages/Ajustes'
 import Avisos from './pages/Avisos'
 
@@ -79,8 +79,7 @@ export default function App() {
           <Route path="/conversaciones" element={protegida(<Conversaciones />)} />
           <Route path="/metricas" element={protegida(<Metricas />)} />
           <Route path="/atribucion" element={protegida(<Atribucion />)} />
-          <Route path="/simulador" element={protegida(<Simulador />)} />
-          <Route path="/mifact" element={protegida(<Mifact />)} />
+          {MIFACT_ACTIVO && <Route path="/mifact" element={protegida(<Mifact />)} />}
           <Route path="/ajustes" element={protegida(<Ajustes />)} />
           <Route path="/avisos" element={protegida(<Avisos />)} />
           <Route path="/inicio" element={<Inicio />} />
