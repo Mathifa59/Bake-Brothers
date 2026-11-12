@@ -20,6 +20,13 @@ const CAMPOS_PRODUCTO =
   'area_produccion, familia_operativa, sabor, foto_url, gradiente_desde, gradiente_hasta, ' +
   'product_sizes(id, tamano, precio, activo, orden, clase, visible_publico), product_photos(id, url, ruta, principal, orden)'
 
+/** Ruta dentro del bucket de una URL pública de Storage nuestra (null si es otra cosa, p. ej. una ruta antigua). */
+const rutaDeStorage = (url) => {
+  const marca = `/storage/v1/object/public/${BUCKET}/`
+  const i = typeof url === 'string' ? url.indexOf(marca) : -1
+  return i === -1 ? null : decodeURIComponent(url.slice(i + marca.length))
+}
+
 const aError = (error, contexto) => {
   if (!error) return
   const e = new Error(`${contexto}: ${error.message}`)
@@ -213,16 +220,21 @@ export const catalogoApi = {
   },
   /** Reemplaza la foto de un combo o de un ítem de catering (tabla = 'combos' | 'catering_items'). */
   async cambiarFotoUnica(tabla, fila, archivo) {
+    // Cada subida tiene un nombre nuevo (UUID): la URL cambia al reemplazar y nunca se ve la vieja por la caché del CDN.
     const { url, ruta } = await this.subirFoto(archivo, `${tabla === 'combos' ? 'combos' : 'catering'}/${fila.id}`)
     const { error } = await supabase.from(tabla).update({ foto_url: url }).eq('id', fila.id)
     if (error) {
       await supabase.storage.from(BUCKET).remove([ruta])
       aError(error, 'No se pudo guardar la foto')
     }
+    const vieja = rutaDeStorage(fila.foto_url)
+    if (vieja) await supabase.storage.from(BUCKET).remove([vieja]) // no dejar el archivo anterior huérfano
     return url
   },
   async quitarFotoUnica(tabla, fila) {
     const { error } = await supabase.from(tabla).update({ foto_url: null }).eq('id', fila.id)
     aError(error, 'No se pudo quitar la foto')
+    const vieja = rutaDeStorage(fila.foto_url)
+    if (vieja) await supabase.storage.from(BUCKET).remove([vieja])
   },
 }

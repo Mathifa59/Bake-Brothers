@@ -1,33 +1,39 @@
 # Plantillas de WhatsApp — Bake Brothers
 
-Siete plantillas de categoría **UTILITY** (mensajes transaccionales sobre un pedido que el cliente ya hizo),
-idioma **Español (`es`)**, para registrar en el WhatsApp Business Manager del número del bot (WABA de Bake
-Brothers → *Plantillas de mensajes* → *Crear plantilla*). Tono: cálido y cercano, tuteo, sin promociones.
+> Generado desde `docs/plantillas-whatsapp.json` (la única fuente: se valida con `packages/domain/test/plantillasBake.test.ts`).
+> No edites este archivo a mano: cambia el JSON y vuelve a generarlo.
 
-> **Por qué hacen falta.** WhatsApp solo deja escribir libremente dentro de las 24 h siguientes al último
-> mensaje del cliente. Fuera de esa ventana (por ejemplo "tu pedido está listo" horas después, o el
-> recordatorio del día anterior) solo se puede enviar una plantilla aprobada.
+**9 esenciales** (créalas la noche de la migración) y **3 opcionales** (pueden esperar). Todas son de categoría **UTILITY**, idioma **Español (`es`)**, formato de variables **numérico** ({{1}}, {{2}}…), solo texto: sin encabezado, sin pie y sin botones.
 
-## Reglas de Meta que ya cumplen estos textos
+## Por qué hacen falta
 
-- Ninguna plantilla **empieza ni termina** con una variable.
-- Ninguna variable va **pegada a otra**; todas tienen texto alrededor.
-- Sin ofertas, descuentos ni "te esperamos con novedades": cualquier giro promocional hace que Meta la
-  reclasifique como **MARKETING** (más cara y con otras reglas). Si eso pasa, no se puede cambiar el texto
-  sin volver a enviarla.
-- Nombres en minúsculas y con guion bajo; no se pueden editar una vez creados (si hace falta cambiar uno, se
-  crea otro).
-- Sin encabezado, sin pie y sin botones (los tres son opcionales; así la aprobación suele ser más rápida).
-- Los **ejemplos** son obligatorios: Meta no aprueba una variable sin un valor de muestra.
+WhatsApp solo deja escribir libremente dentro de las 24 h siguientes al último mensaje del cliente. Fuera de esa ventana el equipo, desde Conversaciones → *Elegir una plantilla*, solo puede enviar una plantilla **aprobada**. El panel las lee de Meta (no se escriben a mano) y pide cada variable con su ejemplo como guía. **Hoy se envían a mano desde el panel; ninguna se manda sola** (no hay disparadores automáticos todavía).
+
+## Cómo crear cada una en Meta
+
+1. business.facebook.com → **WhatsApp Manager** → la cuenta de WhatsApp del negocio → **Plantillas de mensajes** → **Crear plantilla**.
+2. **Categoría:** Utilidad (*Utility*). **Nombre:** el de abajo, tal cual (minúsculas y guion bajo; **no se puede cambiar después**). **Idioma:** Español.
+3. **Tipo:** solo texto (sin encabezado ni pie ni botones). **Cuerpo:** pega el texto exacto. Donde dice `{{1}}` Meta lo reconoce como variable.
+4. **Tipo de variable:** *Número* (no «Nombre»). En **Ejemplos**, pega el valor de muestra de cada variable (la columna *Ejemplo*).
+5. **Enviar**. La aprobación suele tardar minutos u horas. Si queda como *Marketing* en vez de *Utilidad*, se puede aceptar (cuesta más por mensaje) y seguir.
+
+## Reglas de Meta que ya cumplen todos los textos (verificado por test)
+
+- Ninguna empieza ni termina con una variable; ninguna tiene dos variables pegadas.
+- Variables numeradas {{1}}…{{n}} sin saltos, cada una con ejemplo, sin saltos de línea dentro del ejemplo.
+- Suficiente texto alrededor de las variables (al menos 3 palabras por variable) y menos de 1024 caracteres.
+- Sin ofertas, descuentos ni promociones (cualquier giro promocional las reclasifica como Marketing). Tuteo peruano, sin voseo.
 
 ---
 
-## 1. `pedido_confirmado` — confirmación de pedido
+## Esenciales — crear la noche de la migración
 
-- **Categoría:** UTILITY · **Idioma:** Español (`es`)
-- **Cuándo se usa:** apenas el pedido queda registrado (estado *Confirmado*).
+### 1. `pedido_confirmado`
 
-**Texto**
+- **Categoría:** UTILITY · **Idioma:** Español (`es`) · **Variables:** 5
+- **Cuándo se usa:** Apenas el pedido queda registrado (estado Confirmado) y han pasado más de 24 h desde el último mensaje del cliente, o para dejarle el resumen por escrito.
+
+**Texto exacto (cópialo tal cual):**
 
 ```
 Hola {{1}}, ¡gracias por tu pedido en Bake Brothers! 🧁
@@ -38,22 +44,20 @@ Total: S/ {{5}}.
 Si necesitas cambiar algo, respóndenos por este chat.
 ```
 
-| Variable | Qué lleva | Ejemplo |
+| Variable | Qué lleva | Ejemplo (pégalo en Meta) |
 |---|---|---|
 | `{{1}}` | Nombre del cliente | Lucía |
-| `{{2}}` | Número de pedido | BB-000123 |
-| `{{3}}` | Fecha y hora de entrega | sábado 25 de octubre a las 4:00 p. m. |
-| `{{4}}` | Cómo se entrega | recoges en nuestro local de Cedros |
+| `{{2}}` | Número de pedido | BB-2500 |
+| `{{3}}` | Día y hora de entrega | sábado 15 de noviembre a las 4:00 p. m. |
+| `{{4}}` | Cómo se entrega (completa «Lo …») | recoges en nuestro local de Cedros |
 | `{{5}}` | Total | 85.90 |
 
----
+### 2. `pago_confirmado`
 
-## 2. `pago_confirmado` — confirmación de pago
+- **Categoría:** UTILITY · **Idioma:** Español (`es`) · **Variables:** 3
+- **Cuándo se usa:** Cuando una persona confirma el pago del pedido (Yape, link de pago o transferencia).
 
-- **Categoría:** UTILITY · **Idioma:** Español (`es`)
-- **Cuándo se usa:** cuando el equipo marca el pedido como pagado (Yape, Izipay, transferencia…).
-
-**Texto**
+**Texto exacto (cópialo tal cual):**
 
 ```
 Hola {{1}}, ya recibimos tu pago de S/ {{2}} por el pedido {{3}}. ¡Gracias! 🙌
@@ -61,20 +65,98 @@ Hola {{1}}, ya recibimos tu pago de S/ {{2}} por el pedido {{3}}. ¡Gracias! �
 Tu pedido ya está en nuestra lista para prepararlo con cariño.
 ```
 
-| Variable | Qué lleva | Ejemplo |
+| Variable | Qué lleva | Ejemplo (pégalo en Meta) |
 |---|---|---|
 | `{{1}}` | Nombre del cliente | Lucía |
 | `{{2}}` | Monto pagado | 85.90 |
-| `{{3}}` | Número de pedido | BB-000123 |
+| `{{3}}` | Número de pedido | BB-2500 |
 
----
+### 3. `pago_pendiente`
 
-## 3. `recordatorio_entrega` — recordatorio de entrega
+- **Categoría:** UTILITY · **Idioma:** Español (`es`) · **Variables:** 3
+- **Cuándo se usa:** Un pedido por pagar (delivery, o recojo con pago adelantado) sigue sin pago y la ventana de 24 h ya cerró.
 
-- **Categoría:** UTILITY · **Idioma:** Español (`es`)
-- **Cuándo se usa:** el día anterior o la mañana de la entrega.
+**Texto exacto (cópialo tal cual):**
 
-**Texto**
+```
+Hola {{1}}, tu pedido {{2}} sigue pendiente de pago por S/ {{3}}.
+
+Cuando hayas pagado, envíanos la captura por este chat para confirmarlo y empezar a prepararlo.
+```
+
+| Variable | Qué lleva | Ejemplo (pégalo en Meta) |
+|---|---|---|
+| `{{1}}` | Nombre del cliente | Lucía |
+| `{{2}}` | Número de pedido | BB-2500 |
+| `{{3}}` | Total a pagar | 85.90 |
+
+### 4. `envio_cotizado`
+
+- **Categoría:** UTILITY · **Idioma:** Español (`es`) · **Variables:** 5
+- **Cuándo se usa:** Una persona cotizó el delivery de un pedido y el cliente ya no está en la ventana de 24 h.
+
+**Texto exacto (cópialo tal cual):**
+
+```
+Hola {{1}}, ya cotizamos el envío de tu pedido {{2}} a {{3}}: S/ {{4}}.
+
+El total a pagar es S/ {{5}}. Respóndenos por este chat y te enviamos los datos de pago.
+```
+
+| Variable | Qué lleva | Ejemplo (pégalo en Meta) |
+|---|---|---|
+| `{{1}}` | Nombre del cliente | Lucía |
+| `{{2}}` | Número de pedido | BB-2500 |
+| `{{3}}` | Distrito de entrega | Surco |
+| `{{4}}` | Costo del envío | 12.00 |
+| `{{5}}` | Total con envío | 97.90 |
+
+### 5. `pedido_listo_para_recoger`
+
+- **Categoría:** UTILITY · **Idioma:** Español (`es`) · **Variables:** 4
+- **Cuándo se usa:** El pedido pasa a Listo y el cliente lo recoge en el local.
+
+**Texto exacto (cópialo tal cual):**
+
+```
+Hola {{1}}, tu pedido {{2}} ya está listo para recoger en nuestro local de {{3}}. 🎉
+
+Dirección: {{4}}.
+
+Te esperamos.
+```
+
+| Variable | Qué lleva | Ejemplo (pégalo en Meta) |
+|---|---|---|
+| `{{1}}` | Nombre del cliente | Lucía |
+| `{{2}}` | Número de pedido | BB-2500 |
+| `{{3}}` | Nombre del local | Cedros |
+| `{{4}}` | Dirección del local | Av. Alameda Los Horizontes 820, Chorrillos |
+
+### 6. `pedido_en_camino`
+
+- **Categoría:** UTILITY · **Idioma:** Español (`es`) · **Variables:** 2
+- **Cuándo se usa:** El pedido de delivery sale del local (estado Despachado).
+
+**Texto exacto (cópialo tal cual):**
+
+```
+Hola {{1}}, tu pedido {{2}} ya va en camino a tu dirección y llegará en unos minutos. 🛵
+
+Si necesitas algo, escríbenos por este chat.
+```
+
+| Variable | Qué lleva | Ejemplo (pégalo en Meta) |
+|---|---|---|
+| `{{1}}` | Nombre del cliente | Lucía |
+| `{{2}}` | Número de pedido | BB-2500 |
+
+### 7. `recordatorio_entrega`
+
+- **Categoría:** UTILITY · **Idioma:** Español (`es`) · **Variables:** 4
+- **Cuándo se usa:** El día anterior o la mañana de la entrega.
+
+**Texto exacto (cópialo tal cual):**
 
 ```
 Hola {{1}}, te recordamos que tu pedido {{2}} está programado para el {{3}}. 🗓️
@@ -84,68 +166,39 @@ Detalle: {{4}}.
 Si algo cambió, avísanos por este chat y lo vemos juntos.
 ```
 
-| Variable | Qué lleva | Ejemplo |
+| Variable | Qué lleva | Ejemplo (pégalo en Meta) |
 |---|---|---|
 | `{{1}}` | Nombre del cliente | Lucía |
-| `{{2}}` | Número de pedido | BB-000123 |
-| `{{3}}` | Fecha y hora de entrega | sábado 25 de octubre a las 4:00 p. m. |
-| `{{4}}` | Lugar de recojo o dirección de delivery | recojo en el local de Cedros |
+| `{{2}}` | Número de pedido | BB-2500 |
+| `{{3}}` | Día y hora de entrega | sábado 15 de noviembre a las 4:00 p. m. |
+| `{{4}}` | Recojo (local) o dirección de delivery | recojo en el local de Cedros |
 
----
+### 8. `seguimiento_consulta`
 
-## 4. `pedido_en_preparacion` — pedido en preparación
+- **Categoría:** UTILITY · **Idioma:** Español (`es`) · **Variables:** 2
+- **Cuándo se usa:** Una persona quiere retomar una conversación cuya ventana de 24 h ya cerró (por ejemplo, el cliente pidió una cotización y nunca recibió respuesta). Al contestar el cliente, la ventana se vuelve a abrir.
 
-- **Categoría:** UTILITY · **Idioma:** Español (`es`)
-- **Cuándo se usa:** cuando el pedido pasa a *En preparación*.
-
-**Texto**
+**Texto exacto (cópialo tal cual):**
 
 ```
-Hola {{1}}, ya estamos preparando tu pedido {{2}}. 👩‍🍳
+Hola {{1}}, te escribimos de Bake Brothers por tu consulta sobre {{2}}.
 
-Lo hacemos con mucho cariño y te avisaremos por aquí apenas esté listo.
+Cuando quieras, respóndenos por este chat y seguimos con tu pedido.
 ```
 
-| Variable | Qué lleva | Ejemplo |
+| Variable | Qué lleva | Ejemplo (pégalo en Meta) |
 |---|---|---|
 | `{{1}}` | Nombre del cliente | Lucía |
-| `{{2}}` | Número de pedido | BB-000123 |
+| `{{2}}` | Tema de la consulta (corto) | una torta de chocolate para el sábado |
 
----
+> ⚠ Es la que más riesgo tiene de que Meta la reclasifique como MARKETING por no ligarse a un pedido ya hecho. Si ocurre, se acepta la categoría (cuesta más por mensaje) o se retoma el contacto por llamada.
 
-## 5. `pedido_listo_o_en_camino` — pedido listo o en camino
+### 9. `pedido_entregado`
 
-- **Categoría:** UTILITY · **Idioma:** Español (`es`)
-- **Cuándo se usa:** cuando el pedido pasa a *Listo* (recojo en tienda) o a *Despachado* (delivery). Una sola
-  plantilla cubre los dos casos: la variable `{{3}}` lleva la frase que corresponde.
+- **Categoría:** UTILITY · **Idioma:** Español (`es`) · **Variables:** 2
+- **Cuándo se usa:** Al cerrar el pedido como entregado.
 
-**Texto**
-
-```
-Hola {{1}}, tenemos novedades de tu pedido {{2}}: {{3}} 🎉
-
-Si tienes alguna duda, escríbenos por este chat.
-```
-
-| Variable | Qué lleva | Ejemplo |
-|---|---|---|
-| `{{1}}` | Nombre del cliente | Lucía |
-| `{{2}}` | Número de pedido | BB-000123 |
-| `{{3}}` | Estado + dónde | ya está listo para que lo recojas en nuestro local de Cedros |
-| | (segundo caso) | ya va en camino a tu dirección y llegará en unos minutos |
-
-> Si Meta rechaza la plantilla por tener una variable "demasiado abierta" en `{{3}}`, se separa en dos
-> (`pedido_listo` y `pedido_en_camino`) con el mismo texto y sin esa variable; el código solo tendría que
-> elegir una u otra según la modalidad.
-
----
-
-## 6. `pedido_entregado` — pedido entregado
-
-- **Categoría:** UTILITY · **Idioma:** Español (`es`)
-- **Cuándo se usa:** al cerrar el pedido como entregado.
-
-**Texto**
+**Texto exacto (cópialo tal cual):**
 
 ```
 Hola {{1}}, tu pedido {{2}} ya fue entregado. ✅
@@ -153,19 +206,60 @@ Hola {{1}}, tu pedido {{2}} ya fue entregado. ✅
 ¡Gracias por elegir Bake Brothers! Esperamos que lo disfrutes mucho. 🧁
 ```
 
-| Variable | Qué lleva | Ejemplo |
+| Variable | Qué lleva | Ejemplo (pégalo en Meta) |
 |---|---|---|
 | `{{1}}` | Nombre del cliente | Lucía |
-| `{{2}}` | Número de pedido | BB-000123 |
+| `{{2}}` | Número de pedido | BB-2500 |
 
 ---
 
-## 7. `solicitud_resena` — solicitud de reseña
+## Opcionales — después del lanzamiento
 
-- **Categoría:** UTILITY · **Idioma:** Español (`es`)
-- **Cuándo se usa:** unas horas después de la entrega (nunca antes), una sola vez por pedido.
+### 10. `pedido_en_preparacion`
 
-**Texto**
+- **Categoría:** UTILITY · **Idioma:** Español (`es`) · **Variables:** 2
+- **Cuándo se usa:** Cuando el pedido pasa a En preparación. Útil pero no urgente: se puede crear después del lanzamiento.
+
+**Texto exacto (cópialo tal cual):**
+
+```
+Hola {{1}}, ya estamos preparando tu pedido {{2}}. 👩‍🍳
+
+Lo hacemos con mucho cariño y te avisaremos por aquí apenas esté listo.
+```
+
+| Variable | Qué lleva | Ejemplo (pégalo en Meta) |
+|---|---|---|
+| `{{1}}` | Nombre del cliente | Lucía |
+| `{{2}}` | Número de pedido | BB-2500 |
+
+### 11. `confirmar_detalle_pedido`
+
+- **Categoría:** UTILITY · **Idioma:** Español (`es`) · **Variables:** 3
+- **Cuándo se usa:** Hace falta confirmar algo antes de preparar un pedido (un producto agotado, una hora, una dirección) y la ventana ya cerró.
+
+**Texto exacto (cópialo tal cual):**
+
+```
+Hola {{1}}, necesitamos confirmar un detalle de tu pedido {{2}} antes de prepararlo: {{3}}
+
+¿Nos ayudas respondiendo por este chat?
+```
+
+| Variable | Qué lleva | Ejemplo (pégalo en Meta) |
+|---|---|---|
+| `{{1}}` | Nombre del cliente | Lucía |
+| `{{2}}` | Número de pedido | BB-2500 |
+| `{{3}}` | La pregunta concreta | el sabor de la torta que prefieres si no hay carrot cake. |
+
+> ⚠ La variable {{3}} es una frase abierta: Meta a veces la rechaza por eso. Si la rechazan, no insistas con esta: se escribe en la ventana libre o se llama.
+
+### 12. `solicitud_resena`
+
+- **Categoría:** UTILITY · **Idioma:** Español (`es`) · **Variables:** 3
+- **Cuándo se usa:** Unas horas después de la entrega, una sola vez por pedido. Dejarla para después del lanzamiento.
+
+**Texto exacto (cópialo tal cual):**
 
 ```
 Hola {{1}}, ¿cómo estuvo tu pedido {{2}}? 💛
@@ -175,34 +269,33 @@ Tu opinión nos ayuda a seguir mejorando. Cuéntanos tu experiencia aquí: {{3}}
 ¡Gracias por ayudarnos a crecer!
 ```
 
-| Variable | Qué lleva | Ejemplo |
+| Variable | Qué lleva | Ejemplo (pégalo en Meta) |
 |---|---|---|
 | `{{1}}` | Nombre del cliente | Lucía |
-| `{{2}}` | Número de pedido | BB-000123 |
-| `{{3}}` | Enlace para dejar la reseña (Google Maps de la sede u otro) | https://g.page/r/ejemplo/review |
+| `{{2}}` | Número de pedido | BB-2500 |
+| `{{3}}` | Enlace para dejar la reseña | https://g.page/r/ejemplo/review |
 
-> Es la plantilla con más riesgo de que Meta la reclasifique como MARKETING (pedir reseñas se parece a
-> promoción). El texto está escrito lo más neutro posible: un solo enlace, sin incentivos ni descuentos. Si la
-> reclasifican, se puede aceptar la categoría (cuesta más por mensaje) o no enviarla por WhatsApp.
+> ⚠ Pedir reseñas se parece a promoción: es la que más probablemente reclasifiquen como MARKETING. Por eso no es esencial para el lanzamiento.
 
 ---
 
-## Resumen para registrar
+## Resumen
 
-| # | Nombre | Variables | Cuándo |
+| # | Nombre | Variables | Grupo |
 |---|---|---|---|
-| 1 | `pedido_confirmado` | 5 | Pedido *Confirmado* |
-| 2 | `pago_confirmado` | 3 | Pago recibido |
-| 3 | `recordatorio_entrega` | 4 | Antes de la entrega |
-| 4 | `pedido_en_preparacion` | 2 | *En preparación* |
-| 5 | `pedido_listo_o_en_camino` | 3 | *Listo* / *Despachado* |
-| 6 | `pedido_entregado` | 2 | Entregado |
-| 7 | `solicitud_resena` | 3 | Horas después de entregar |
+| 1 | `pedido_confirmado` | 5 | esencial |
+| 2 | `pago_confirmado` | 3 | esencial |
+| 3 | `pago_pendiente` | 3 | esencial |
+| 4 | `envio_cotizado` | 5 | esencial |
+| 5 | `pedido_listo_para_recoger` | 4 | esencial |
+| 6 | `pedido_en_camino` | 2 | esencial |
+| 7 | `recordatorio_entrega` | 4 | esencial |
+| 8 | `seguimiento_consulta` | 2 | esencial |
+| 9 | `pedido_entregado` | 2 | esencial |
+| 10 | `pedido_en_preparacion` | 2 | opcional |
+| 11 | `confirmar_detalle_pedido` | 3 | opcional |
+| 12 | `solicitud_resena` | 3 | opcional |
 
-## Qué falta del lado del código
+## Después de la aprobación
 
-Estas plantillas **todavía no se envían desde Bake OS**: `bot/meta.ts` hoy solo manda mensajes de texto libre
-(dentro de la ventana de 24 h). Cuando Meta las apruebe hay que agregar el envío de plantillas
-(`type: "template"` con el nombre, el idioma `es` y los parámetros en el mismo orden de `{{1}}…`) y decidir
-qué cambio de estado dispara cada una. Se hace en cuanto estén aprobadas y se confirme qué disparadores quiere
-el cliente.
+En Conversaciones, abre un chat con la ventana cerrada → **Elegir una plantilla**: deben aparecer todas las aprobadas. Prueba una enviándola a tu propio número y confirma que llega con el texto completo.

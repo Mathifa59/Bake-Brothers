@@ -1,0 +1,167 @@
+{
+  "version": "2026-11-12",
+  "formato_de_variables": "POSICIONAL ({{1}}, {{2}}…)",
+  "plantillas": [
+    {
+      "nombre": "pedido_confirmado",
+      "grupo": "esencial",
+      "categoria": "UTILITY",
+      "idioma": "es",
+      "cuando": "Apenas el pedido queda registrado (estado Confirmado) y han pasado más de 24 h desde el último mensaje del cliente, o para dejarle el resumen por escrito.",
+      "cuerpo": "Hola {{1}}, ¡gracias por tu pedido en Bake Brothers! 🧁\n\nTu pedido {{2}} quedó confirmado para el {{3}}. Lo {{4}}.\nTotal: S/ {{5}}.\n\nSi necesitas cambiar algo, respóndenos por este chat.",
+      "variables": [
+        { "n": 1, "que_lleva": "Nombre del cliente", "ejemplo": "Lucía" },
+        { "n": 2, "que_lleva": "Número de pedido", "ejemplo": "BB-2500" },
+        { "n": 3, "que_lleva": "Día y hora de entrega", "ejemplo": "sábado 15 de noviembre a las 4:00 p. m." },
+        { "n": 4, "que_lleva": "Cómo se entrega (completa «Lo …»)", "ejemplo": "recoges en nuestro local de Cedros" },
+        { "n": 5, "que_lleva": "Total", "ejemplo": "85.90" }
+      ]
+    },
+    {
+      "nombre": "pago_confirmado",
+      "grupo": "esencial",
+      "categoria": "UTILITY",
+      "idioma": "es",
+      "cuando": "Cuando una persona confirma el pago del pedido (Yape, link de pago o transferencia).",
+      "cuerpo": "Hola {{1}}, ya recibimos tu pago de S/ {{2}} por el pedido {{3}}. ¡Gracias! 🙌\n\nTu pedido ya está en nuestra lista para prepararlo con cariño.",
+      "variables": [
+        { "n": 1, "que_lleva": "Nombre del cliente", "ejemplo": "Lucía" },
+        { "n": 2, "que_lleva": "Monto pagado", "ejemplo": "85.90" },
+        { "n": 3, "que_lleva": "Número de pedido", "ejemplo": "BB-2500" }
+      ]
+    },
+    {
+      "nombre": "pago_pendiente",
+      "grupo": "esencial",
+      "categoria": "UTILITY",
+      "idioma": "es",
+      "cuando": "Un pedido por pagar (delivery, o recojo con pago adelantado) sigue sin pago y la ventana de 24 h ya cerró.",
+      "cuerpo": "Hola {{1}}, tu pedido {{2}} sigue pendiente de pago por S/ {{3}}.\n\nCuando hayas pagado, envíanos la captura por este chat para confirmarlo y empezar a prepararlo.",
+      "variables": [
+        { "n": 1, "que_lleva": "Nombre del cliente", "ejemplo": "Lucía" },
+        { "n": 2, "que_lleva": "Número de pedido", "ejemplo": "BB-2500" },
+        { "n": 3, "que_lleva": "Total a pagar", "ejemplo": "85.90" }
+      ]
+    },
+    {
+      "nombre": "envio_cotizado",
+      "grupo": "esencial",
+      "categoria": "UTILITY",
+      "idioma": "es",
+      "cuando": "Una persona cotizó el delivery de un pedido y el cliente ya no está en la ventana de 24 h.",
+      "cuerpo": "Hola {{1}}, ya cotizamos el envío de tu pedido {{2}} a {{3}}: S/ {{4}}.\n\nEl total a pagar es S/ {{5}}. Respóndenos por este chat y te enviamos los datos de pago.",
+      "variables": [
+        { "n": 1, "que_lleva": "Nombre del cliente", "ejemplo": "Lucía" },
+        { "n": 2, "que_lleva": "Número de pedido", "ejemplo": "BB-2500" },
+        { "n": 3, "que_lleva": "Distrito de entrega", "ejemplo": "Surco" },
+        { "n": 4, "que_lleva": "Costo del envío", "ejemplo": "12.00" },
+        { "n": 5, "que_lleva": "Total con envío", "ejemplo": "97.90" }
+      ]
+    },
+    {
+      "nombre": "pedido_listo_para_recoger",
+      "grupo": "esencial",
+      "categoria": "UTILITY",
+      "idioma": "es",
+      "cuando": "El pedido pasa a Listo y el cliente lo recoge en el local.",
+      "cuerpo": "Hola {{1}}, tu pedido {{2}} ya está listo para recoger en nuestro local de {{3}}. 🎉\n\nDirección: {{4}}.\n\nTe esperamos.",
+      "variables": [
+        { "n": 1, "que_lleva": "Nombre del cliente", "ejemplo": "Lucía" },
+        { "n": 2, "que_lleva": "Número de pedido", "ejemplo": "BB-2500" },
+        { "n": 3, "que_lleva": "Nombre del local", "ejemplo": "Cedros" },
+        { "n": 4, "que_lleva": "Dirección del local", "ejemplo": "Av. Alameda Los Horizontes 820, Chorrillos" }
+      ]
+    },
+    {
+      "nombre": "pedido_en_camino",
+      "grupo": "esencial",
+      "categoria": "UTILITY",
+      "idioma": "es",
+      "cuando": "El pedido de delivery sale del local (estado Despachado).",
+      "cuerpo": "Hola {{1}}, tu pedido {{2}} ya va en camino a tu dirección y llegará en unos minutos. 🛵\n\nSi necesitas algo, escríbenos por este chat.",
+      "variables": [
+        { "n": 1, "que_lleva": "Nombre del cliente", "ejemplo": "Lucía" },
+        { "n": 2, "que_lleva": "Número de pedido", "ejemplo": "BB-2500" }
+      ]
+    },
+    {
+      "nombre": "recordatorio_entrega",
+      "grupo": "esencial",
+      "categoria": "UTILITY",
+      "idioma": "es",
+      "cuando": "El día anterior o la mañana de la entrega.",
+      "cuerpo": "Hola {{1}}, te recordamos que tu pedido {{2}} está programado para el {{3}}. 🗓️\n\nDetalle: {{4}}.\n\nSi algo cambió, avísanos por este chat y lo vemos juntos.",
+      "variables": [
+        { "n": 1, "que_lleva": "Nombre del cliente", "ejemplo": "Lucía" },
+        { "n": 2, "que_lleva": "Número de pedido", "ejemplo": "BB-2500" },
+        { "n": 3, "que_lleva": "Día y hora de entrega", "ejemplo": "sábado 15 de noviembre a las 4:00 p. m." },
+        { "n": 4, "que_lleva": "Recojo (local) o dirección de delivery", "ejemplo": "recojo en el local de Cedros" }
+      ]
+    },
+    {
+      "nombre": "seguimiento_consulta",
+      "grupo": "esencial",
+      "categoria": "UTILITY",
+      "idioma": "es",
+      "cuando": "Una persona quiere retomar una conversación cuya ventana de 24 h ya cerró (por ejemplo, el cliente pidió una cotización y nunca recibió respuesta). Al contestar el cliente, la ventana se vuelve a abrir.",
+      "cuerpo": "Hola {{1}}, te escribimos de Bake Brothers por tu consulta sobre {{2}}.\n\nCuando quieras, respóndenos por este chat y seguimos con tu pedido.",
+      "variables": [
+        { "n": 1, "que_lleva": "Nombre del cliente", "ejemplo": "Lucía" },
+        { "n": 2, "que_lleva": "Tema de la consulta (corto)", "ejemplo": "una torta de chocolate para el sábado" }
+      ],
+      "nota": "Es la que más riesgo tiene de que Meta la reclasifique como MARKETING por no ligarse a un pedido ya hecho. Si ocurre, se acepta la categoría (cuesta más por mensaje) o se retoma el contacto por llamada."
+    },
+    {
+      "nombre": "pedido_entregado",
+      "grupo": "esencial",
+      "categoria": "UTILITY",
+      "idioma": "es",
+      "cuando": "Al cerrar el pedido como entregado.",
+      "cuerpo": "Hola {{1}}, tu pedido {{2}} ya fue entregado. ✅\n\n¡Gracias por elegir Bake Brothers! Esperamos que lo disfrutes mucho. 🧁",
+      "variables": [
+        { "n": 1, "que_lleva": "Nombre del cliente", "ejemplo": "Lucía" },
+        { "n": 2, "que_lleva": "Número de pedido", "ejemplo": "BB-2500" }
+      ]
+    },
+    {
+      "nombre": "pedido_en_preparacion",
+      "grupo": "opcional",
+      "categoria": "UTILITY",
+      "idioma": "es",
+      "cuando": "Cuando el pedido pasa a En preparación. Útil pero no urgente: se puede crear después del lanzamiento.",
+      "cuerpo": "Hola {{1}}, ya estamos preparando tu pedido {{2}}. 👩‍🍳\n\nLo hacemos con mucho cariño y te avisaremos por aquí apenas esté listo.",
+      "variables": [
+        { "n": 1, "que_lleva": "Nombre del cliente", "ejemplo": "Lucía" },
+        { "n": 2, "que_lleva": "Número de pedido", "ejemplo": "BB-2500" }
+      ]
+    },
+    {
+      "nombre": "confirmar_detalle_pedido",
+      "grupo": "opcional",
+      "categoria": "UTILITY",
+      "idioma": "es",
+      "cuando": "Hace falta confirmar algo antes de preparar un pedido (un producto agotado, una hora, una dirección) y la ventana ya cerró.",
+      "cuerpo": "Hola {{1}}, necesitamos confirmar un detalle de tu pedido {{2}} antes de prepararlo: {{3}}\n\n¿Nos ayudas respondiendo por este chat?",
+      "variables": [
+        { "n": 1, "que_lleva": "Nombre del cliente", "ejemplo": "Lucía" },
+        { "n": 2, "que_lleva": "Número de pedido", "ejemplo": "BB-2500" },
+        { "n": 3, "que_lleva": "La pregunta concreta", "ejemplo": "el sabor de la torta que prefieres si no hay carrot cake." }
+      ],
+      "nota": "La variable {{3}} es una frase abierta: Meta a veces la rechaza por eso. Si la rechazan, no insistas con esta: se escribe en la ventana libre o se llama."
+    },
+    {
+      "nombre": "solicitud_resena",
+      "grupo": "opcional",
+      "categoria": "UTILITY",
+      "idioma": "es",
+      "cuando": "Unas horas después de la entrega, una sola vez por pedido. Dejarla para después del lanzamiento.",
+      "cuerpo": "Hola {{1}}, ¿cómo estuvo tu pedido {{2}}? 💛\n\nTu opinión nos ayuda a seguir mejorando. Cuéntanos tu experiencia aquí: {{3}}\n\n¡Gracias por ayudarnos a crecer!",
+      "variables": [
+        { "n": 1, "que_lleva": "Nombre del cliente", "ejemplo": "Lucía" },
+        { "n": 2, "que_lleva": "Número de pedido", "ejemplo": "BB-2500" },
+        { "n": 3, "que_lleva": "Enlace para dejar la reseña", "ejemplo": "https://g.page/r/ejemplo/review" }
+      ],
+      "nota": "Pedir reseñas se parece a promoción: es la que más probablemente reclasifiquen como MARKETING. Por eso no es esencial para el lanzamiento."
+    }
+  ]
+}
