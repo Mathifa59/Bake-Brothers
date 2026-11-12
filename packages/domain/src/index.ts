@@ -75,6 +75,7 @@ export {
 
 export {
   evaluarSemaforoCatering,
+  CAPACIDAD_ESTANDAR_BOCADITOS_POR_HORA,
   type SemaforoCatering,
   type ReglaCateringInput,
   type PedidoCateringInput,

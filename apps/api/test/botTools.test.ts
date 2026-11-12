@@ -5,6 +5,7 @@
 //   DATABASE_URL=postgresql://postgres:postgres@localhost:PUERTO/postgres pnpm --filter @bakebrothers/api test
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import pg from 'pg'
+import { evaluarSemaforoCatering } from '@bakebrothers/domain'
 import {
   consultarPrecio,
   consultarDisponibilidad,
@@ -192,6 +193,36 @@ describe.skipIf(!hayBaseDeDatosReal)('bot tools (contra el catálogo real migrad
         fechaEntregaISO: proximoDomingoDesde(7),
       })
       expect(resultado).toBe('amarillo')
+    })
+
+    // Matriz de la Guía de Agendamiento v2.0 contra los datos REALES (migración 0044), con un
+    // «ahora» fijo en hora de Lima: miércoles 2026-09-16 10:00. Mañana = jueves 17.
+    it.each([
+      // [ítem, cantidad, entrega, esperado, por qué]
+      ['dulces de stock', 30, '2026-09-16', 'amarillo', 'Hoy: CONSULTAR'],
+      ['mini empanadas', 30, '2026-09-16', 'amarillo', 'Hoy: CONSULTAR'],
+      ['petit panes', 30, '2026-09-16', 'amarillo', 'Hoy: CONSULTAR'],
+      ['mini croissant', 60, '2026-09-16', 'amarillo', 'Hoy: CONSULTAR'],
+      ['triples', 30, '2026-09-16', 'amarillo', 'Hoy: CONSULTAR'],
+      ['tequeños', 30, '2026-09-16', 'rojo', 'Hoy: NO CONFIRMAR'],
+      ['dulces frágiles', 30, '2026-09-16', 'rojo', 'Hoy: NO CONFIRMAR'],
+      ['butifarras', 60, '2026-09-16', 'rojo', 'Hoy: NO CONFIRMAR'],
+      ['dulces de stock', 30, '2026-09-17', 'verde', 'Mañana: AGENDAR (día siguiente)'],
+      ['mini empanadas', 30, '2026-09-17', 'verde', 'Mañana: AGENDAR'],
+      ['petit panes', 30, '2026-09-17', 'verde', 'Mañana: AGENDAR'],
+      ['butifarras', 60, '2026-09-17', 'amarillo', 'Mañana: 24 horas obligatorias'],
+      ['causa', 60, '2026-09-17', 'amarillo', 'Mañana: 24 horas obligatorias'],
+      ['tequeños', 30, '2026-09-17', 'verde', 'Mañana antes de 8:30 p. m.'],
+      ['tequeños', 30, '2026-09-20', 'amarillo', 'Domingo: consultar siempre'],
+    ])('Guía v2.0 con datos reales — %s ×%i para %s → %s (%s)', async (item, cantidad, fecha, esperado) => {
+      const regla = await consultarReglasCatering(client, item as string)
+      expect(regla, `no existe el ítem ${item}`).not.toBeNull()
+      const r = regla!
+      const semaforo = evaluarSemaforoCatering(
+        { unidadesMinimas: r.unidadesMinimas, saleMismoDia: r.saleMismoDia, anticipacionHoras: r.anticipacionHoras, admiteCorteNocheAnterior: r.admiteCorteNocheAnterior },
+        { cantidadSolicitada: cantidad as number, fechaEntregaISO: fecha as string, ahora: new Date('2026-09-16T10:00:00-05:00') }
+      )
+      expect(semaforo).toBe(esperado)
     })
 
     it('devuelve null para un ítem que no existe — nunca inventa un semáforo', async () => {
