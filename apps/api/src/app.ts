@@ -17,6 +17,7 @@ import { dashboardProduccionRoutes } from './routes/dashboardProduccion.js'
 import { dashboardWhatsAppRoutes } from './routes/dashboardWhatsApp.js'
 import { dashboardSimuladorRoutes } from './routes/dashboardSimulador.js'
 import { dashboardMifactRoutes } from './routes/dashboardMifact.js'
+import { commitDesplegado } from './version.js'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -110,7 +111,8 @@ export async function buildApp() {
     return reply.code(500).send({ error: 'ERROR_INTERNO' })
   })
 
-  app.get('/health', async () => ({ ok: true }))
+  // Healthcheck de Coolify + verificación externa de qué commit corre. Solo el hash corto; nada más.
+  app.get('/health', async () => ({ ok: true, commit: commitDesplegado() }))
 
   productsRoutes(app)
   categoriesRoutes(app)

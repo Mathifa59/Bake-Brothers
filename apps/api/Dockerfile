@@ -62,6 +62,10 @@ RUN cp -r apps/api/assets /repo/deploy/assets
 # -------------------------------------------------------------- runtime ---
 FROM base AS runtime
 ENV NODE_ENV=production
+# Commit desplegado (lo muestra GET /health). Coolify lo entrega como SOURCE_COMMIT: como variable de entorno en
+# ejecución y, si lo declaramos aquí, también como argumento de construcción. Vacío = el health dice «desconocido».
+ARG SOURCE_COMMIT=""
+ENV SOURCE_COMMIT=${SOURCE_COMMIT}
 # node:22-alpine no trae curl ni un wget que le funcione al healthcheck de
 # Coolify (falla con "curl: not found" / "wget: ...Connection refused") —
 # lo necesita para poder healthcheckear /health desde dentro del contenedor.
