@@ -77,6 +77,15 @@ describe('decidirEscaladaForzadaPorTool — reglas de lanzamiento (pura)', () =>
 })
 
 describe.skipIf(!hayBaseDeDatosReal)('crearPedido — reglas de lanzamiento (Postgres real)', () => {
+  // Fuera del horario de las personas (10:00 p. m.–7:30 a. m., Lima) el bot agrega «te escribimos a primera hora» a lo
+  // que deriva, y pasado el corte de las 8:00 p. m. no toma pedidos «para hoy»: la hora se fija a mediodía para que la
+  // prueba no dependa de cuándo se corra.
+  beforeAll(() => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-13T12:00:00-05:00') })
+  })
+  afterAll(() => {
+    vi.useRealTimers()
+  })
   const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL })
   let client: pg.PoolClient
   let tenantId: string

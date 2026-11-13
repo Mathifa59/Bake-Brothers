@@ -50,16 +50,10 @@ const schema = z
         message: 'debe ser una clave AES-256 válida: 32 bytes en hex (64 caracteres) o base64',
       })
     }
-    // Falla al ARRANCAR, no al primer envío: sin clave, ninguna respuesta del
-    // bot ni de la bandeja podría salir, y descubrirlo recién cuando llega un
-    // cliente real es tarde.
-    if (valores.NODE_ENV === 'production' && (clave === undefined || clave === '')) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['WHATSAPP_TOKEN_ENCRYPTION_KEY'],
-        message: 'es obligatoria en producción (cifra los tokens de negocio de WhatsApp)',
-      })
-    }
+    // Ya NO es obligatoria para arrancar (2026-11-13): mientras no haya un número de WhatsApp conectado no hay ningún
+    // token que cifrar, y la API (panel, pedidos, conversaciones a mano) tiene que funcionar sin WhatsApp. Si falta,
+    // server.ts lo avisa en el log (ver avisosDeArranque.ts) y claveCifradoTokens() falla visible al primer uso real
+    // (registrar o usar un token), nunca devuelve una clave inventada. Si está, sí tiene que ser válida (arriba).
   })
 
 // safeParse + mensaje legible en vez de un ZodError crudo: lo que se ve en los

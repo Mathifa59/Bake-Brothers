@@ -14,10 +14,10 @@ export class ConexionWhatsAppNoEncontradaError extends Error {
 }
 
 /**
- * Clave AES-256 de WHATSAPP_TOKEN_ENCRYPTION_KEY. env.ts ya exige que exista
- * en producción y que sea válida si está presente — acá solo cubre dev/test
- * sin la variable: falla visible al primer uso, nunca devuelve una clave
- * inventada.
+ * Clave AES-256 de WHATSAPP_TOKEN_ENCRYPTION_KEY. env.ts exige que sea válida si
+ * está presente, pero NO que exista para arrancar (la API funciona sin WhatsApp conectado): sin
+ * la variable, falla visible al primer uso real —registrar o usar un token—, nunca devuelve una
+ * clave inventada.
  */
 export function claveCifradoTokens(): Buffer {
   const valor = env.WHATSAPP_TOKEN_ENCRYPTION_KEY

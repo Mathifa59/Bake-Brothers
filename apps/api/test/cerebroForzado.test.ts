@@ -15,7 +15,7 @@
 // (1) corre siempre. (2) y (3) necesitan Postgres real (para el tool real de
 // consultarPrecio/evaluarSemaforoCateringPedido) pero NO necesitan
 // ANTHROPIC_API_KEY real — el SDK está mockeado, nunca sale un request real.
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import pg from 'pg'
 import { DATABASE_URL_PLACEHOLDER } from './testEnv.js'
 
@@ -65,6 +65,15 @@ describe('decidirEscaladaForzadaPorTool (pura, sin I/O)', () => {
 })
 
 describe.skipIf(!hayBaseDeDatosReal)('evaluarTurno — garantías forzadas por código (SDK mockeado)', () => {
+  // Fuera del horario de las personas (10:00 p. m.–7:30 a. m., Lima) el bot agrega «te escribimos a primera hora» a lo
+  // que deriva, y pasado el corte de las 8:00 p. m. no toma pedidos «para hoy»: la hora se fija a mediodía para que la
+  // prueba no dependa de cuándo se corra.
+  beforeAll(() => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-13T12:00:00-05:00') })
+  })
+  afterAll(() => {
+    vi.useRealTimers()
+  })
   const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL })
   let client: pg.PoolClient
   let tenantId: string

@@ -1,6 +1,7 @@
 import { buildApp } from './app.js'
 import { env } from './env.js'
 import { resolverModelo } from './bot/modelos.js'
+import { avisosDeArranque } from './avisosDeArranque.js'
 
 const app = await buildApp()
 
@@ -11,6 +12,10 @@ try {
     { modeloBot: resolverModelo(env.BOT_MODELO), modeloCapturas: resolverModelo(env.BOT_MODELO_CAPTURAS) },
     'Modelos de Claude del bot'
   )
+  // Lo que falta y no impide arrancar: queda en el log para que en Coolify se vea de un vistazo qué función está apagada.
+  if (env.NODE_ENV === 'production') {
+    for (const a of avisosDeArranque(process.env)) app.log.warn({ variable: a.variable }, `Sin ${a.variable}: ${a.consecuencia}`)
+  }
 } catch (err) {
   app.log.error(err)
   process.exit(1)

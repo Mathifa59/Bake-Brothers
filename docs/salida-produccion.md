@@ -8,59 +8,69 @@ Rama de trabajo: `release/produccion`. Nada de esto se ejecuta sin que Mathias l
 
 ---
 
-## 1. Variables a cambiar (solo nombres, sin valores)
+## 1. Variables, en tres momentos (solo nombres, sin valores)
 
-### Coolify — app `apps/api` (`https://api.bake-brothers.com`)
+**La API arranca y funciona en producción con solo `DATABASE_URL`.** Lo que falta en los momentos 2 y 3 apaga una función, no tumba nada, y
+el log de arranque de Coolify dice qué falta y qué pasa mientras tanto (líneas «Sin …»). Comprobado arrancando `node dist/server.js` con
+`NODE_ENV=production` y solo `DATABASE_URL`: `/health` 200, verificación del webhook responde, `POST /webhook` 503 (esperado), productos y
+categorías 200, rutas del panel 401 sin sesión. Prueba automática: `apps/api/test/arranqueSinVariables.test.ts`.
+*(Hasta el 2026-11-13 la falta de `WHATSAPP_TOKEN_ENCRYPTION_KEY` tumbaba el arranque en producción; se corrigió.)*
 
-| Variable | Acción | Para qué / notas |
+| Mientras falte… | Qué pasa |
+|---|---|
+| `META_APP_SECRET` (momento 2) | `POST /webhook` responde 503: ningún mensaje de WhatsApp entra (no hay nada apuntando todavía). El resto funciona. |
+| `WHATSAPP_TOKEN_ENCRYPTION_KEY` (momento 2) | No se puede conectar ningún número (no hay dónde guardar su token). Responder desde el panel a una conversación sin número conectado devuelve un error claro; nada se cae. |
+| `DATOS_PAGO` (momento 3) | El bot (cuando se encienda) **no inventa** datos de cobro: registra el pedido y pasa el pago a una persona. Probado en `reglasLanzamiento.test.ts`. |
+| `ANTHROPIC_API_KEY` / bot apagado | Con el bot apagado (como arranca) no se llama al modelo: cada mensaje queda «Esperando persona». |
+| `VAPID_*` | No llegan notificaciones al celular; la campana y el centro de avisos del panel sí funcionan. |
+
+### Momento 1 — Hoy (con el deploy del código)
+
+**Qué debería estar ya cargado** (de lo desplegado hasta ahora; Claude Code no puede ver Coolify ni Vercel: **confírmalo mirando el panel**):
+
+| Dónde | Variable | Estado esperado |
 |---|---|---|
-| **Branch** (no es variable) | Cambiar a `main` | Hoy despliega una rama de trabajo. Hacerlo **antes** del Deploy. |
-| `DATABASE_URL` | Ya existe — no tocar | Rol `app_api` del Supabase real. |
-| `ANTHROPIC_API_KEY` | **Crear la clave nueva** y reemplazar | Cuando haya saldo (`docs/encendido-bot.md`). Revocar la anterior de pruebas. Sin saldo el bot sigue apagado y no la usa. |
-| `VOYAGE_API_KEY` | Verificar que exista | Búsqueda semántica (RAG) del bot. |
-| `META_APP_SECRET` | **Crear** | Obligatoria en producción: sin ella `POST /webhook` responde 503. Firma de Meta. |
-| `META_VERIFY_TOKEN` | **Crear / reemplazar** | El valor real que se pega en el webhook de la app de Meta (por defecto es `cambiame`). |
-| `WHATSAPP_TOKEN_ENCRYPTION_KEY` | **Crear** (32 bytes en hex) | **Obligatoria**: sin ella la API no arranca. Respaldarla fuera del repo: si se pierde, hay que reconectar cada número. |
-| `DATOS_PAGO` | **Crear** | Yape / cuentas / CCI en una línea. Sin ella el bot no inventa los datos: registra el pedido y deriva a una persona. |
-| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | **Crear** (una sola vez) | `pnpm --filter @bakebrothers/api vapid:generar`. Sin ellas no llegan notificaciones al celular (la campana sí funciona). |
-| `VAPID_SUBJECT` | **Crear / cambiar** a la URL del panel nuevo | Debe ser `https://dashboard.bakebrothers.pe`. |
-| `BOT_MODELO`, `BOT_MODELO_CAPTURAS` | **Dejar vacías** | Vacío = Sonnet (lo probado). Haiku se evalúa después (`docs/cambio-a-haiku.md`). |
-| `DISTRITOS_DELIVERY` | Opcional | Por defecto ya trae la lista de la ficha. |
-| `META_GRAPH_VERSION`, `AUTO_RETORNO_BOT_HORAS`, `DEFAULT_TENANT_SLUG`, `PORT` | Opcionales | Los valores por defecto sirven. |
-| `NODE_ENV` | Debe ser `production` | Lo fija el Dockerfile; confirmarlo en el log de arranque. |
-| ~~`SEDE_DELIVERY`~~, ~~`META_WHATSAPP_TOKEN`~~ | **Ya no existen** | Si siguen cargadas, borrarlas (no hacen nada). |
+| Coolify | `DATABASE_URL` | Ya cargada (rol `app_api` del Supabase real). No tocar. |
+| Coolify | `ANTHROPIC_API_KEY` | Ya cargada (la clave de pruebas de octubre). Se puede dejar: con el bot apagado no se usa. Se reemplaza cuando haya saldo (momento «Encendido», abajo). |
+| Coolify | `VOYAGE_API_KEY` | Debería estar (búsqueda semántica del bot); si no está, solo falla esa búsqueda cuando el bot esté encendido. Verificar. |
+| Coolify | `META_VERIFY_TOKEN` | Probablemente **no** (se generó en septiembre y no se cargó). Sin ella vale el valor por defecto `cambiame`: se reemplaza en el momento 2. |
+| Coolify | `DEFAULT_TENANT_SLUG`, `PORT`, `NODE_ENV` | Opcionales; `NODE_ENV=production` lo fija el Dockerfile. |
+| Coolify | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | **Casi seguro NO están cargadas**: las notificaciones push solo existen en esta rama (nunca se desplegaron), así que hoy no pueden estar funcionando. Son **nuevas**. |
+| Vercel (landing y panel) | variables | Ninguna obligatoria (los valores reales vienen por defecto en el código). |
 
-### Vercel — proyecto `bake-brothers` (landing)
+**Qué cargar/cambiar hoy:**
 
-| Qué | Acción |
+| Dónde | Acción |
 |---|---|
-| **Dominios** | Agregar `www.bakebrothers.pe` como **principal**; `bakebrothers.pe` y `bake-brothers.com` (y `www.bake-brothers.com`) como **redirección** a `www.bakebrothers.pe`. |
-| Variables | Ninguna es obligatoria (`VITE_WHATSAPP_NUMBER`, `VITE_INSTAGRAM_URL`, `VITE_FACEBOOK_URL` tienen los valores reales por defecto). `VITE_API_URL` y `VITE_TENANT_SLUG` ya no las usa el sitio publicado. |
+| Coolify | **Branch → `main`** (no es variable; antes del Deploy). |
+| Coolify | **`VAPID_PUBLIC_KEY` y `VAPID_PRIVATE_KEY`**: generarlas **una sola vez** con `pnpm --filter @bakebrothers/api vapid:generar` y pegarlas en Coolify (la privada no se guarda en el repo ni se manda por chat). No dependen de Meta: sirven para probar los avisos hoy. |
+| Coolify | **`VAPID_SUBJECT` = `https://dashboard.bakebrothers.pe`** (nueva o actualizada). |
+| Coolify | `BOT_MODELO`, `BOT_MODELO_CAPTURAS`: **dejar vacías** (Sonnet, lo probado). |
+| Vercel `bake-brothers` | Dominios: `www.bakebrothers.pe` principal; `bakebrothers.pe`, `bake-brothers.com` y `www.bake-brothers.com` redirigen a `www.bakebrothers.pe`. |
+| Vercel `bake-brothers-admin` | Dominio `dashboard.bakebrothers.pe` (puede seguir `dashboard.bake-brothers.com` durante la transición). **No definir** `VITE_MIFACT_ACTIVO`. |
+| Supabase | Migraciones 0001→0045 **ya aplicadas**. Authentication → URL Configuration: `https://dashboard.bakebrothers.pe` en Site URL y Redirect URLs (hecho); **quitar `http://localhost:5174/**` después del deploy** (paso E.9). |
+| Coolify | Si siguen cargadas, **borrar** `SEDE_DELIVERY` y `META_WHATSAPP_TOKEN` (ya no existen). |
 
-### Vercel — proyecto `bake-brothers-admin` (panel)
+### Momento 2 — Migración del número (mañana en la noche)
 
-| Qué | Acción |
-|---|---|
-| **Dominio** | Agregar `dashboard.bakebrothers.pe` (se puede dejar `dashboard.bake-brothers.com` mientras dure la transición). |
-| `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Opcionales: el panel trae los valores del proyecto real por defecto. |
-| `VITE_API_URL` | Opcional: por defecto en producción usa `https://api.bake-brothers.com`. |
-| `VITE_MIFACT_ACTIVO` | **No definirla** (o `false`): la sección Mifact queda oculta. |
-| `VITE_SITIO_URL` | Opcional: por defecto `https://www.bakebrothers.pe` (para fotos antiguas con ruta relativa; ya no quedan). |
+| Dónde | Variable / acción | Notas |
+|---|---|---|
+| Coolify | **`META_APP_SECRET`** (nueva) | Del app de Meta. Sin ella el webhook responde 503. **Cargarla ANTES de apuntar el webhook.** |
+| Coolify | **`META_VERIFY_TOKEN`** (nueva, valor real) | El mismo texto que se pega en el webhook de Meta. |
+| Coolify | **`WHATSAPP_TOKEN_ENCRYPTION_KEY`** (nueva, 32 bytes en hex) | Cifra el token de cada número. **Respaldarla fuera del repo**: si se pierde hay que reconectar cada número. *Es una clave aleatoria que no depende de Meta: se puede generar y cargar antes si quieres llegar a la noche con un paso menos.* |
+| Coolify | **Redeploy** | Coolify no aplica variables nuevas hasta el Deploy. |
+| Terminal (no Coolify) | **Token de WhatsApp** | No es una variable de Coolify: se registra cifrado en la base con `pnpm whatsapp:alta -- --bot --waba <id> --phone <id>` (token y PIN por terminal, nunca por argumento). |
+| Meta | Webhook | URL `https://api.bake-brothers.com/webhook`, mismo `META_VERIFY_TOKEN`, campo **messages**; política de privacidad `https://www.bakebrothers.pe/privacidad`; las 9 plantillas esenciales (`docs/plantillas-whatsapp.md`); modo Live. Detalle: `docs/migracion-numero.md`. |
 
-### Supabase (proyecto real)
+### Momento 3 — Cuando responda el cliente
 
-| Qué | Acción |
-|---|---|
-| Migración **0045** | Aplicar en el SQL Editor (el conector la rechazó). Archivo: `apps/api/migrations/0045_clientes_telefono_unico.sql`. |
-| Carga de **83 mayoristas** | Después de la 0045. SQL en la carpeta privada: `importar_mayoristas_real.sql` (termina con una consulta de verificación: `83 \| 2 \| 59 \| 24 \| 0`). |
-| Authentication → URL Configuration | Agregar `https://dashboard.bakebrothers.pe` en **Site URL / Redirect URLs** (hoy el login es por contraseña, pero evita sorpresas al recuperar contraseña). |
-| Plan | **Revisar el plan free**: se pausa tras 7 días sin actividad y no incluye copias automáticas. Con clientes reales conviene un plan con backups. |
+| Dónde | Variable | Notas |
+|---|---|---|
+| Coolify | **`DATOS_PAGO`** (nueva) | Yape / cuentas / CCI en una sola línea de texto. Después, Redeploy. Hasta entonces el bot pasa los cobros a una persona. |
+| Coolify | `DISTRITOS_DELIVERY` (opcional) | Solo si el cliente cambia la lista de distritos (el valor por defecto ya es el de la ficha). |
 
-### Meta (WhatsApp) — lo hace Mathias la noche de la migración
-
-URL del webhook `https://api.bake-brothers.com/webhook` (campo **messages**), el mismo `META_VERIFY_TOKEN`, política de privacidad
-`https://www.bakebrothers.pe/privacidad`, las 9 plantillas esenciales (`docs/plantillas-whatsapp.md`) y el registro del número del bot
-(`pnpm whatsapp:alta -- --bot --waba <id> --phone <id>`). Detalle: `docs/migracion-numero.md`.
+### Aparte — Encendido del bot (cuando haya saldo en Anthropic; no depende del cliente)
+`ANTHROPIC_API_KEY` **nueva** (revocar la de pruebas) y Redeploy; luego `docs/encendido-bot.md`.
 
 ---
 
@@ -90,7 +100,7 @@ Nunca `git add -A`. Si `--ff-only` falla, **no forzar**: significa que `main` av
 3. **Redeploy**. Esperar el healthcheck.
 
 **E. Qué probar justo después (en producción, en este orden)**
-1. `https://api.bake-brothers.com/health` responde `ok`; en el log de arranque aparece la línea **«Modelos de Claude del bot»** y **no** hay error de `WHATSAPP_TOKEN_ENCRYPTION_KEY`.
+1. `https://api.bake-brothers.com/health` responde `ok`; en el log de arranque aparece la línea **«Modelos de Claude del bot»** y las líneas **«Sin …»** de lo que falta (esperadas hoy: `META_APP_SECRET`, `WHATSAPP_TOKEN_ENCRYPTION_KEY`, `DATOS_PAGO`; y `VAPID_*` / `ANTHROPIC_API_KEY` si aún no las cargaste). **No** debe haber ningún error que impida arrancar.
 2. `GET https://api.bake-brothers.com/webhook?hub.mode=subscribe&hub.verify_token=<token>&hub.challenge=123` devuelve `123`.
 3. Landing: `https://www.bakebrothers.pe` carga; `bakebrothers.pe` y `bake-brothers.com` redirigen a `www`; `/menu` y `/locales` abren recargando; `/sitemap.xml` y `/robots.txt` responden; un botón de pedido abre WhatsApp con el mensaje escrito.
 4. Panel (`https://dashboard.bakebrothers.pe`): entrar con las **3 cuentas** (admin y una de cada local). Admin ve todas las secciones; el empleado solo Pedidos, Órdenes, Conversaciones, Stock, Ajustes y Avisos. Sin errores rojos en la consola del navegador.

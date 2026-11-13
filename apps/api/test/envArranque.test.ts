@@ -1,5 +1,5 @@
-// El servidor debe fallar al ARRANCAR (no al primer envío) si en producción
-// falta o es inválida WHATSAPP_TOKEN_ENCRYPTION_KEY. env.ts valida process.env
+// WHATSAPP_TOKEN_ENCRYPTION_KEY en producción: si FALTA, la API arranca igual (WhatsApp sin conectar; ver
+// avisosDeArranque.ts y arranqueSinVariables.test.ts); si está y es INVÁLIDA, no arranca. env.ts valida process.env
 // al importarse — acá se reimporta con distintas variables.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -22,17 +22,15 @@ afterEach(() => {
 
 const CLAVE_VALIDA = 'a'.repeat(64)
 
-describe('env.ts — arranque estricto de WHATSAPP_TOKEN_ENCRYPTION_KEY', () => {
-  it('en producción SIN la clave: lanza al importar, nombrando la variable', async () => {
-    await expect(importarEnvCon({ NODE_ENV: 'production', WHATSAPP_TOKEN_ENCRYPTION_KEY: undefined })).rejects.toThrow(
-      /WHATSAPP_TOKEN_ENCRYPTION_KEY/
-    )
+describe('env.ts — WHATSAPP_TOKEN_ENCRYPTION_KEY en el arranque', () => {
+  it('en producción SIN la clave: arranca (WhatsApp todavía sin conectar)', async () => {
+    const { env } = await importarEnvCon({ NODE_ENV: 'production', WHATSAPP_TOKEN_ENCRYPTION_KEY: undefined })
+    expect(env.WHATSAPP_TOKEN_ENCRYPTION_KEY).toBeUndefined()
   })
 
-  it('en producción con la clave vacía: también lanza', async () => {
-    await expect(importarEnvCon({ NODE_ENV: 'production', WHATSAPP_TOKEN_ENCRYPTION_KEY: '' })).rejects.toThrow(
-      /WHATSAPP_TOKEN_ENCRYPTION_KEY/
-    )
+  it('en producción con la clave vacía: también arranca', async () => {
+    const { env } = await importarEnvCon({ NODE_ENV: 'production', WHATSAPP_TOKEN_ENCRYPTION_KEY: '' })
+    expect(env.NODE_ENV).toBe('production')
   })
 
   it('en producción con una clave inválida (largo incorrecto): lanza', async () => {

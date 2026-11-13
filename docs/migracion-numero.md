@@ -24,7 +24,7 @@ Cosas de la interfaz de Meta cambian seguido: donde diga *(verificar en pantalla
 - [ ] Plantillas enviadas a aprobar (`docs/plantillas-whatsapp.md`). No bloquean la salida, pero conviene que ya estén aprobadas.
 
 **Bake OS (Coolify, solo en ejecución)**
-- [ ] `ANTHROPIC_API_KEY`, `WHATSAPP_TOKEN_ENCRYPTION_KEY` (obligatoria: sin ella la API no arranca), `META_VERIFY_TOKEN` — ya cargadas.
+- [ ] `ANTHROPIC_API_KEY`, `WHATSAPP_TOKEN_ENCRYPTION_KEY` (sin ella no se puede conectar ningún número; la API arranca igual y lo avisa en el log), `META_VERIFY_TOKEN` — ya cargadas.
 - [ ] `META_APP_SECRET` (Meta → app → Configuración → Básica). **Sin esta variable el webhook responde 503 por seguridad.**
 - [ ] `DATOS_PAGO` (texto con los datos de Yape / cuentas para el cliente que paga antes). Sin ella, el bot avisa que una persona
       le pasa los datos y deriva la conversación.
