@@ -172,18 +172,25 @@ export async function obtenerComprobantePdfUrl(numero) {
   return URL.createObjectURL(blob)
 }
 
-// ——— Notificaciones push ———
+// ——— Respuestas JSON con error legible (notificaciones push, órdenes, plan del día) ———
 async function jsonOError(res) {
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
     const err = new Error(data.error || `Error del servidor (${res.status})`)
     err.codigo = data.error
     err.estado = res.status
+    err.status = res.status
+    err.detalle = data.detalle ?? (data.detalles ? data.detalles.map((d) => `${d.campo}: ${d.mensaje}`).join('; ') : undefined)
     throw err
   }
   return data
 }
 
+async function llamar(path, { method = 'GET', body } = {}) {
+  return jsonOError(await pedirConAuth(path, { method, ...(body ? { body: JSON.stringify(body) } : {}) }))
+}
+
+// ——— Notificaciones push ———
 /** La clave pública VAPID con la que el navegador se suscribe. Lanza PUSH_NO_CONFIGURADO (503) si la API no la tiene. */
 export const traerClavePush = async () => (await jsonOError(await pedirConAuth('/api/dashboard/push/clave'))).clave
 
@@ -200,3 +207,51 @@ export const quitarSuscripcionPush = async (endpoint) =>
 
 /** Manda un aviso de prueba a los dispositivos de quien lo pide. */
 export const probarPush = async () => jsonOError(await pedirConAuth('/api/dashboard/push/probar', { method: 'POST', body: '{}' }))
+
+// ——— Órdenes, plan del día y hojas para imprimir ———
+
+/** Plan de producción del día (por pedido + vitrina) y su hoja. `sedeId` solo lo usa la dirección; un empleado siempre ve la suya. */
+export const traerPlanDelDia = (fecha, sedeId) =>
+  llamar(`/api/dashboard/produccion/plan?fecha=${encodeURIComponent(fecha)}${sedeId ? `&sedeId=${encodeURIComponent(sedeId)}` : ''}`)
+
+/** Marca un producto del plan como producido: deja el stock de la sede disponible (y suma el conteo si se lleva). */
+export const marcarProducido = (cuerpo) => llamar('/api/dashboard/produccion/producido', { method: 'POST', body: cuerpo })
+
+export const registrarOrdenMayorista = (cuerpo) => llamar('/api/dashboard/ordenes/mayorista', { method: 'POST', body: cuerpo })
+export const registrarOrdenRappi = (cuerpo) => llamar('/api/dashboard/ordenes/rappi', { method: 'POST', body: cuerpo })
+
+/** Las líneas de la última orden de un mayorista («repetir el anterior»), o null si no tiene. */
+export async function ultimaOrdenMayorista(clienteId) {
+  try {
+    return await llamar(`/api/dashboard/ordenes/mayorista/ultima?clienteId=${encodeURIComponent(clienteId)}`)
+  } catch (err) {
+    if (err.status === 404) return null
+    throw err
+  }
+}
+
+/**
+ * Abre una hoja en PDF (el navegador no manda el header de Authorization en una navegación normal, así que se
+ * trae como blob). La pestaña se abre ANTES de pedir el PDF: los celulares bloquean una ventana abierta después
+ * de un `await`. Si no se pudo abrir, se descarga.
+ */
+export async function abrirPdfAutenticado(path, nombreArchivo = 'hoja.pdf') {
+  const ventana = window.open('', '_blank')
+  try {
+    const res = await pedirConAuth(path)
+    if (!res.ok) throw new Error(`No se pudo generar la hoja (${res.status})`)
+    const url = URL.createObjectURL(await res.blob())
+    if (ventana) {
+      ventana.location.href = url
+    } else {
+      const a = document.createElement('a')
+      a.href = url
+      a.download = nombreArchivo
+      a.click()
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 5 * 60_000)
+  } catch (err) {
+    ventana?.close()
+    throw err
+  }
+}

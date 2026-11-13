@@ -13,6 +13,7 @@ import { webhookRoutes } from './routes/webhook.js'
 import { dashboardOrdersRoutes } from './routes/dashboardOrders.js'
 import { dashboardConversacionesRoutes } from './routes/dashboardConversaciones.js'
 import { dashboardPushRoutes } from './routes/dashboardPush.js'
+import { dashboardProduccionRoutes } from './routes/dashboardProduccion.js'
 import { dashboardWhatsAppRoutes } from './routes/dashboardWhatsApp.js'
 import { dashboardSimuladorRoutes } from './routes/dashboardSimulador.js'
 import { dashboardMifactRoutes } from './routes/dashboardMifact.js'
@@ -118,6 +119,7 @@ export async function buildApp() {
   webhookRoutes(app)
   dashboardOrdersRoutes(app)
   dashboardConversacionesRoutes(app)
+  dashboardProduccionRoutes(app)
   dashboardWhatsAppRoutes(app)
   dashboardSimuladorRoutes(app)
   dashboardMifactRoutes(app)

@@ -8,7 +8,9 @@ import Resumen from './pages/Resumen'
 import ControlTower from './pages/ControlTower'
 import Pedidos from './pages/Pedidos'
 import NuevoPedido from './pages/NuevoPedido'
+import Ordenes from './pages/Ordenes'
 import Produccion from './pages/Produccion'
+import PlanVitrina from './pages/PlanVitrina'
 import Stock from './pages/Stock'
 import Catalogo from './pages/Catalogo'
 import Clientes from './pages/Clientes'
@@ -76,7 +78,9 @@ function Contenido() {
           <Route path="/control-tower" element={protegida(<ControlTower />)} />
           <Route path="/pedidos" element={protegida(<Pedidos />)} />
           <Route path="/nuevo-pedido" element={protegida(<NuevoPedido />)} />
+          <Route path="/ordenes" element={protegida(<Ordenes />)} />
           <Route path="/produccion" element={protegida(<Produccion />)} />
+          <Route path="/plan-vitrina" element={protegida(<PlanVitrina />)} />
           <Route path="/stock" element={protegida(<Stock />)} />
           <Route path="/catalogo" element={protegida(<Catalogo />)} />
           <Route path="/clientes" element={protegida(<Clientes />)} />

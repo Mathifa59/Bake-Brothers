@@ -1,7 +1,7 @@
 /**
  * Qué secciones de Bake OS ve cada rol. Rol «operador» en la base = «Empleado» en pantalla (temporal, hasta
  * tener la lista del equipo con sus roles). Un empleado ve SOLO lo de su sede para trabajar el día:
- * Pedidos (con Nuevo pedido), Órdenes (el tablero de Producción), Conversaciones y Stock. Todo lo demás
+ * Pedidos (con Nuevo pedido), Órdenes (mayoristas, Rappi y encargos), Producción (plan del día y tablero), Conversaciones y Stock. Todo lo demás
  * (resumen, alertas, clientes, atención, métricas, atribución, Mifact y simulador) es de dirección.
  *
  * Lógica pura y compartida: el menú, las rutas del panel y los tests usan esta misma lista. La barrera REAL
@@ -12,7 +12,7 @@ export type RolPanel = 'admin' | 'operador'
 
 /** Rutas (sin «/») que un empleado puede abrir. */
 // «ajustes»: ahí cada persona activa los avisos de su celular (y dirección maneja el bot).
-export const RUTAS_DE_EMPLEADO = ['pedidos', 'nuevo-pedido', 'produccion', 'conversaciones', 'stock', 'ajustes', 'avisos'] as const
+export const RUTAS_DE_EMPLEADO = ['pedidos', 'nuevo-pedido', 'ordenes', 'produccion', 'conversaciones', 'stock', 'ajustes', 'avisos'] as const
 
 const limpiar = (ruta: string) => ruta.replace(/^#?\/*/, '').split(/[?#/]/)[0]
 

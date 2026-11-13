@@ -4,6 +4,7 @@ import {
   normalizarTelefono,
   normalizarTelefonoWhatsApp,
   telefonoLegible,
+  claveNombreCliente,
   type EstadoPedido,
   type TipoEntrega,
 } from '@bakebrothers/domain'
@@ -62,6 +63,32 @@ export async function findOrCreateCustomer(
 }
 
 /**
+ * Cliente SIN teléfono, buscado por nombre (sin importar mayúsculas, tildes ni puntuación): los mayoristas que se anotan
+ * en Órdenes y «Rappi» (un canal, no una persona) no tienen número. Si ya existe uno con ese nombre y sin teléfono, se
+ * reutiliza; si no, se crea. Nunca se inventa un teléfono: el teléfono es opcional desde la migración 0045.
+ */
+export async function findOrCreateClienteSinTelefono(
+  client: pg.PoolClient,
+  tenantId: string,
+  nombre: string,
+  opciones: { esMayorista?: boolean } = {}
+): Promise<string> {
+  const limpio = nombre.trim().replace(/\s+/g, ' ')
+  const clave = claveNombreCliente(limpio)
+  const { rows } = await client.query<{ id: string; nombre: string }>(
+    `select id, nombre from customers where tenant_id = $1 and telefono is null`,
+    [tenantId]
+  )
+  const existente = rows.find((r) => claveNombreCliente(r.nombre) === clave)
+  if (existente) return existente.id
+  const creado = await client.query<{ id: string }>(
+    `insert into customers (tenant_id, nombre, es_mayorista) values ($1, $2, $3) returning id`,
+    [tenantId, limpio, opciones.esMayorista === true]
+  )
+  return creado.rows[0].id
+}
+
+/**
  * Cliente de quien escribe por WhatsApp: lo busca por su teléfono (E.164) y, si no existe, lo crea con el nombre del
  * perfil de WhatsApp (o su número si no lo trae), marcado como no confirmado hasta que un pedido le dé su nombre real.
  * Devuelve null si el número no es reconocible (la conversación sigue sin cliente; nunca falla el mensaje por esto).
@@ -107,7 +134,7 @@ export async function siguienteNumeroDePedido(
 export interface OrderInsert {
   numero: string
   customerId: string
-  canal: 'web' | 'whatsapp' | 'facebook' | 'instagram' | 'presencial'
+  canal: 'web' | 'whatsapp' | 'facebook' | 'instagram' | 'presencial' | 'mayorista' | 'rappi'
   estado: EstadoPedido
   tipoEntrega: TipoEntrega
   // null si no se pudo resolver la sede (ej. pedidos de web todavía, o
@@ -137,6 +164,11 @@ export interface OrderInsert {
   // Referencia de campaña con la que llegó el cliente ("tt-halloween", ver
   // packages/domain campana.ts). null si no vino de ninguna.
   campana?: string | null
+  // Órdenes de equipo (0039): número de orden de Rappi, total por cotizar (mayoristas) y si se registró pasado el
+  // corte de las 10:30 p. m. Nulos/false para todo lo demás.
+  referenciaExterna?: string | null
+  totalPendiente?: boolean
+  fueraDeCorte?: boolean
 }
 
 export interface OrderItemInsert {
@@ -154,6 +186,8 @@ export interface OrderItemInsert {
   extras: string[]
   precioUnitario: number
   cantidad: number
+  // Solo la mini empanada de catering (0039): el sabor.
+  sabor?: string | null
 }
 
 export async function insertarPedido(
@@ -166,8 +200,9 @@ export async function insertarPedido(
     `insert into orders (tenant_id, numero, customer_id, canal, estado, tipo_entrega, sede_id,
                          direccion, distrito, referencia, fecha_entrega, horario_entrega,
                          nota, metodo_pago, cupon_codigo, subtotal, descuento_cupon, delivery, total,
-                         requiere_confirmar_combo, campana, conversacion_id)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+                         requiere_confirmar_combo, campana, conversacion_id,
+                         referencia_externa, total_pendiente, fuera_de_corte)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
      returning id`,
     [
       tenantId, pedido.numero, pedido.customerId, pedido.canal, pedido.estado,
@@ -177,16 +212,19 @@ export async function insertarPedido(
       pedido.requiereConfirmarCombo,
       pedido.campana ?? null,
       pedido.conversacionId ?? null,
+      pedido.referenciaExterna ?? null,
+      pedido.totalPendiente ?? false,
+      pedido.fueraDeCorte ?? false,
     ]
   )
   const orderId = rows[0].id
   for (const item of items) {
     await client.query(
-      `insert into order_items (tenant_id, order_id, product_id, catering_item_id, combo_id, nombre_producto, tamano, extras, precio_unitario, cantidad)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      `insert into order_items (tenant_id, order_id, product_id, catering_item_id, combo_id, nombre_producto, tamano, extras, precio_unitario, cantidad, sabor)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [
         tenantId, orderId, item.productId, item.cateringItemId, item.comboId, item.nombreProducto,
-        item.tamano, item.extras, item.precioUnitario, item.cantidad,
+        item.tamano, item.extras, item.precioUnitario, item.cantidad, item.sabor ?? null,
       ]
     )
   }
