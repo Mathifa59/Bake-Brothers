@@ -14,7 +14,7 @@ import { Cargando, EncabezadoBloque, ErrorCarga, Hero, Portada, Tarjeta } from '
 // en su sede (política de 0014), y sus pedidos.
 async function cargarClientes() {
   const [clientes, pedidos] = await Promise.all([
-    traerTodo(() => supabase.from('customers').select('id, nombre, telefono, creado_en, es_mayorista, tamano_habitual, es_interno').order('nombre')),
+    traerTodo(() => supabase.from('customers').select('id, nombre, telefono, creado_en, es_mayorista, tamano_habitual, es_interno, origen').order('nombre')),
     traerTodo(() => supabase.from('orders').select('customer_id, creado_en, estado').order('creado_en', { ascending: false })),
   ])
   return { clientes, pedidos }
@@ -32,10 +32,22 @@ const SEGMENTOS = [
   { id: 'nuevos', letra: 'N', titulo: 'Nuevos del mes', detalle: 'Registrados este mes', clave: 'nuevosDelMes' },
 ]
 
+// Con miles de contactos importados no se dibuja todo de una vez: se muestran los primeros y el buscador hace el resto.
+const MAX_FILAS = 150
+const sinTildes = (t) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
+const VISTAS = [
+  { id: 'todos', etiqueta: 'Todos' },
+  { id: 'conPedidos', etiqueta: 'Con pedidos' },
+  { id: 'soloContactos', etiqueta: 'Solo contactos' },
+]
+
 export default function Clientes() {
   const { datos, error } = useDatosVivos(cargarClientes, { tablas: ['orders'] })
   const [seleccionado, setSeleccionado] = useState(null) // { id, nombre }
   const [segmentoId, setSegmentoId] = useState(null)
+  const [vista, setVista] = useState('todos')
+  const [busqueda, setBusqueda] = useState('')
 
   const { pedidos, error: errorPedidos, guardando, cambiarEstado, tomarPedido, confirmarPago, rechazarPago, perfil } = usePedidos({ customerId: seleccionado?.id })
 
@@ -53,11 +65,32 @@ export default function Clientes() {
     return m
   }, [datos])
 
-  const visibles = useMemo(() => {
+  // Quién tiene al menos un pedido (cualquier estado): los demás son contactos de la lista, sin compras.
+  const conPedido = useMemo(() => new Set((datos?.pedidos ?? []).map((p) => p.customer_id)), [datos])
+  const totales = useMemo(() => {
+    const reales = (datos?.clientes ?? []).filter((c) => !c.es_interno)
+    return {
+      total: reales.length,
+      conPedidos: reales.filter((c) => conPedido.has(c.id)).length,
+      contactos: reales.filter((c) => !conPedido.has(c.id)).length,
+    }
+  }, [datos, conPedido])
+
+  const filtrados = useMemo(() => {
     if (!datos) return null
     const seg = SEGMENTOS.find((s) => s.id === segmentoId)
-    return seg ? datos.clientes.filter((c) => segmentos[seg.clave].has(c.id)) : datos.clientes
-  }, [datos, segmentos, segmentoId])
+    const q = sinTildes(busqueda).trim()
+    const qDigitos = busqueda.replace(/\D/g, '')
+    return datos.clientes.filter((c) => {
+      if (seg && !segmentos[seg.clave].has(c.id)) return false
+      if (vista === 'conPedidos' && !conPedido.has(c.id)) return false
+      if (vista === 'soloContactos' && conPedido.has(c.id)) return false
+      if (!q) return true
+      if (sinTildes(c.nombre).includes(q)) return true
+      return qDigitos.length >= 3 && (c.telefono ?? '').replace(/\D/g, '').includes(qDigitos)
+    })
+  }, [datos, segmentos, segmentoId, vista, busqueda, conPedido])
+  const visibles = useMemo(() => (filtrados ? filtrados.slice(0, MAX_FILAS) : null), [filtrados])
 
   return (
     <>
@@ -74,9 +107,10 @@ export default function Clientes() {
             </span>
             <p className="mt-4 text-[11px] font-bold uppercase tracking-widest text-acento">Base de clientes</p>
             <h2 className="mt-1 text-2xl font-semibold leading-snug">
-              {datos.clientes.length - internos.size} cliente{datos.clientes.length - internos.size === 1 ? '' : 's'}
+              {totales.total.toLocaleString('es-PE')} contacto{totales.total === 1 ? '' : 's'}
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-white/70">
+              {totales.conPedidos.toLocaleString('es-PE')} con pedidos · {totales.contactos.toLocaleString('es-PE')} solo en la lista.
               Los segmentos se calculan con los pedidos reales de tu alcance.
             </p>
           </Hero>
@@ -118,8 +152,33 @@ export default function Clientes() {
           <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
             <Tarjeta className="p-0">
               <p className="px-4 pt-4 text-[10.5px] font-bold uppercase tracking-wide text-gris">
-                {segmentoId ? SEGMENTOS.find((s) => s.id === segmentoId).titulo : 'Todos los clientes'} · {visibles.length}
+                {segmentoId ? SEGMENTOS.find((s) => s.id === segmentoId).titulo : 'Todos los clientes'} · {filtrados.length.toLocaleString('es-PE')}
               </p>
+              <div className="px-4 pt-2">
+                <input
+                  type="search"
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  placeholder="Buscar por nombre o teléfono"
+                  aria-label="Buscar cliente por nombre o teléfono"
+                  className="w-full rounded-lg border border-borde bg-hueso px-3 py-2 text-sm"
+                />
+                <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Qué clientes ver">
+                  {VISTAS.map((v) => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => setVista(v.id)}
+                      aria-pressed={vista === v.id}
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                        vista === v.id ? 'bg-tinta text-white' : 'bg-hueso text-gris hover:text-tinta'
+                      }`}
+                    >
+                      {v.etiqueta}
+                    </button>
+                  ))}
+                </div>
+              </div>
               {visibles.length === 0 ? (
                 <p className="p-4 text-sm text-gris">No hay clientes en este grupo todavía.</p>
               ) : (
@@ -159,6 +218,11 @@ export default function Clientes() {
                     </li>
                   ))}
                 </ul>
+              )}
+              {filtrados.length > visibles.length && (
+                <p className="border-t border-borde px-4 py-3 text-xs text-gris">
+                  Se muestran los primeros {visibles.length} de {filtrados.length.toLocaleString('es-PE')}. Usa el buscador para encontrar a alguien.
+                </p>
               )}
             </Tarjeta>
 

@@ -8,6 +8,8 @@ export interface ClienteSegmentable {
   es_mayorista?: boolean
   /** Envío a un local propio: no es un cliente. */
   es_interno?: boolean
+  /** 'contactos' = importado de la agenda del celular: es una persona de la lista, no un cliente captado. */
+  origen?: string | null
 }
 
 export interface PedidoDeCliente {
@@ -54,8 +56,8 @@ export function segmentarClientes(
     const compra = compras.get(c.id)
     if (compra && compra.n >= COMPRAS_FRECUENTE) frecuentes.add(c.id)
     if (compra && ahora.getTime() - compra.ultima > DIAS_SIN_COMPRAR * DIA_MS) sinComprar30.add(c.id)
-    // Un mayorista importado de la hoja de pedidos no es un cliente «nuevo»: se carga por lista, no se capta.
-    if (!c.es_mayorista && !c.es_interno && partesLima(new Date(c.creado_en)).fecha.slice(0, 7) === mesActual) nuevosDelMes.add(c.id)
+    // Un mayorista o un contacto importado de la agenda no es un cliente «nuevo»: se carga por lista, no se capta.
+    if (!c.es_mayorista && !c.es_interno && c.origen !== 'contactos' && partesLima(new Date(c.creado_en)).fecha.slice(0, 7) === mesActual) nuevosDelMes.add(c.id)
   }
   return { frecuentes, sinComprar30, nuevosDelMes }
 }

@@ -180,6 +180,19 @@ describe('segmentos de clientes', () => {
     expect([...s.nuevosDelMes]).toEqual(['nuevo'])
   })
 
+  it('un contacto importado de la agenda NO es un cliente nuevo del mes, aunque se haya cargado este mes', () => {
+    const s = segmentarClientes(
+      [
+        { id: 'nuevo', creado_en: dias(2) },
+        { id: 'contacto', creado_en: dias(2), origen: 'contactos' },
+        { id: 'normal', creado_en: dias(2), origen: null },
+      ],
+      [],
+      ahora
+    )
+    expect([...s.nuevosDelMes].sort()).toEqual(['normal', 'nuevo'])
+  })
+
   it('exactamente 30 días NO cuenta como "sin comprar" (es más de 30)', () => {
     const s = segmentarClientes(
       [{ id: 'x', creado_en: dias(100) }],
