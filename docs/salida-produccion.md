@@ -32,7 +32,8 @@ categorías 200, rutas del panel 401 sin sesión. Prueba automática: `apps/api/
 |---|---|---|
 | Coolify | `DATABASE_URL` | Ya cargada (rol `app_api` del Supabase real). No tocar. |
 | Coolify | `ANTHROPIC_API_KEY` | Ya cargada (la clave de pruebas de octubre). Se puede dejar: con el bot apagado no se usa. Se reemplaza cuando haya saldo (momento «Encendido», abajo). |
-| Coolify | `VOYAGE_API_KEY` | Debería estar (búsqueda semántica del bot); si no está, solo falla esa búsqueda cuando el bot esté encendido. Verificar. |
+| Coolify | `VOYAGE_API_KEY` | **No hace falta hoy**: `bot/rag.ts` (búsqueda semántica) todavía no está conectado al bot en ejecución; solo lo usan scripts/pruebas. Si algún día se conecta, habrá que cargarla. |
+| Coolify | `ADMIN_KEY` | **Obsoleta**: la ruta que la usaba se retiró (2026-09-24). Si sigue cargada, se puede borrar; no hace nada. |
 | Coolify | `META_VERIFY_TOKEN` | Probablemente **no** (se generó en septiembre y no se cargó). Sin ella vale el valor por defecto `cambiame`: se reemplaza en el momento 2. |
 | Coolify | `DEFAULT_TENANT_SLUG`, `PORT`, `NODE_ENV` | Opcionales; `NODE_ENV=production` lo fija el Dockerfile. |
 | Coolify | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | **Casi seguro NO están cargadas**: las notificaciones push solo existen en esta rama (nunca se desplegaron), así que hoy no pueden estar funcionando. Son **nuevas**. |
