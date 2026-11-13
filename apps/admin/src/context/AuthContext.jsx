@@ -10,7 +10,9 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(undefined) // undefined = todavía no se sabe
   const [perfil, setPerfil] = useState(null)
-  const [cargandoPerfil, setCargandoPerfil] = useState(false)
+  // Id del usuario cuyo perfil ya se terminó de leer. «Cargando» = hay sesión y todavía no se leyó el perfil de ESE
+  // usuario; así no hay un render intermedio (sesión puesta, perfil vacío) que mande a un admin a Pedidos.
+  const [perfilDe, setPerfilDe] = useState(null)
   // true cuando la persona llegó por un enlace de invitación o de recuperación: antes de usar el panel tiene que
   // definir su contraseña (ver pages/DefinirContrasena.jsx).
   const [definiendoContrasena, setDefiniendoContrasena] = useState(() => {
@@ -54,9 +56,9 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!userId) {
       setPerfil(null)
+      setPerfilDe(null)
       return
     }
-    setCargandoPerfil(true)
     // `nombre` (migración 0031) es opcional. Si el panel llega a producción
     // antes que esa migración, la consulta con la columna falla — en vez de
     // dejar a todo el equipo sin acceso, se reintenta sin ella (saludo
@@ -78,7 +80,7 @@ export function AuthProvider({ children }) {
             : null
         )
       }
-      setCargandoPerfil(false)
+      setPerfilDe(userId)
     }
     leerPerfil()
   }, [userId])
@@ -102,7 +104,7 @@ export function AuthProvider({ children }) {
       value={{
         session,
         perfil,
-        cargando: session === undefined || (session && cargandoPerfil),
+        cargando: session === undefined || Boolean(userId && perfilDe !== userId),
         login,
         logout,
         definiendoContrasena: Boolean(session) && definiendoContrasena,
