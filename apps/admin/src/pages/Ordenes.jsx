@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, FileText, Plus } from 'lucide-react'
-import { CORTE_TEXTO, estadoEquipo, evaluarCorteOrden, fechaLimaISO, sumarDiasISO } from '@bakebrothers/domain'
+import { CORTE_HORA, CORTE_MINUTO, CORTE_TEXTO, estadoEquipo, evaluarCorteOrden, fechaLimaISO, sumarDiasISO } from '@bakebrothers/domain'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { actualizarEstadoPedido, traerTodo, useAhora, useDatosVivos } from '../lib/datos'
@@ -149,7 +149,7 @@ export default function Ordenes() {
   const minutosHastaCorte = useMemo(() => {
     if (!mananaEsLaFecha || corte.fueraDeCorte) return null
     const partes = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(ahora).split(':').map(Number)
-    return 22 * 60 + 30 - (partes[0] * 60 + partes[1])
+    return CORTE_HORA * 60 + CORTE_MINUTO - (partes[0] * 60 + partes[1])
   }, [ahora, mananaEsLaFecha, corte])
 
   const anular = async (orden) => {

@@ -76,6 +76,13 @@ export default function Clientes() {
     }
   }, [datos, conPedido])
 
+  // Nombre sin tildes y teléfono en dígitos, calculados UNA vez (no en cada tecla del buscador).
+  const indice = useMemo(() => {
+    const m = new Map()
+    for (const c of datos?.clientes ?? []) m.set(c.id, { nombre: sinTildes(c.nombre), digitos: (c.telefono ?? '').replace(/\D/g, '') })
+    return m
+  }, [datos])
+
   const filtrados = useMemo(() => {
     if (!datos) return null
     const seg = SEGMENTOS.find((s) => s.id === segmentoId)
@@ -86,10 +93,11 @@ export default function Clientes() {
       if (vista === 'conPedidos' && !conPedido.has(c.id)) return false
       if (vista === 'soloContactos' && conPedido.has(c.id)) return false
       if (!q) return true
-      if (sinTildes(c.nombre).includes(q)) return true
-      return qDigitos.length >= 3 && (c.telefono ?? '').replace(/\D/g, '').includes(qDigitos)
+      const i = indice.get(c.id)
+      if (i.nombre.includes(q)) return true
+      return qDigitos.length >= 3 && i.digitos.includes(qDigitos)
     })
-  }, [datos, segmentos, segmentoId, vista, busqueda, conPedido])
+  }, [datos, segmentos, segmentoId, vista, busqueda, conPedido, indice])
   const visibles = useMemo(() => (filtrados ? filtrados.slice(0, MAX_FILAS) : null), [filtrados])
 
   return (
