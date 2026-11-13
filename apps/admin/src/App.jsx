@@ -3,6 +3,7 @@ import { puedeVerRuta, rutaInicial } from '@bakebrothers/domain'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import LayoutBakeOS from './components/bakeos/LayoutBakeOS'
 import Login from './pages/Login'
+import DefinirContrasena from './pages/DefinirContrasena'
 import Resumen from './pages/Resumen'
 import ControlTower from './pages/ControlTower'
 import Pedidos from './pages/Pedidos'
@@ -63,10 +64,12 @@ function Inicio() {
 
 const protegida = (elemento) => <ConGuardia>{elemento}</ConGuardia>
 
-export default function App() {
+// Quien llega por un enlace de invitación o recuperación define su contraseña ANTES de ver cualquier pantalla.
+function Contenido() {
+  const { definiendoContrasena } = useAuth()
+  if (definiendoContrasena) return <DefinirContrasena />
   return (
-    <AuthProvider>
-      <HashRouter>
+    <HashRouter>
         <Routes>
           <Route path="/login" element={<RutaLogin />} />
           <Route path="/resumen" element={protegida(<Resumen />)} />
@@ -87,7 +90,14 @@ export default function App() {
           <Route path="/inicio" element={<Inicio />} />
           <Route path="*" element={<Navigate to="/inicio" replace />} />
         </Routes>
-      </HashRouter>
+    </HashRouter>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <Contenido />
     </AuthProvider>
   )
 }

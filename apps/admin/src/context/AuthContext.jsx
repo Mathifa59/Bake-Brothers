@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, CLAVE_DEFINIR_CONTRASENA } from '../lib/supabase'
 
 const AuthContext = createContext(null)
 
@@ -11,10 +11,35 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(undefined) // undefined = todavía no se sabe
   const [perfil, setPerfil] = useState(null)
   const [cargandoPerfil, setCargandoPerfil] = useState(false)
+  // true cuando la persona llegó por un enlace de invitación o de recuperación: antes de usar el panel tiene que
+  // definir su contraseña (ver pages/DefinirContrasena.jsx).
+  const [definiendoContrasena, setDefiniendoContrasena] = useState(() => {
+    try {
+      return sessionStorage.getItem(CLAVE_DEFINIR_CONTRASENA) === '1'
+    } catch {
+      return false
+    }
+  })
+  const terminarDefinirContrasena = () => {
+    try {
+      sessionStorage.removeItem(CLAVE_DEFINIR_CONTRASENA)
+    } catch {
+      // nada que limpiar
+    }
+    setDefiniendoContrasena(false)
+  }
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
-    const { data: sub } = supabase.auth.onAuthStateChange((_evento, nuevaSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((evento, nuevaSession) => {
+      if (evento === 'PASSWORD_RECOVERY') {
+        try {
+          sessionStorage.setItem(CLAVE_DEFINIR_CONTRASENA, '1')
+        } catch {
+          // sin sessionStorage: el estado en memoria alcanza mientras no se recargue
+        }
+        setDefiniendoContrasena(true)
+      }
       setSession(nuevaSession)
     })
     return () => sub.subscription.unsubscribe()
@@ -58,6 +83,17 @@ export function AuthProvider({ children }) {
     leerPerfil()
   }, [userId])
 
+  // Un enlace vencido o ya usado no deja sesión: no hay nada que definir, se vuelve al login normal.
+  useEffect(() => {
+    if (session === null && definiendoContrasena) terminarDefinirContrasena()
+  }, [session, definiendoContrasena])
+
+  const definirContrasena = async (password) => {
+    const respuesta = await supabase.auth.updateUser({ password })
+    if (!respuesta.error) terminarDefinirContrasena()
+    return respuesta
+  }
+
   const login = (email, password) => supabase.auth.signInWithPassword({ email, password })
   const logout = () => supabase.auth.signOut()
 
@@ -69,6 +105,8 @@ export function AuthProvider({ children }) {
         cargando: session === undefined || (session && cargandoPerfil),
         login,
         logout,
+        definiendoContrasena: Boolean(session) && definiendoContrasena,
+        definirContrasena,
       }}
     >
       {children}
