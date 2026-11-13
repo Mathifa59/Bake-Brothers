@@ -9,13 +9,16 @@
  *
  *   pnpm mayoristas:importar -- --archivo "C:\ruta\privada\mayoristas_hoja_DATOS.csv"            (ensayo)
  *   pnpm mayoristas:importar -- --archivo "C:\ruta\privada\mayoristas_hoja_DATOS.csv" --aplicar  (escribe)
+ *
+ * --internos "TIENDA CEDROS,TIENDA S. MARINA" marca esas filas como clientes internos (envíos a un local propio): se
+ * importan, pero no cuentan como clientes ni como ventas en Métricas, Resumen, Origen de clientes ni Clientes.
  */
 import { readFileSync } from 'node:fs'
 import { parseArgs } from 'node:util'
 import { pool, tenantPorSlug } from '../src/db.js'
 import { importarMayoristas, leerCsvMayoristas } from '../src/services/importarMayoristas.js'
 
-const { values } = parseArgs({ options: { archivo: { type: 'string' }, aplicar: { type: 'boolean', default: false } } })
+const { values } = parseArgs({ options: { archivo: { type: 'string' }, aplicar: { type: 'boolean', default: false }, internos: { type: 'string' } } })
 if (!values.archivo) {
   console.error('Uso: --archivo <ruta del CSV con columnas nombre,tamano> [--aplicar]')
   process.exit(1)
@@ -27,7 +30,7 @@ try {
   if (!tenant) throw new Error('No encontré el negocio «bake-brothers»')
   const filas = leerCsvMayoristas(readFileSync(values.archivo, 'utf8'))
   await client.query('begin')
-  const r = await importarMayoristas(client, tenant.id, filas, { aplicar: values.aplicar })
+  const r = await importarMayoristas(client, tenant.id, filas, { aplicar: values.aplicar, internos: (values.internos ?? '').split(',').map((x) => x.trim()).filter(Boolean) })
   await client.query(values.aplicar ? 'commit' : 'rollback')
 
   console.log(`${values.aplicar ? 'APLICADO' : 'ENSAYO (no se escribió nada)'} — ${filas.length} filas en el archivo`)
@@ -36,6 +39,7 @@ try {
   console.log(`  tamaño completado: ${r.tamanoCompletado.length}`)
   const aviso = (titulo: string, lista: unknown[]) => lista.length && console.log(`  ⚠ ${titulo}:`, JSON.stringify(lista))
   aviso('conflictos de tamaño (no se tocaron)', r.conflictosDeTamano)
+  aviso('internos (no cuentan como clientes ni ventas)', r.internos)
   aviso('repetidas en la hoja (se usó la primera)', r.repetidasEnLaHoja)
   aviso('filas inválidas (no se importaron)', r.invalidas)
   aviso('coinciden con clientes NO mayoristas', r.coincidenConClientesNoMayoristas)

@@ -26,7 +26,8 @@ export default function Atribucion() {
     setError(null)
     // El rango se interpreta en hora de Lima (el negocio opera ahí), no en la del navegador ni en UTC.
     traerTodo(() => {
-      let q = supabase.from('orders').select('canal, campana, estado, total, creado_en').order('creado_en', { ascending: true })
+      // customers!inner + es_interno = false: los envíos a un local propio no son clientes ni ventas.
+      let q = supabase.from('orders').select('canal, campana, estado, total, creado_en, customers!inner(es_interno)').eq('customers.es_interno', false).order('creado_en', { ascending: true })
       if (desde) q = q.gte('creado_en', inicioDiaLima(desde).toISOString())
       if (hasta) q = q.lt('creado_en', inicioDiaLima(sumarDiasISO(hasta, 1)).toISOString())
       return q

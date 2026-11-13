@@ -22,6 +22,8 @@ export interface ResultadoImportacionMayoristas {
   invalidas: { fila: number; motivo: string; nombre: string }[]
   /** Hay un cliente NO mayorista con el mismo nombre: se importa igual, pero conviene mirarlo. */
   coincidenConClientesNoMayoristas: string[]
+  /** Marcados como internos (envío a un local propio): no cuentan como clientes ni como ventas. Incluye los que ya existían. */
+  internos: string[]
 }
 
 /**
@@ -33,10 +35,11 @@ export async function importarMayoristas(
   client: pg.PoolClient,
   tenantId: string,
   filas: FilaMayorista[],
-  opciones: { aplicar: boolean }
+  opciones: { aplicar: boolean; /** Nombres que son locales propios (envíos internos), p. ej. «TIENDA CEDROS». */ internos?: string[] }
 ): Promise<ResultadoImportacionMayoristas> {
-  const { rows: existentes } = await client.query<{ id: string; nombre: string; es_mayorista: boolean; tamano_habitual: string | null }>(
-    `select id, nombre, es_mayorista, tamano_habitual from customers where tenant_id = $1`,
+  const clavesInternas = new Set((opciones.internos ?? []).map(claveNombreCliente))
+  const { rows: existentes } = await client.query<{ id: string; nombre: string; es_mayorista: boolean; tamano_habitual: string | null; es_interno: boolean }>(
+    `select id, nombre, es_mayorista, tamano_habitual, es_interno from customers where tenant_id = $1`,
     [tenantId]
   )
   const mayoristas = new Map<string, (typeof existentes)[number]>()
@@ -51,6 +54,7 @@ export async function importarMayoristas(
     repetidasEnLaHoja: [],
     invalidas: [],
     coincidenConClientesNoMayoristas: [],
+    internos: [],
   }
   const vistas = new Set<string>()
 
@@ -73,8 +77,13 @@ export async function importarMayoristas(
     }
     vistas.add(clave)
 
+    const esInterno = clavesInternas.has(clave)
     const existente = mayoristas.get(clave)
     if (existente) {
+      if (esInterno) {
+        r.internos.push(existente.nombre)
+        if (opciones.aplicar && !existente.es_interno) await client.query(`update customers set es_interno = true where id = $1`, [existente.id])
+      }
       if (!existente.tamano_habitual) {
         r.tamanoCompletado.push({ nombre: existente.nombre, tamano })
         if (opciones.aplicar) await client.query(`update customers set tamano_habitual = $2 where id = $1`, [existente.id, tamano])
@@ -88,10 +97,11 @@ export async function importarMayoristas(
 
     if (noMayoristas.has(clave)) r.coincidenConClientesNoMayoristas.push(nombre)
     r.creados.push({ nombre, tamano })
+    if (esInterno) r.internos.push(nombre)
     if (opciones.aplicar) {
       await client.query(
-        `insert into customers (tenant_id, nombre, es_mayorista, tamano_habitual, nombre_confirmado) values ($1, $2, true, $3, true)`,
-        [tenantId, nombre, tamano]
+        `insert into customers (tenant_id, nombre, es_mayorista, tamano_habitual, nombre_confirmado, es_interno) values ($1, $2, true, $3, true, $4)`,
+        [tenantId, nombre, tamano, esInterno]
       )
     }
   }

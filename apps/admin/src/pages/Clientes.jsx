@@ -14,7 +14,7 @@ import { Cargando, EncabezadoBloque, ErrorCarga, Hero, Portada, Tarjeta } from '
 // en su sede (política de 0014), y sus pedidos.
 async function cargarClientes() {
   const [clientes, pedidos] = await Promise.all([
-    traerTodo(() => supabase.from('customers').select('id, nombre, telefono, creado_en, es_mayorista, tamano_habitual').order('nombre')),
+    traerTodo(() => supabase.from('customers').select('id, nombre, telefono, creado_en, es_mayorista, tamano_habitual, es_interno').order('nombre')),
     traerTodo(() => supabase.from('orders').select('customer_id, creado_en, estado').order('creado_en', { ascending: false })),
   ])
   return { clientes, pedidos }
@@ -39,7 +39,13 @@ export default function Clientes() {
 
   const { pedidos, error: errorPedidos, guardando, cambiarEstado, tomarPedido, confirmarPago, rechazarPago, perfil } = usePedidos({ customerId: seleccionado?.id })
 
-  const segmentos = useMemo(() => (datos ? segmentarClientes(datos.clientes, datos.pedidos) : null), [datos])
+  // Los clientes internos (envíos a un local propio) se ven en la lista con su etiqueta, pero no son clientes:
+  // no entran en los segmentos ni en el conteo, y sus pedidos tampoco.
+  const internos = useMemo(() => new Set((datos?.clientes ?? []).filter((c) => c.es_interno).map((c) => c.id)), [datos])
+  const segmentos = useMemo(
+    () => (datos ? segmentarClientes(datos.clientes.filter((c) => !c.es_interno), datos.pedidos.filter((p) => !internos.has(p.customer_id))) : null),
+    [datos, internos]
+  )
   const ultimoPedido = useMemo(() => {
     // Ya viene ordenado por fecha descendente: la primera ocurrencia por cliente es la más reciente.
     const m = {}
@@ -68,7 +74,7 @@ export default function Clientes() {
             </span>
             <p className="mt-4 text-[11px] font-bold uppercase tracking-widest text-acento">Base de clientes</p>
             <h2 className="mt-1 text-2xl font-semibold leading-snug">
-              {datos.clientes.length} cliente{datos.clientes.length === 1 ? '' : 's'}
+              {datos.clientes.length - internos.size} cliente{datos.clientes.length - internos.size === 1 ? '' : 's'}
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-white/70">
               Los segmentos se calculan con los pedidos reales de tu alcance.
@@ -130,7 +136,12 @@ export default function Clientes() {
                         <span className="min-w-0">
                           <span className="block truncate text-sm font-semibold">
                             {c.nombre}
-                            {c.es_mayorista && (
+                            {c.es_interno && (
+                              <span className="ml-2 rounded-full bg-acento-suave px-2 py-0.5 align-middle text-[10px] font-bold uppercase tracking-wide text-acento-oscuro">
+                                Interno
+                              </span>
+                            )}
+                            {c.es_mayorista && !c.es_interno && (
                               <span className="ml-2 rounded-full bg-hueso px-2 py-0.5 align-middle text-[10px] font-bold uppercase tracking-wide text-gris">
                                 Mayorista{c.tamano_habitual ? ` · ${c.tamano_habitual}` : ''}
                               </span>

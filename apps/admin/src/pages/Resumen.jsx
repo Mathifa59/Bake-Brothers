@@ -33,7 +33,8 @@ import GraficoArea, { etiquetaHora } from '../components/bakeos/GraficoArea'
 const consultaPedidos = (desde, hasta) => () =>
   supabase
     .from('orders')
-    .select('total, estado, creado_en, sede_id')
+    .select('total, estado, creado_en, sede_id, customers!inner(es_interno)')
+    .eq('customers.es_interno', false) // los envíos a un local propio no son ventas
     .gte('creado_en', desde.toISOString())
     .lte('creado_en', hasta.toISOString())
     .order('creado_en', { ascending: true })
