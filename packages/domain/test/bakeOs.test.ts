@@ -167,6 +167,19 @@ describe('segmentos de clientes', () => {
     expect([...s.nuevosDelMes]).toEqual(['c'])
   })
 
+  it('un mayorista cargado este mes (o un envío a un local propio) NO es un cliente nuevo del mes', () => {
+    const s = segmentarClientes(
+      [
+        { id: 'nuevo', creado_en: dias(2) },
+        { id: 'may', creado_en: dias(2), es_mayorista: true },
+        { id: 'int', creado_en: dias(2), es_mayorista: true, es_interno: true },
+      ],
+      [],
+      ahora
+    )
+    expect([...s.nuevosDelMes]).toEqual(['nuevo'])
+  })
+
   it('exactamente 30 días NO cuenta como "sin comprar" (es más de 30)', () => {
     const s = segmentarClientes(
       [{ id: 'x', creado_en: dias(100) }],

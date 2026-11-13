@@ -115,7 +115,7 @@ export default function Clientes() {
             )}
           </Tarjeta>
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-[360px_1fr]">
+          <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
             <Tarjeta className="p-0">
               <p className="px-4 pt-4 text-[10.5px] font-bold uppercase tracking-wide text-gris">
                 {segmentoId ? SEGMENTOS.find((s) => s.id === segmentoId).titulo : 'Todos los clientes'} · {visibles.length}
