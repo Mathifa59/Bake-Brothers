@@ -13,6 +13,8 @@ export default defineConfig({
     // código. En secuencia el resultado es determinista (~90 s). Dentro de cada archivo los tests ya van en orden.
     fileParallelism: false,
     setupFiles: ['./test/setupBotEncendido.ts'],
+    // Borra los clientes que el webhook crea solos durante las pruebas (ver test/globalSetupClientes.ts).
+    globalSetup: ['./test/globalSetupClientes.ts'],
     env: {
       DATABASE_URL: process.env.DATABASE_URL ?? DATABASE_URL_PLACEHOLDER,
       META_VERIFY_TOKEN: process.env.META_VERIFY_TOKEN ?? META_VERIFY_TOKEN_DE_PRUEBA,

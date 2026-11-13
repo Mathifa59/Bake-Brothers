@@ -1,7 +1,7 @@
 import type pg from 'pg'
 import type { FastifyBaseLogger } from 'fastify'
 import { pool, withTenantTx } from '../db.js'
-import { sedePorPhoneNumberId, encontrarOCrearConversacion } from '../repositories/conversacionesRepo.js'
+import { sedePorPhoneNumberId, encontrarOCrearConversacion, vincularClienteConversacion } from '../repositories/conversacionesRepo.js'
 import { procesarMensajeEntrante } from './cerebro.js'
 import { enviarMensajeMeta } from './meta.js'
 import { procesarCapturaWhatsApp } from './procesarCapturaPago.js'
@@ -65,6 +65,17 @@ export async function procesarMensajeWhatsAppEnBackground(
       'Fallo resolviendo/creando la conversación para un mensaje de WhatsApp entrante'
     )
     return
+  }
+
+  // Etapa 4 (clientes): la conversación queda enlazada al cliente por su teléfono (E.164); si no existe, se crea con el
+  // nombre de su perfil de WhatsApp. Va en su propia transacción y NUNCA corta el mensaje: si falla, se anota y la
+  // conversación sigue (el enlace se reintenta con el próximo mensaje).
+  try {
+    await withTenantTx(tenantId, (client) =>
+      vincularClienteConversacion(client, tenantId, conversacionId, mensaje.telefono, mensaje.nombrePerfil ?? null)
+    )
+  } catch (err) {
+    logger.warn({ err, conversacionId }, 'No se pudo enlazar la conversación con su cliente (se reintenta con el próximo mensaje)')
   }
 
   // Interruptor del bot (configuracion_bot, lo cambia el admin desde el panel sin redeploy). Apagado: nada de Claude

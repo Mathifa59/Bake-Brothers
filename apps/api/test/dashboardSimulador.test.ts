@@ -56,9 +56,9 @@ describe.skipIf(!hayBaseDeDatosReal)('POST /api/dashboard/simulador/mensaje', ()
   let fetchSpy: ReturnType<typeof vi.spyOn>
 
   const limpiar = async () => {
-    await pool.query(`delete from order_items where order_id in (select o.id from orders o join customers c on c.id = o.customer_id where c.telefono = $1)`, [TEL_PRUEBA])
-    await pool.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [TEL_PRUEBA])
-    await pool.query(`delete from customers where telefono = $1`, [TEL_PRUEBA])
+    await pool.query(`delete from order_items where order_id in (select o.id from orders o join customers c on c.id = o.customer_id where right(regexp_replace(coalesce(c.telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [TEL_PRUEBA])
+    await pool.query(`delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [TEL_PRUEBA])
+    await pool.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [TEL_PRUEBA])
   }
 
   const enviar = (body: unknown, rol: string | null = 'admin') =>

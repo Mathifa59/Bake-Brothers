@@ -1,7 +1,7 @@
 import FotoProducto from '../components/bakeos/FotoProducto'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { mismoTelefono, ultimos9 } from '@bakebrothers/domain'
+import { mismoTelefono, normalizarTelefono, telefonoLegible, ultimos9 } from '@bakebrothers/domain'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { crearPedidoDashboard, obtenerComprobantePdfUrl } from '../lib/apiClient'
@@ -88,7 +88,7 @@ export default function NuevoPedido() {
           setClienteSeleccionado(existente)
         } else {
           setModoCliente('nuevo')
-          setClienteNuevoTelefono(ultimos9(telefonoDeLaConversacion))
+          setClienteNuevoTelefono(`+${telefonoDeLaConversacion.replace(/\D/g, '')}`) // el wa_id trae el código de país
           setClienteNuevoNombre(nombreDeLaConversacion)
         }
       })
@@ -102,12 +102,18 @@ export default function NuevoPedido() {
       setResultadosCliente([])
       return
     }
+    // El teléfono se guarda en E.164 (+51912944096): si lo escrito parece un teléfono se busca por sus dígitos
+    // («912 944 096» encuentra al mismo cliente). Solo clientes con teléfono: un pedido necesita uno, y los
+    // mayoristas sin teléfono hacen sus pedidos en Órdenes.
     const texto = `%${busquedaCliente.trim()}%`
+    const digitos = busquedaCliente.replace(/\D/g, '')
+    const filtro = digitos.length >= 3 && /^[\d\s+().-]+$/.test(busquedaCliente.trim()) ? `telefono.ilike.%${digitos}%` : `nombre.ilike.${texto},telefono.ilike.${texto}`
     const t = setTimeout(() => {
       supabase
         .from('customers')
         .select('id, nombre, telefono')
-        .or(`nombre.ilike.${texto},telefono.ilike.${texto}`)
+        .not('telefono', 'is', null)
+        .or(filtro)
         .limit(8)
         .then(({ data, error }) => {
           if (!error) setResultadosCliente(data)
@@ -201,7 +207,7 @@ export default function NuevoPedido() {
     items.length > 0 &&
     fechaEntrega &&
     horario.trim() &&
-    (clienteSeleccionado || (clienteNuevoNombre.trim() && clienteNuevoTelefono.trim())) &&
+    (clienteSeleccionado || (clienteNuevoNombre.trim() && normalizarTelefono(clienteNuevoTelefono))) &&
     (tipoEntrega === 'tienda' || (direccion.trim() && distrito.trim()))
 
   const enviar = async () => {
@@ -337,7 +343,7 @@ export default function NuevoPedido() {
               />
               {clienteSeleccionado ? (
                 <p className="mt-2 rounded-lg bg-acento-suave px-3 py-2 text-sm font-semibold">
-                  {clienteSeleccionado.nombre} — {clienteSeleccionado.telefono}
+                  {clienteSeleccionado.nombre} — {telefonoLegible(clienteSeleccionado.telefono)}
                 </p>
               ) : (
                 resultadosCliente.length > 0 && (
@@ -347,12 +353,12 @@ export default function NuevoPedido() {
                         key={c.id}
                         onClick={() => {
                           setClienteSeleccionado(c)
-                          setBusquedaCliente(`${c.nombre} — ${c.telefono}`)
+                          setBusquedaCliente(`${c.nombre} — ${telefonoLegible(c.telefono)}`)
                           setResultadosCliente([])
                         }}
                         className="cursor-pointer px-3 py-2 text-sm hover:bg-hueso"
                       >
-                        {c.nombre} — {c.telefono}
+                        {c.nombre} — {telefonoLegible(c.telefono)}
                       </li>
                     ))}
                   </ul>
@@ -370,9 +376,13 @@ export default function NuevoPedido() {
               <input
                 value={clienteNuevoTelefono}
                 onChange={(e) => setClienteNuevoTelefono(e.target.value)}
-                placeholder="Teléfono"
+                placeholder="Celular (9 dígitos) o +código de país"
+                inputMode="tel"
                 className="w-full rounded-lg border border-borde px-3 py-2 text-sm outline-none focus:border-acento"
               />
+              {clienteNuevoTelefono.trim() && !normalizarTelefono(clienteNuevoTelefono) && (
+                <p className="text-xs text-red-700">Ese teléfono no es válido: un celular peruano tiene 9 dígitos y empieza con 9.</p>
+              )}
             </div>
           )}
         </section>

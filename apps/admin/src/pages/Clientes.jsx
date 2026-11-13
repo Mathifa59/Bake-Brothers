@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ChevronRight, Users } from 'lucide-react'
-import { COMPRAS_FRECUENTE, DIAS_SIN_COMPRAR, segmentarClientes } from '@bakebrothers/domain'
+import { COMPRAS_FRECUENTE, DIAS_SIN_COMPRAR, segmentarClientes, telefonoLegible } from '@bakebrothers/domain'
 import { supabase } from '../lib/supabase'
 import { traerTodo, useDatosVivos } from '../lib/datos'
 import { usePedidos } from '../hooks/usePedidos'
@@ -14,7 +14,7 @@ import { Cargando, EncabezadoBloque, ErrorCarga, Hero, Portada, Tarjeta } from '
 // en su sede (política de 0014), y sus pedidos.
 async function cargarClientes() {
   const [clientes, pedidos] = await Promise.all([
-    traerTodo(() => supabase.from('customers').select('id, nombre, telefono, creado_en').order('nombre')),
+    traerTodo(() => supabase.from('customers').select('id, nombre, telefono, creado_en, es_mayorista, tamano_habitual').order('nombre')),
     traerTodo(() => supabase.from('orders').select('customer_id, creado_en, estado').order('creado_en', { ascending: false })),
   ])
   return { clientes, pedidos }
@@ -128,8 +128,15 @@ export default function Clientes() {
                         }`}
                       >
                         <span className="min-w-0">
-                          <span className="block truncate text-sm font-semibold">{c.nombre}</span>
-                          <span className="block text-xs text-gris">{c.telefono}</span>
+                          <span className="block truncate text-sm font-semibold">
+                            {c.nombre}
+                            {c.es_mayorista && (
+                              <span className="ml-2 rounded-full bg-hueso px-2 py-0.5 align-middle text-[10px] font-bold uppercase tracking-wide text-gris">
+                                Mayorista{c.tamano_habitual ? ` · ${c.tamano_habitual}` : ''}
+                              </span>
+                            )}
+                          </span>
+                          <span className="block text-xs text-gris">{c.telefono ? telefonoLegible(c.telefono) : 'Sin teléfono'}</span>
                         </span>
                         <span className="shrink-0 text-right text-[11px] text-gris">
                           Último pedido

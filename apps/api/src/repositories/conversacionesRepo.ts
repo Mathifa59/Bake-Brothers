@@ -1,4 +1,5 @@
 import type pg from 'pg'
+import { encontrarOCrearClienteDeWhatsApp } from './ordersRepo.js'
 
 export type CanalConversacion = 'whatsapp' | 'facebook' | 'instagram'
 export type EstadoConversacionDb = 'activa' | 'escalada' | 'atendida_por_operador' | 'cerrada'
@@ -183,4 +184,23 @@ export async function marcarMensajeComoProcesado(client: pg.Pool | pg.PoolClient
     [mensajeId]
   )
   return rows.length > 0
+}
+
+/**
+ * Enlaza la conversación de WhatsApp con su cliente: lo busca por teléfono (E.164) y, si no existe, lo crea (ver
+ * encontrarOCrearClienteDeWhatsApp). Es idempotente: se llama en cada mensaje y solo escribe si el enlace cambió.
+ * Devuelve el id del cliente, o null si el número no es reconocible.
+ */
+export async function vincularClienteConversacion(
+  client: pg.PoolClient,
+  tenantId: string,
+  conversacionId: string,
+  waId: string,
+  nombrePerfil: string | null
+): Promise<string | null> {
+  const customerId = await encontrarOCrearClienteDeWhatsApp(client, tenantId, waId, nombrePerfil)
+  if (customerId) {
+    await client.query(`update conversaciones set customer_id = $2 where id = $1 and customer_id is distinct from $2`, [conversacionId, customerId])
+  }
+  return customerId
 }

@@ -45,7 +45,7 @@ describe.skipIf(!hayBaseDeDatosReal)('pago reportado — confirmar/rechazar desd
     const sedeB = (await client.query(`insert into sedes (nombre) values ('RLS Pago B') returning id`)).rows[0].id
     for (const id of [OP_A, OP_B]) await client.query(`insert into auth.users (id) values ($1)`, [id])
     await client.query(`insert into usuarios_dashboard (id, rol, sede_id) values ($1, 'operador', $3), ($2, 'operador', $4)`, [OP_A, OP_B, sedeA, sedeB])
-    const cliente = (await client.query(`insert into customers (tenant_id, nombre, telefono) values ($1, 'Cliente Pago', '900007770') returning id`, [tenantId])).rows[0].id
+    const cliente = (await client.query(`insert into customers (tenant_id, nombre, telefono) values ($1, 'Cliente Pago', '+51900007770') returning id`, [tenantId])).rows[0].id
     const pedido = async (numero: string, sede: string | null, conReporte: boolean) =>
       (
         await client.query(

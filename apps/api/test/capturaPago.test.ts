@@ -119,7 +119,7 @@ describe.skipIf(!hayBaseDeDatosReal)('captura de pago (Postgres real)', () => {
 
   async function limpiar() {
     await client.query(`delete from orders where numero like 'CAP-%'`)
-    await client.query(`delete from customers where telefono = $1`, [TEL])
+    await client.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [TEL])
     await client.query(`delete from conversaciones where tenant_id = $1 and external_id = $2`, [tenantId, TEL])
     await client.query(`delete from mensajes_webhook_procesados where mensaje_id like 'wamid.CAP_%'`)
   }
@@ -142,7 +142,7 @@ describe.skipIf(!hayBaseDeDatosReal)('captura de pago (Postgres real)', () => {
         [tenantId, TEL, opciones.estado ?? 'activa', sedeId, PHONE_ID]
       )
     ).rows[0].id as string
-    const cliente = (await client.query(`insert into customers (tenant_id, nombre, telefono) values ($1, 'Cliente Captura', $2) returning id`, [tenantId, TEL])).rows[0].id
+    const cliente = (await client.query(`insert into customers (tenant_id, nombre, telefono) values ($1, 'Cliente Captura', $2) returning id`, [tenantId, `+51${TEL}`])).rows[0].id
     for (const p of opciones.pedidos ?? []) {
       await client.query(
         `insert into orders (tenant_id, numero, customer_id, canal, estado, tipo_entrega, sede_id, fecha_entrega, horario_entrega,

@@ -5,7 +5,7 @@
 // mockeados (sin credenciales reales); todo lo demás corre real contra Postgres.
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import pg from 'pg'
-import { fechaLimaISO } from '@bakebrothers/domain'
+import { fechaLimaISO, sumarDiasISO } from '@bakebrothers/domain'
 import { DATABASE_URL_PLACEHOLDER } from './testEnv.js'
 
 const hayBaseDeDatosReal =
@@ -61,9 +61,9 @@ describe.skipIf(!hayBaseDeDatosReal)('atribución de campañas — webhook real'
   let n = 0
 
   const limpiar = async () => {
-    await pool.query(`delete from order_items where order_id in (select o.id from orders o join customers c on c.id = o.customer_id where c.telefono = $1)`, [TEL_PEDIDO])
-    await pool.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [TEL_PEDIDO])
-    await pool.query(`delete from customers where telefono = $1`, [TEL_PEDIDO])
+    await pool.query(`delete from order_items where order_id in (select o.id from orders o join customers c on c.id = o.customer_id where right(regexp_replace(coalesce(c.telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [TEL_PEDIDO])
+    await pool.query(`delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [TEL_PEDIDO])
+    await pool.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [TEL_PEDIDO])
     await pool.query(`delete from conversaciones where tenant_id = $1 and canal = 'whatsapp' and external_id = $2`, [tenantId, TEL])
     await pool.query(`delete from mensajes_webhook_procesados where mensaje_id like 'wamid.TEST_CAMPANA_%'`)
   }
@@ -140,7 +140,7 @@ describe.skipIf(!hayBaseDeDatosReal)('atribución de campañas — webhook real'
               clienteNombre: 'Carla Campaña',
               clienteTelefono: TEL_PEDIDO,
               tipoEntrega: 'tienda',
-              fechaEntregaISO: fechaLimaISO(),
+              fechaEntregaISO: sumarDiasISO(fechaLimaISO(), 1), // mañana: «hoy» ya no se toma pasadas las 8:00 p. m. (corte del día)
               horario: '8:00 pm',
               items: [{ tipo: 'producto', busqueda: 'alfajor mix', tamano: 'Caja x10', cantidad: 1 }],
               metodoPago: 'yape',
@@ -154,7 +154,7 @@ describe.skipIf(!hayBaseDeDatosReal)('atribución de campañas — webhook real'
     await esperarRespuestaDelBot(2)
 
     const { rows } = await pool.query(
-      `select o.campana, o.canal, o.estado from orders o join customers c on c.id = o.customer_id where c.telefono = $1`,
+      `select o.campana, o.canal, o.estado from orders o join customers c on c.id = o.customer_id where right(regexp_replace(coalesce(c.telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`,
       [TEL_PEDIDO]
     )
     expect(rows).toEqual([{ campana: 'ig-navidad', canal: 'whatsapp', estado: 'confirmed' }])
@@ -192,7 +192,7 @@ describe.skipIf(!hayBaseDeDatosReal)('atribución de campañas — webhook real'
               clienteNombre: 'Sin Campaña',
               clienteTelefono: TEL_PEDIDO,
               tipoEntrega: 'tienda',
-              fechaEntregaISO: fechaLimaISO(),
+              fechaEntregaISO: sumarDiasISO(fechaLimaISO(), 1), // mañana: «hoy» ya no se toma pasadas las 8:00 p. m. (corte del día)
               horario: '8:00 pm',
               items: [{ tipo: 'producto', busqueda: 'alfajor mix', tamano: 'Caja x10', cantidad: 1 }],
               metodoPago: 'yape',
@@ -206,7 +206,7 @@ describe.skipIf(!hayBaseDeDatosReal)('atribución de campañas — webhook real'
     await esperarRespuestaDelBot(1)
 
     const { rows } = await pool.query(
-      `select o.campana from orders o join customers c on c.id = o.customer_id where c.telefono = $1`,
+      `select o.campana from orders o join customers c on c.id = o.customer_id where right(regexp_replace(coalesce(c.telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`,
       [TEL_PEDIDO]
     )
     expect(rows).toEqual([{ campana: null }])

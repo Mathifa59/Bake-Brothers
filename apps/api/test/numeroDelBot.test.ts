@@ -233,8 +233,8 @@ describe.skipIf(!hayBaseDeDatosReal)('número del bot — de punta a punta por P
   })
 
   async function limpiar() {
-    await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
-    await client.query(`delete from customers where telefono = $1`, [telefono])
+    await client.query(`delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [telefono])
+    await client.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [telefono])
     await client.query(`delete from conversaciones where tenant_id = $1 and canal = 'whatsapp' and external_id = $2`, [
       tenantId,
       telefono,
@@ -318,7 +318,7 @@ describe.skipIf(!hayBaseDeDatosReal)('número del bot — de punta a punta por P
     await esperarHasta(async () => mockFetch.mock.calls.length >= 1)
 
     const { rows: ordenesAntes } = await client.query(
-      `select count(*)::int as n from orders where customer_id in (select id from customers where telefono = $1)`,
+      `select count(*)::int as n from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`,
       [telefono]
     )
     // Sin local no hay pedido, y el servidor se lo dijo al modelo con las opciones reales.
@@ -347,14 +347,14 @@ describe.skipIf(!hayBaseDeDatosReal)('número del bot — de punta a punta por P
 
     await esperarHasta(async () => {
       const { rows } = await client.query(
-        `select count(*)::int as n from orders where customer_id in (select id from customers where telefono = $1)`,
+        `select count(*)::int as n from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`,
         [telefono]
       )
       return rows[0].n > 0 && mockFetch.mock.calls.length >= 1
     })
 
     const { rows: pedidos } = await client.query(
-      `select o.sede_id from orders o join customers c on c.id = o.customer_id where c.telefono = $1`,
+      `select o.sede_id from orders o join customers c on c.id = o.customer_id where right(regexp_replace(coalesce(c.telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`,
       [telefono]
     )
     expect(pedidos).toHaveLength(1)
@@ -390,7 +390,7 @@ describe.skipIf(!hayBaseDeDatosReal)('número del bot — de punta a punta por P
     await esperarHasta(async () => mockFetch.mock.calls.length >= 1)
     expect(JSON.stringify(mockCreate.mock.calls[1][0].messages)).toContain('SEDE_REQUERIDA')
     const { rows: ordenesDespues } = await client.query(
-      `select count(*)::int as n from orders where customer_id in (select id from customers where telefono = $1)`,
+      `select count(*)::int as n from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`,
       [telefono]
     )
     expect(ordenesDespues[0].n).toBe(1)

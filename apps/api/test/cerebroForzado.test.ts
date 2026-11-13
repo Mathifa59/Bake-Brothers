@@ -204,7 +204,7 @@ describe.skipIf(!hayBaseDeDatosReal)('evaluarTurno — garantías forzadas por c
     })
 
     const numeroAntes = await client.query(
-      `select count(*)::int as n from orders where customer_id in (select id from customers where telefono = '999000099')`
+      `select count(*)::int as n from orders where customer_id in (select id from customers where telefono = '+51999000099')`
     )
     expect(numeroAntes.rows[0].n).toBe(0)
 
@@ -217,7 +217,7 @@ describe.skipIf(!hayBaseDeDatosReal)('evaluarTurno — garantías forzadas por c
 
     // Ningún pedido real se creó — se rechazó del todo, no algo parcial.
     const numeroDespues = await client.query(
-      `select count(*)::int as n from orders where customer_id in (select id from customers where telefono = '999000099')`
+      `select count(*)::int as n from orders where customer_id in (select id from customers where telefono = '+51999000099')`
     )
     expect(numeroDespues.rows[0].n).toBe(0)
   })

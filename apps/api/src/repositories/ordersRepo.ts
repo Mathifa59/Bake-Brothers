@@ -1,5 +1,12 @@
 import type pg from 'pg'
-import { estadoLegible, type EstadoPedido, type TipoEntrega } from '@bakebrothers/domain'
+import {
+  estadoLegible,
+  normalizarTelefono,
+  normalizarTelefonoWhatsApp,
+  telefonoLegible,
+  type EstadoPedido,
+  type TipoEntrega,
+} from '@bakebrothers/domain'
 
 export interface ClienteInput {
   nombre: string
@@ -8,23 +15,78 @@ export interface ClienteInput {
   dni?: string | null
 }
 
-/** Busca el cliente por teléfono dentro del tenant, o lo crea. */
+/** El teléfono no se pudo llevar a E.164 (ver normalizarTelefono): quien llama debe pedirlo de nuevo, nunca adivinarlo. */
+export class TelefonoInvalidoError extends Error {
+  readonly code = 'TELEFONO_INVALIDO'
+  constructor(telefono: string) {
+    super(`Teléfono no válido: «${telefono}»`)
+  }
+}
+
+/**
+ * Busca el cliente por teléfono dentro del tenant, o lo crea. El teléfono se guarda y se busca SIEMPRE en E.164
+ * (+51912944096): «912944096», «51 912 944 096» y «+51912944096» son el mismo cliente (índice único en 0045).
+ * Si el cliente se había creado solo al escribir por WhatsApp (nombre_confirmado = false, con el nombre del perfil o su
+ * número) y este pedido trae su nombre real, se actualiza.
+ */
 export async function findOrCreateCustomer(
   client: pg.PoolClient,
   tenantId: string,
   cliente: ClienteInput
 ): Promise<string> {
-  const existente = await client.query(
-    `select id from customers where tenant_id = $1 and telefono = $2 limit 1`,
-    [tenantId, cliente.telefono]
+  const telefono = normalizarTelefono(cliente.telefono)
+  if (!telefono) throw new TelefonoInvalidoError(cliente.telefono)
+  const nombre = cliente.nombre.trim()
+
+  const buscar = () =>
+    client.query<{ id: string; nombre_confirmado: boolean }>(
+      `select id, nombre_confirmado from customers where tenant_id = $1 and telefono = $2`,
+      [tenantId, telefono]
+    )
+  let existente = (await buscar()).rows[0]
+  if (!existente) {
+    const creado = await client.query<{ id: string }>(
+      `insert into customers (tenant_id, nombre, telefono, correo, dni)
+       values ($1, $2, $3, $4, $5)
+       on conflict (tenant_id, telefono) where telefono is not null do nothing
+       returning id`,
+      [tenantId, nombre, telefono, cliente.correo ?? null, cliente.dni ?? null]
+    )
+    if (creado.rows[0]) return creado.rows[0].id
+    existente = (await buscar()).rows[0] // otro pedido lo creó en el mismo instante
+  }
+  if (!existente.nombre_confirmado && nombre) {
+    await client.query(`update customers set nombre = $2, nombre_confirmado = true where id = $1`, [existente.id, nombre])
+  }
+  return existente.id
+}
+
+/**
+ * Cliente de quien escribe por WhatsApp: lo busca por su teléfono (E.164) y, si no existe, lo crea con el nombre del
+ * perfil de WhatsApp (o su número si no lo trae), marcado como no confirmado hasta que un pedido le dé su nombre real.
+ * Devuelve null si el número no es reconocible (la conversación sigue sin cliente; nunca falla el mensaje por esto).
+ */
+export async function encontrarOCrearClienteDeWhatsApp(
+  client: pg.PoolClient,
+  tenantId: string,
+  waId: string,
+  nombrePerfil: string | null
+): Promise<string | null> {
+  const telefono = normalizarTelefonoWhatsApp(waId)
+  if (!telefono) return null
+  const buscar = () =>
+    client.query<{ id: string }>(`select id from customers where tenant_id = $1 and telefono = $2`, [tenantId, telefono])
+  const existente = (await buscar()).rows[0]
+  if (existente) return existente.id
+  const nombre = nombrePerfil?.trim() || telefonoLegible(telefono)
+  const creado = await client.query<{ id: string }>(
+    `insert into customers (tenant_id, nombre, telefono, nombre_confirmado)
+     values ($1, $2, $3, false)
+     on conflict (tenant_id, telefono) where telefono is not null do nothing
+     returning id`,
+    [tenantId, nombre, telefono]
   )
-  if (existente.rows[0]) return existente.rows[0].id
-  const creado = await client.query(
-    `insert into customers (tenant_id, nombre, telefono, correo, dni)
-     values ($1, $2, $3, $4, $5) returning id`,
-    [tenantId, cliente.nombre, cliente.telefono, cliente.correo ?? null, cliente.dni ?? null]
-  )
-  return creado.rows[0].id
+  return creado.rows[0]?.id ?? (await buscar()).rows[0]?.id ?? null
 }
 
 /** Incrementa la secuencia del tenant de forma atómica y devuelve 'BB-2450'. */
@@ -184,7 +246,8 @@ export async function listarPedidos(
   const condiciones: string[] = []
   const params: unknown[] = [tenantId]
   if (filtros.telefono) {
-    params.push(filtros.telefono)
+    // Se guarda en E.164: el filtro se normaliza igual (si no es un teléfono válido, no puede coincidir con nadie).
+    params.push(normalizarTelefono(filtros.telefono) ?? filtros.telefono)
     condiciones.push(`and c.telefono = $${params.length}`)
   }
   if (filtros.correo) {

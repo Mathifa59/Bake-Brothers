@@ -72,10 +72,10 @@ describe.skipIf(!hayBaseDeDatosReal || !JWT_OPERADOR || ROL_ES_ADMIN)('POST /api
   })
 
   const limpiarPorTelefono = async (telefono: string) => {
-    await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [
+    await client.query(`delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [
       telefono,
     ])
-    await client.query(`delete from customers where telefono = $1`, [telefono])
+    await client.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [telefono])
   }
 
   it('sin Authorization → 401', async () => {
@@ -215,7 +215,7 @@ describe.skipIf(!hayBaseDeDatosReal || !JWT_OPERADOR || ROL_ES_ADMIN)('POST /api
       expect(res.json().error).toBe('COMBO_NO_DISPONIBLE_EN_ESTE_CANAL')
 
       const { rows } = await client.query(
-        `select count(*)::int as n from orders where customer_id in (select id from customers where telefono = $1)`,
+        `select count(*)::int as n from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`,
         [telefono]
       )
       expect(rows[0].n).toBe(0)
@@ -290,10 +290,10 @@ describe.skipIf(!hayBaseDeDatosReal || !JWT_OPERADOR || !ROL_ES_ADMIN)(
       async () => {
         const telefono = '999444004'
         await client.query(
-          `delete from orders where customer_id in (select id from customers where telefono = $1)`,
+          `delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`,
           [telefono]
         )
-        await client.query(`delete from customers where telefono = $1`, [telefono])
+        await client.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [telefono])
         const fecha = fechaFuturaNoDomingo(10)
 
         try {
@@ -318,10 +318,10 @@ describe.skipIf(!hayBaseDeDatosReal || !JWT_OPERADOR || !ROL_ES_ADMIN)(
           expect(rows[0].sede_id).toBe(SEDE_SANTA_MARINA)
         } finally {
           await client.query(
-            `delete from orders where customer_id in (select id from customers where telefono = $1)`,
+            `delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`,
             [telefono]
           )
-          await client.query(`delete from customers where telefono = $1`, [telefono])
+          await client.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [telefono])
         }
       },
       TIMEOUT_MS

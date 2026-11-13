@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
+import { normalizarTelefono } from '@bakebrothers/domain'
 import { withTenantTx, tenantPorSlug } from '../db.js'
 import { verificarJwtOperador } from '../auth/verificarJwtOperador.js'
 import { crearPedidoDashboard, type ItemPedidoDashboardInput } from '../services/crearPedidoDashboard.js'
@@ -47,7 +48,11 @@ const itemSchema = z.discriminatedUnion('tipo', [
 const crearPedidoDashboardSchema = z.object({
   cliente: z.object({
     nombre: z.string().trim().min(1),
-    telefono: z.string().trim().min(6),
+    telefono: z
+      .string()
+      .trim()
+      .min(6)
+      .refine((t) => normalizarTelefono(t) !== null, 'Teléfono no válido: usa un celular peruano (9 dígitos) o un número con código de país (+…).'),
     correo: z.string().trim().email().nullish(),
     dni: z.string().trim().nullish(),
   }),

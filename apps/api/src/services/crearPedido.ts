@@ -3,6 +3,7 @@ import {
   resolverSedeDelPedido,
   validarFechaPorCorte,
   ultimos9,
+  normalizarTelefono,
   distritoTieneCobertura,
   parsearDistritosDelivery,
   type EstadoPedido,
@@ -128,6 +129,15 @@ export async function crearPedido(
   if (input.items.length === 0) {
     return { ok: false, error: 'SIN_ITEMS' }
   }
+  // El teléfono es la identidad del cliente y se guarda en E.164: si no se entiende, el modelo lo vuelve a pedir
+  // (nunca se crea un cliente ni un pedido con un número inventado).
+  if (!normalizarTelefono(input.cliente.telefono)) {
+    return {
+      ok: false,
+      error: 'TELEFONO_INVALIDO',
+      detalle: { mensaje: 'El teléfono no es válido. Pídele al cliente su número de celular (9 dígitos) para el pedido.' },
+    }
+  }
 
   // Reglas de lanzamiento (decididas con el negocio, 2026-10-29) — el servidor las hace cumplir, no depende
   // de que el modelo las recuerde:
@@ -144,7 +154,7 @@ export async function crearPedido(
   {
     const { rows } = await client.query<{ es_mayorista: boolean }>(
       `select bool_or(es_mayorista) as es_mayorista from customers
-        where tenant_id = $1 and right(regexp_replace(coalesce(telefono, ''), '\D', '', 'g'), 9) = $2`,
+        where tenant_id = $1 and right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = $2`,
       [tenantId, ultimos9(input.cliente.telefono)]
     )
     const corte = validarFechaPorCorte(input.fechaEntregaISO, input.ahora ?? new Date(), rows[0]?.es_mayorista ? 'mayorista' : 'cliente')

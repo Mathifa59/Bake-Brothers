@@ -160,7 +160,8 @@ export {
   type ResultadoCompletarPlantilla,
 } from "./plantillasWhatsApp.js"
 export { motivoEscaladaLegible, type CategoriaMotivo, type MotivoLegible } from "./motivoEscalada.js"
-export { ultimos9, mismoTelefono, telefonoLegible } from "./telefono.js"
+export { ultimos9, mismoTelefono, telefonoLegible, normalizarTelefono, normalizarTelefonoWhatsApp } from "./telefono.js"
+export { claveNombreCliente, tamanoHabitualDesdeCodigo, type TamanoHabitual } from "./clientes.js"
 export {
   productoDisponibleEnSede,
   type FilaStockSede,

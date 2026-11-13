@@ -32,13 +32,13 @@ describe.skipIf(!hayBaseDeDatosReal)('POST /api/orders responde después del com
   const queryOriginal = pg.Client.prototype.query
 
   const pedidosDelCliente = async () =>
-    (await pool.query(`select count(*)::int n from orders o join customers c on c.id = o.customer_id where c.telefono = $1`, [TEL])).rows[0]
+    (await pool.query(`select count(*)::int n from orders o join customers c on c.id = o.customer_id where right(regexp_replace(coalesce(c.telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [TEL])).rows[0]
       .n as number
 
   const limpiar = async () => {
-    await pool.query(`delete from order_items where order_id in (select o.id from orders o join customers c on c.id = o.customer_id where c.telefono = $1)`, [TEL])
-    await pool.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [TEL])
-    await pool.query(`delete from customers where telefono = $1`, [TEL])
+    await pool.query(`delete from order_items where order_id in (select o.id from orders o join customers c on c.id = o.customer_id where right(regexp_replace(coalesce(c.telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [TEL])
+    await pool.query(`delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [TEL])
+    await pool.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [TEL])
   }
 
   /** Cambia solo la sentencia `commit` de las conexiones de pg; todo lo demás pasa tal cual. */

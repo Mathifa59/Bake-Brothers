@@ -29,7 +29,7 @@ describe.skipIf(!hayBaseDeDatosReal)('corte del día y atención fuera de horari
     tenantId = (await client.query(`select id from tenants where slug = 'bake-brothers'`)).rows[0].id
   })
   afterAll(async () => {
-    await client.query(`delete from customers where telefono in ('999000445', '999000446', '999000447')`)
+    await client.query(`delete from customers where telefono like '+5199900044%' or telefono in ('999000445', '999000446', '999000447')`)
     client.release()
     await pool.end()
   })
@@ -53,7 +53,7 @@ describe.skipIf(!hayBaseDeDatosReal)('corte del día y atención fuera de horari
     it('a las 8:30 p. m. «para hoy» se rechaza con la fecha mínima y no deja rastro', async () => {
       const r = await pedidoPara('2026-11-13', '999000445', lima('20:30'))
       expect(r).toMatchObject({ ok: false, error: 'CORTE_DEL_DIA', detalle: { fechaMinima: '2026-11-14' } })
-      const { rows } = await client.query(`select count(*)::int n from customers where telefono = '999000445'`)
+      const { rows } = await client.query(`select count(*)::int n from customers where telefono = '+51999000445'`)
       expect(rows[0].n).toBe(0)
     })
 
@@ -64,7 +64,7 @@ describe.skipIf(!hayBaseDeDatosReal)('corte del día y atención fuera de horari
 
     it('un mayorista tiene hasta las 11:00 p. m.; un cliente común no', async () => {
       await client.query(
-        `insert into customers (tenant_id, nombre, telefono, es_mayorista) values ($1, '[PRUEBA] Mayorista', '999000446', true), ($1, '[PRUEBA] Normal', '999000447', false)`,
+        `insert into customers (tenant_id, nombre, telefono, es_mayorista) values ($1, '[PRUEBA] Mayorista', '+51999000446', true), ($1, '[PRUEBA] Normal', '+51999000447', false)`,
         [tenantId]
       )
       expect(await pedidoPara('2026-11-13', '999000446', lima('21:00'))).toMatchObject({ error: 'PRODUCTO_NO_ENCONTRADO' })

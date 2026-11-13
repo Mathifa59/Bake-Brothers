@@ -126,7 +126,7 @@ describe.skipIf(!hayBaseDeDatosReal)('lo agotado no se vende', () => {
       ...over,
     })
     const pedidosDelCliente = async () =>
-      (await client.query(`select count(*)::int n from orders where customer_id in (select id from customers where telefono = $1)`, [TEL]))
+      (await client.query(`select count(*)::int n from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [TEL]))
         .rows[0].n as number
 
     it('crearPedido: agotado en la sede de la conversación → PRODUCTO_AGOTADO, no se crea nada, y dice dónde sí hay', async () => {
@@ -426,11 +426,11 @@ describe.skipIf(!hayBaseDeDatosReal)('lo agotado no se vende', () => {
 
     const limpiar = async () => {
       await pool.query(
-        `delete from order_items where order_id in (select o.id from orders o join customers c on c.id = o.customer_id where c.telefono = $1)`,
+        `delete from order_items where order_id in (select o.id from orders o join customers c on c.id = o.customer_id where right(regexp_replace(coalesce(c.telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`,
         [TEL]
       )
-      await pool.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [TEL])
-      await pool.query(`delete from customers where telefono = $1`, [TEL])
+      await pool.query(`delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [TEL])
+      await pool.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [TEL])
     }
     // El stock de estos productos se restaura al terminar (la base de pruebas ya traía algunas filas).
     let respaldo: Record<string, unknown>[] = []
@@ -483,7 +483,7 @@ describe.skipIf(!hayBaseDeDatosReal)('lo agotado no se vende', () => {
         error: 'PRODUCTO_AGOTADO',
         detalle: { productos: [{ producto: PIE, tamano: TAM, disponibleEn: expect.arrayContaining(['Santa Marina']) }] },
       })
-      expect((await pool.query(`select count(*)::int n from customers where telefono = $1`, [TEL])).rows[0].n).toBe(0)
+      expect((await pool.query(`select count(*)::int n from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [TEL])).rows[0].n).toBe(0)
     })
 
     it('Nuevo pedido: una fila del producto ENTERO agotada (sin tamaño) también bloquea — reproduce BB-2491', async () => {
@@ -494,7 +494,7 @@ describe.skipIf(!hayBaseDeDatosReal)('lo agotado no se vende', () => {
         error: 'PRODUCTO_AGOTADO',
         detalle: { productos: [{ producto: PIE, tamano: TAM, motivo: 'agotado', disponibleEn: expect.arrayContaining(['Santa Marina']) }] },
       })
-      expect((await pool.query(`select count(*)::int n from customers where telefono = $1`, [TEL])).rows[0].n).toBe(0)
+      expect((await pool.query(`select count(*)::int n from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [TEL])).rows[0].n).toBe(0)
       // Cualquier otro tamaño del mismo producto, en esa sede, también.
       expect((await nuevoPedido(caja(1, 'Mini 18cm'), sedes.cedros)).statusCode).toBe(409)
       // En la otra sede sí se vende.
@@ -561,7 +561,7 @@ describe.skipIf(!hayBaseDeDatosReal)('lo agotado no se vende', () => {
       const r = await pedidoWeb()
       expect(r.statusCode).toBe(409)
       expect(r.json()).toMatchObject({ error: 'PRODUCTO_AGOTADO', detalle: { productos: [{ producto: PIE, tamano: TAM, disponibleEn: [] }] } })
-      expect((await pool.query(`select count(*)::int n from customers where telefono = $1`, [TEL])).rows[0].n).toBe(0)
+      expect((await pool.query(`select count(*)::int n from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [TEL])).rows[0].n).toBe(0)
     })
 
     it('web: el producto ENTERO agotado (sin tamaño) en TODAS las sedes → 409', async () => {

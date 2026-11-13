@@ -52,7 +52,7 @@ describe.skipIf(!hayBaseDeDatosReal)('rol empleado: bloqueado también en los da
     )
     for (const [clave, sede] of [['A', sedeA], ['B', sedeB]] as const) {
       const cliente = (
-        await client.query(`insert into customers (tenant_id, nombre, telefono) values ($1, $2, $3) returning id`, [tenantId, `Emp ${clave}`, `91111${clave.charCodeAt(0)}`])
+        await client.query(`insert into customers (tenant_id, nombre, telefono) values ($1, $2, $3) returning id`, [tenantId, `Emp ${clave}`, `+9111100${clave.charCodeAt(0)}`])
       ).rows[0].id
       await client.query(
         `insert into orders (tenant_id, numero, customer_id, canal, estado, tipo_entrega, sede_id, fecha_entrega, horario_entrega, metodo_pago, subtotal, total)

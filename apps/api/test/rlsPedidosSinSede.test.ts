@@ -55,7 +55,7 @@ describe.skipIf(!hayBaseDeDatosReal)('RLS de pedidos sin sede (delivery de las d
         await client.query(`insert into customers (tenant_id, nombre, telefono) values ($1, $2, $3) returning id`, [
           tenantId,
           `Cliente ${clave}`,
-          `90000${clave.length}${clave.charCodeAt(0)}`,
+          `+90000${clave.length}${clave.charCodeAt(0)}`,
         ])
       ).rows[0].id
       const orden = (
@@ -110,7 +110,7 @@ describe.skipIf(!hayBaseDeDatosReal)('RLS de pedidos sin sede (delivery de las d
       tabla === 'orders'
         ? `select numero as k from orders where numero like 'RLS-%' order by 1`
         : tabla === 'customers'
-          ? `select nombre as k from customers where nombre like 'Cliente %' and telefono like '90000%' order by 1`
+          ? `select nombre as k from customers where nombre like 'Cliente %' and telefono like '+90000%' order by 1`
           : `select nombre_producto as k from order_items where nombre_producto like 'Producto %' order by 1`
     return (await client.query(consulta)).rows.map((r) => r.k as string)
   }

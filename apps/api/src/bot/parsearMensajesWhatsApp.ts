@@ -19,6 +19,8 @@ export interface MensajeWhatsAppEntrante {
   /** Texto del mensaje; en una imagen es el pie de foto (puede venir vacío). */
   texto: string
   phoneNumberId: string
+  /** Nombre del perfil de WhatsApp de quien escribe (`contacts[].profile.name`), si Meta lo manda. */
+  nombrePerfil?: string
   /**
    * Solo si el mensaje es una imagen (ej. la captura de un pago): el cerebro conversacional no la ve, la procesa
    * bot/procesarCapturaPago.ts. Los demás tipos (audio, video, ubicación, documentos) se siguen ignorando.
@@ -56,8 +58,18 @@ export function parsearMensajesWhatsApp(payload: unknown): MensajeWhatsAppEntran
       const listaMensajes = value?.messages
       if (typeof phoneNumberId !== 'string' || !Array.isArray(listaMensajes)) continue
 
+      // Meta manda el nombre del perfil aparte, en `contacts`, enlazado por wa_id.
+      const nombres = new Map<string, string>()
+      if (Array.isArray(value?.contacts)) {
+        for (const c of value.contacts as Record<string, unknown>[]) {
+          const nombre = (c?.profile as Record<string, unknown> | undefined)?.name
+          if (typeof c?.wa_id === 'string' && typeof nombre === 'string' && nombre.trim()) nombres.set(c.wa_id, nombre.trim())
+        }
+      }
+
       for (const msg of listaMensajes) {
         const m = msg as Record<string, unknown>
+        const nombrePerfil = typeof m.from === 'string' ? nombres.get(m.from) : undefined
         if (m.type === 'image') {
           const imagen = m.image as Record<string, unknown> | undefined
           if (typeof m.id !== 'string' || typeof m.from !== 'string' || typeof imagen?.id !== 'string') continue
@@ -66,6 +78,7 @@ export function parsearMensajesWhatsApp(payload: unknown): MensajeWhatsAppEntran
             telefono: m.from,
             texto: typeof imagen.caption === 'string' ? imagen.caption : '',
             phoneNumberId,
+            ...(nombrePerfil ? { nombrePerfil } : {}),
             imagen: { mediaId: imagen.id, mimeType: typeof imagen.mime_type === 'string' ? imagen.mime_type : 'image/jpeg' },
           })
           continue
@@ -73,7 +86,7 @@ export function parsearMensajesWhatsApp(payload: unknown): MensajeWhatsAppEntran
         if (m.type !== 'text') continue
         const texto = (m.text as Record<string, unknown> | undefined)?.body
         if (typeof m.id !== 'string' || typeof m.from !== 'string' || typeof texto !== 'string') continue
-        mensajes.push({ mensajeId: m.id, telefono: m.from, texto, phoneNumberId })
+        mensajes.push({ mensajeId: m.id, telefono: m.from, texto, phoneNumberId, ...(nombrePerfil ? { nombrePerfil } : {}) })
       }
     }
   }

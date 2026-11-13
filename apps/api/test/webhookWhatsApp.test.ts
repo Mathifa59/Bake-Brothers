@@ -225,8 +225,8 @@ describe.skipIf(!hayBaseDeDatosReal)('POST /webhook — async + idempotencia rea
       const telefono = '999000778'
       const mensajeId = `wamid.TEST_DUP_${Date.now()}`
 
-      await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
-      await client.query(`delete from customers where telefono = $1`, [telefono])
+      await client.query(`delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [telefono])
+      await client.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [telefono])
       await client.query(`delete from conversaciones where tenant_id = $1 and canal = 'whatsapp' and external_id = $2`, [
         tenantId,
         telefono,
@@ -278,7 +278,7 @@ describe.skipIf(!hayBaseDeDatosReal)('POST /webhook — async + idempotencia rea
         for (let intento = 0; intento < 20; intento++) {
           await esperar(300)
           const { rows } = await client.query(
-            `select count(*)::int as n from orders where customer_id in (select id from customers where telefono = $1)`,
+            `select count(*)::int as n from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`,
             [telefono]
           )
           ordenesLuego1 = rows[0].n
@@ -300,7 +300,7 @@ describe.skipIf(!hayBaseDeDatosReal)('POST /webhook — async + idempotencia rea
         expect(mockFetch).toHaveBeenCalledTimes(1)
 
         const { rows: ordenesFinal } = await client.query(
-          `select count(*)::int as n from orders where customer_id in (select id from customers where telefono = $1)`,
+          `select count(*)::int as n from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`,
           [telefono]
         )
         expect(ordenesFinal[0].n).toBe(1)
@@ -311,8 +311,8 @@ describe.skipIf(!hayBaseDeDatosReal)('POST /webhook — async + idempotencia rea
         )
         expect((convFinal[0]?.historial ?? []).length).toBe(2)
       } finally {
-        await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
-        await client.query(`delete from customers where telefono = $1`, [telefono])
+        await client.query(`delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [telefono])
+        await client.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [telefono])
         await client.query(`delete from conversaciones where tenant_id = $1 and canal = 'whatsapp' and external_id = $2`, [
           tenantId,
           telefono,

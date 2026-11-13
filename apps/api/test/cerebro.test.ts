@@ -232,8 +232,8 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
     async () => {
       const telefono = '999000001'
       // Limpieza por si quedó basura de una corrida anterior interrumpida.
-      await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
-      await client.query(`delete from customers where telefono = $1`, [telefono])
+      await client.query(`delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [telefono])
+      await client.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [telefono])
 
       const fecha = fechaFuturaNoDomingo(10)
       const mensaje =
@@ -261,14 +261,14 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
         // El cliente dijo que paga por adelantado: el pedido nace pendiente de pago.
         expect(rows[0].estado).toBe('payment_pending')
         expect(rows[0].canal).toBe('whatsapp')
-        expect(rows[0].telefono).toBe(telefono)
+        expect(rows[0].telefono).toBe(`+51${telefono}`)
         expect(Number(rows[0].total)).toBe(9.9)
         expect(rows[0].nombre_producto).toMatch(/carrot cake/i)
         expect(rows[0].product_id).not.toBeNull()
         expect(rows[0].catering_item_id).toBeNull()
       } finally {
-        await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
-        await client.query(`delete from customers where telefono = $1`, [telefono])
+        await client.query(`delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [telefono])
+        await client.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [telefono])
       }
     },
     TIMEOUT_MS_PEDIDO
@@ -278,8 +278,8 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
     '10. Catering (aunque cumpla las reglas) → SIEMPRE lo atiende una persona: no se crea ningún pedido y la conversación se escala',
     async () => {
       const telefono = '999000002'
-      await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
-      await client.query(`delete from customers where telefono = $1`, [telefono])
+      await client.query(`delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [telefono])
+      await client.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [telefono])
 
       const fecha = fechaFuturaNoDomingo(15)
       const mensaje =
@@ -294,13 +294,13 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
         expect(r.pedidosCreados ?? []).toHaveLength(0)
 
         const { rows } = await client.query(
-          `select count(*)::int as n from orders where customer_id in (select id from customers where telefono = $1)`,
+          `select count(*)::int as n from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`,
           [telefono]
         )
         expect(rows[0].n).toBe(0)
       } finally {
-        await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
-        await client.query(`delete from customers where telefono = $1`, [telefono])
+        await client.query(`delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [telefono])
+        await client.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [telefono])
       }
     },
     TIMEOUT_MS
@@ -318,8 +318,8 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
     '11. Combo Grupo 1 (Pack Tres Delicias, composición fija) → crearPedido cierra directo, sin flag',
     async () => {
       const telefono = '999000003'
-      await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
-      await client.query(`delete from customers where telefono = $1`, [telefono])
+      await client.query(`delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [telefono])
+      await client.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [telefono])
 
       const fecha = fechaFuturaNoDomingo(11)
       const mensaje =
@@ -342,7 +342,7 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
         expect(pedidoRows.length).toBe(1)
         // El cliente dijo que paga al recoger ("cuando llegue"): el pedido nace confirmado.
         expect(pedidoRows[0].estado).toBe('confirmed')
-        expect(pedidoRows[0].telefono).toBe(telefono)
+        expect(pedidoRows[0].telefono).toBe(`+51${telefono}`)
         expect(Number(pedidoRows[0].total)).toBe(30.9)
         expect(pedidoRows[0].requiere_confirmar_combo).toBe(false)
 
@@ -357,8 +357,8 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
         expect(itemRows[0].nombre_producto).toMatch(/tres delicias/i)
         expect(Number(itemRows[0].precio_unitario)).toBe(30.9)
       } finally {
-        await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
-        await client.query(`delete from customers where telefono = $1`, [telefono])
+        await client.query(`delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [telefono])
+        await client.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [telefono])
       }
     },
     TIMEOUT_MS_PEDIDO
@@ -368,8 +368,8 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
     '12. Combo Grupo 2 (Tortipack, admite sustitución) → crearPedido cierra CON flag, misma confirmación inmediata',
     async () => {
       const telefono = '999000004'
-      await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
-      await client.query(`delete from customers where telefono = $1`, [telefono])
+      await client.query(`delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [telefono])
+      await client.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [telefono])
 
       const fecha = fechaFuturaNoDomingo(12)
       const mensaje =
@@ -394,7 +394,7 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
         expect(pedidoRows.length).toBe(1)
         // El cliente dijo que paga al recoger ("cuando llegue"): el pedido nace confirmado.
         expect(pedidoRows[0].estado).toBe('confirmed')
-        expect(pedidoRows[0].telefono).toBe(telefono)
+        expect(pedidoRows[0].telefono).toBe(`+51${telefono}`)
         // El combo cobra su precio fijo una sola vez — las líneas de
         // selección son informativas (precio 0), no duplican el total.
         expect(Number(pedidoRows[0].total)).toBe(16)
@@ -420,8 +420,8 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
         }
         expect(lineasSeleccion.some((i) => /carrot/i.test(i.nombre_producto))).toBe(true)
       } finally {
-        await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
-        await client.query(`delete from customers where telefono = $1`, [telefono])
+        await client.query(`delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [telefono])
+        await client.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [telefono])
       }
     },
     TIMEOUT_MS_PEDIDO
@@ -431,8 +431,8 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
     '13. Combo Grupo 3 (Pack 6 empanadas, sin composición definida) → el bot escala, no crea ningún pedido',
     async () => {
       const telefono = '999000005'
-      await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
-      await client.query(`delete from customers where telefono = $1`, [telefono])
+      await client.query(`delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [telefono])
+      await client.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [telefono])
 
       const fecha = fechaFuturaNoDomingo(13)
       const r = await evaluarTurno(
@@ -453,13 +453,13 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
         expect(r.textoRespuesta).not.toMatch(/BB-\d+/)
 
         const { rows } = await client.query(
-          `select count(*)::int as n from orders where customer_id in (select id from customers where telefono = $1)`,
+          `select count(*)::int as n from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`,
           [telefono]
         )
         expect(rows[0].n).toBe(0)
       } finally {
-        await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
-        await client.query(`delete from customers where telefono = $1`, [telefono])
+        await client.query(`delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [telefono])
+        await client.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [telefono])
       }
     },
     TIMEOUT_MS
@@ -469,8 +469,8 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
     '14. Combo exclusivo presencial (Combo Ideal) pedido por WhatsApp → rechazado, ningún pedido creado (mismo criterio que el dashboard en la dirección contraria)',
     async () => {
       const telefono = '999000006'
-      await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
-      await client.query(`delete from customers where telefono = $1`, [telefono])
+      await client.query(`delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [telefono])
+      await client.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [telefono])
 
       const fecha = fechaFuturaNoDomingo(14)
       const r = await evaluarTurno(
@@ -486,13 +486,13 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
         expect(r.textoRespuesta).not.toMatch(/BB-\d+/)
 
         const { rows } = await client.query(
-          `select count(*)::int as n from orders where customer_id in (select id from customers where telefono = $1)`,
+          `select count(*)::int as n from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`,
           [telefono]
         )
         expect(rows[0].n).toBe(0)
       } finally {
-        await client.query(`delete from orders where customer_id in (select id from customers where telefono = $1)`, [telefono])
-        await client.query(`delete from customers where telefono = $1`, [telefono])
+        await client.query(`delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9))`, [telefono])
+        await client.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = right(regexp_replace($1, '\\D', '', 'g'), 9)`, [telefono])
       }
     },
     TIMEOUT_MS
