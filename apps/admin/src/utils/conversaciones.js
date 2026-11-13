@@ -44,7 +44,11 @@ export function ordenarBandeja(conversaciones) {
 /** Índice teléfono (últimos 9 dígitos) → cliente, para mostrar el nombre en vez del número en bruto. */
 export function indexarClientes(clientes) {
   const mapa = new Map()
-  for (const c of clientes ?? []) if (c.telefono) mapa.set(ultimos9(c.telefono), c)
+  for (const c of clientes ?? []) {
+    if (c.telefono) mapa.set(ultimos9(c.telefono), c)
+    // Un cliente con dos números: la conversación que llega por cualquiera de los dos muestra su nombre.
+    if (c.telefono_secundario) mapa.set(ultimos9(c.telefono_secundario), c)
+  }
   return mapa
 }
 

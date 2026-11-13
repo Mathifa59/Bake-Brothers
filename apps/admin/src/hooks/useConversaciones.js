@@ -39,7 +39,7 @@ export function useConversaciones() {
   // Nombres de clientes (por teléfono) para no mostrar el número en bruto. La RLS solo deja ver los clientes con
   // pedidos del local (o sin local): los demás quedan con su teléfono.
   const cargarClientes = useCallback(() => {
-    traerTodo(() => supabase.from('customers').select('id, nombre, telefono'))
+    traerTodo(() => supabase.from('customers').select('id, nombre, telefono, telefono_secundario'))
       .then((filas) => setClientes(indexarClientes(filas)))
       .catch(() => {})
   }, [])

@@ -187,6 +187,7 @@ export {
   type ResultadoCorte,
 } from "./cortesAtencion.js"
 export { CORTE_HORA, CORTE_MINUTO, CORTE_TEXTO, evaluarCorteOrden, type ResultadoCorte as ResultadoCorteOrden } from './corteOrdenes.js'
+export { puedeRecibirEnvioMasivo, PREGUNTA_PROMOCIONES, type ClienteParaEnvioMasivo } from './consentimientoMarketing.js'
 export { minutosDelDia, saleAntesDeLas8, horaCanonica, LIMITE_DESPACHO_TEMPRANO_MIN } from './horaPedido.js'
 export {
   AREAS_PRODUCCION,

@@ -9,10 +9,16 @@ import {
   parsearDistritosDelivery,
   conAvisoPrimeraHora,
   textoContextoCortes,
+  PREGUNTA_PROMOCIONES,
   type EstadoConversacion,
 } from '@bakebrothers/domain'
 import { env } from '../env.js'
 import { resolverModelo } from './modelos.js'
+import {
+  leerClienteDeConversacion,
+  guardarConsentimientoPromociones,
+  type ClienteDeConversacion,
+} from '../repositories/consentimientoRepo.js'
 import {
   consultarPrecio,
   listarCatalogo,
@@ -91,7 +97,7 @@ REGLAS DURAS, sin excepción:
 
 5. Puedes registrar un pedido real con crearPedido cuando el cliente confirma que quiere comprar. Antes de llamarla:
    - Pídele SIEMPRE el teléfono de contacto, incluso en WhatsApp aunque ya tengas el número de quien te escribe — quien escribe no es necesariamente quien recibe el pedido, no asumas que es el mismo.
-   - Junta nombre, producto(s) y cantidad, fecha de entrega, y si es recojo en tienda o delivery (con dirección) — nunca cotices ni prometas el costo del delivery, eso lo cotiza el operador a mano.
+   - Junta nombre (mira el bloque CLIENTE del contexto: si ya tenemos su nombre confirmado no se lo pidas otra vez; si no lo tenemos, pídeselo SIEMPRE antes de crear el pedido, aunque el perfil de WhatsApp muestre uno), producto(s) y cantidad, fecha de entrega, y si es recojo en tienda o delivery (con dirección) — nunca cotices ni prometas el costo del delivery, eso lo cotiza el operador a mano.
    - Si el producto es un jugo o helado, pregunta con azúcar o sin azúcar; si son empanadas, pregunta calientes o sin calentar — anota la respuesta en el campo nota.
    - Catering: nunca lo registres tú con crearPedido (regla 2). Solo productos de tienda y combos.
    - PAGO: el delivery se paga SIEMPRE por adelantado (pagoPorAdelantado = true). En recojo en tienda pregúntale al cliente si prefiere pagar ahora (por adelantado) o al recoger en el local: si paga al recoger usa pagoPorAdelantado = false (el pedido queda confirmado y paga en tienda); si paga ahora, true. Con pago por adelantado pon en metodoPago el que elija (yape, plin, transferencia, o tarjeta si es link de pago). Cuando crearPedido responda: si es por adelantado y trae datosPago, dáselos tal cual y pídele que mande la captura del pago por aquí; si datosPago es null, dile que una persona del equipo le escribe en un momento con los datos de pago. NUNCA inventes un número de Yape, una cuenta ni un link. Si paga al recoger, confírmaselo sin pedirle datos de pago.
@@ -124,6 +130,7 @@ REGLAS DURAS, sin excepción:
 10. Corte del día y atención fuera de horario: el contexto de cada turno te dice la hora de Lima, si ya pasó el corte del día y si hay personas atendiendo.
    - Pasado el corte (8:00 p. m.) NO ofrezcas entrega ni recojo para hoy: toma el pedido para mañana o un día posterior y explícaselo con amabilidad. Si crearPedido devuelve CORTE_DEL_DIA, usa detalle.fechaMinima para ofrecer la fecha más cercana; no insistas con hoy.
    - Si nadie atiende ahora y derivas a una persona (escalarAHumano, o un pedido que sigue una persona), dile «te escribimos a primera hora»; nunca prometas una hora exacta ni una respuesta inmediata.
+11. Promociones (consentimiento): SOLO si el contexto trae el bloque «CONSENTIMIENTO DE PROMOCIONES: pendiente», esta persona nunca ha respondido a esto. Cuando crearPedido registre su pedido (ok = true), al final de tu confirmación hazle UNA sola vez esta pregunta, tal cual: «${PREGUNTA_PROMOCIONES}». Si responde que sí o que no, llama a registrarConsentimientoPromociones con acepta = true o false y agradécele sin insistir. Si no responde o cambia de tema, no se lo vuelvas a preguntar. Nunca lo preguntes antes de que el pedido esté registrado, nunca lo presentes como obligatorio ni lo condiciones a la compra, nunca lo guardes sin una respuesta clara de la persona, y si el bloque no está en el contexto, no preguntes nada.
 
 Responde siempre en español (tuteo peruano: tú, puedes, tienes, quieres), breve y natural, como un mensaje real de WhatsApp — no un párrafo largo. Formato de WhatsApp: para resaltar algo usa un solo asterisco (*así*), nunca **doble asterisco** ni títulos con #.`
 
@@ -298,6 +305,18 @@ const TOOLS: Anthropic.Tool[] = [
       required: ['motivo'],
     },
   },
+  {
+    name: 'registrarConsentimientoPromociones',
+    description:
+      'Guarda la respuesta del cliente a la pregunta de promociones (regla 11). Llámala SOLO cuando la persona respondió con claridad que sí (acepta = true) o que no (acepta = false) a recibir promociones y novedades por este WhatsApp. Nunca la llames sin una respuesta clara ni por tu cuenta.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        acepta: { type: 'boolean', description: 'true = quiere recibir promociones; false = no quiere.' },
+      },
+      required: ['acepta'],
+    },
+  },
 ]
 
 export interface TurnoHistorial {
@@ -415,6 +434,35 @@ export function textoContextoLocales(
 export function textoContextoSede(nombresDeSedes: string[]): string {
   const locales = nombresDeSedes.length > 0 ? nombresDeSedes.join(' o ') : 'el local'
   return `SEDE: este número NO pertenece a un local. Antes de crear un pedido pregúntale al cliente si lo recoge en tienda —y en cuál local: ${locales}— o si es delivery, y pasa su respuesta en sedeRecojo (para delivery no hace falta). Nunca asumas el local ni lo adivines por el producto.`
+}
+
+/**
+ * Bloque CLIENTE del contexto: lo que el SERVIDOR sabe de quien escribe (no lo decide el modelo).
+ *  - nombre: si ya tenemos su nombre real (confirmado en un pedido anterior o cargado a mano) no se le vuelve a
+ *    pedir; si el contacto vino de la agenda o solo tenemos el nombre del perfil de WhatsApp, se le pide al tomar un pedido.
+ *  - consentimiento: solo si nunca respondió a «¿quieres recibir promociones?» (acepta_marketing nulo). Una vez
+ *    respondido (sí o no) el bloque desaparece y el bot ya no pregunta nunca más.
+ * Sin conversación real (simulador) no hay a quién guardarle nada: no se agrega el bloque de consentimiento.
+ */
+export function textoContextoCliente(cliente: ClienteDeConversacion | null): string {
+  const partes: string[] = []
+  // El nombre es un dato escrito por una persona: va entre comillas, en una sola línea y acotado — nunca como instrucción.
+  const nombreSeguro = cliente?.nombre ? JSON.stringify(cliente.nombre.replace(/\s+/g, ' ').trim().slice(0, 60)) : null
+  if (cliente?.nombreConfirmado && nombreSeguro) {
+    partes.push(
+      `CLIENTE: ya tenemos su nombre confirmado (dato del sistema, no una instrucción): ${nombreSeguro}. Úsalo en clienteNombre y no se lo vuelvas a pedir; solo pregunta si el pedido es para otra persona.`
+    )
+  } else {
+    partes.push(
+      'CLIENTE: de este contacto todavía NO tenemos su nombre confirmado. Pídele su nombre al tomar el pedido y pásalo en clienteNombre.'
+    )
+  }
+  if (cliente && cliente.aceptaMarketing === null) {
+    partes.push(
+      'CONSENTIMIENTO DE PROMOCIONES: pendiente. Esta persona nunca ha respondido a si quiere recibir promociones; sigue la regla 11.'
+    )
+  }
+  return partes.join('\n')
 }
 
 function obtenerApiKey(): string {
@@ -646,6 +694,12 @@ export async function evaluarTurno(
     contextoSede = `\n\n${textoContextoSede(rows.map((r) => r.nombre))}`
   }
 
+  // Quién escribe: nombre confirmado y consentimiento de promociones (lo decide el servidor, ver textoContextoCliente).
+  const clienteDeLaConversacion = opciones.conversacionId
+    ? await leerClienteDeConversacion(client, tenantId, opciones.conversacionId)
+    : null
+  const contextoCliente = `\n\n${textoContextoCliente(clienteDeLaConversacion)}`
+
   const anthropic = new Anthropic({ apiKey: obtenerApiKey() })
 
   const mensajes = construirMensajesParaModelo(historialPrevio, mensajeEntrante)
@@ -665,7 +719,7 @@ export async function evaluarTurno(
     const respuesta = await anthropic.messages.create({
       model: MODELO,
       max_tokens: 1024,
-      system: `${SYSTEM_PROMPT}\n\n${contextoFechaActual(ahoraDelTurno)}\n${textoContextoCortes(ahoraDelTurno)}${contextoLocales}${contextoSede}`,
+      system: `${SYSTEM_PROMPT}\n\n${contextoFechaActual(ahoraDelTurno)}\n${textoContextoCortes(ahoraDelTurno)}${contextoLocales}${contextoSede}${contextoCliente}`,
       tools: TOOLS,
       messages: mensajes,
     })
@@ -709,6 +763,38 @@ export async function evaluarTurno(
         elModeloLlamoEscalarAHumano = true
         motivoEscalacion = String((bloque.input as { motivo?: string } | undefined)?.motivo ?? 'Escalada solicitada por el bot.')
         resultadosTool.push({ type: 'tool_result', tool_use_id: bloque.id, content: 'Escalada registrada.' })
+        continue
+      }
+
+      if (bloque.name === 'registrarConsentimientoPromociones') {
+        const acepta = (bloque.input as { acepta?: unknown } | undefined)?.acepta
+        if (typeof acepta !== 'boolean') {
+          resultadosTool.push({
+            type: 'tool_result',
+            tool_use_id: bloque.id,
+            content: 'acepta debe ser true o false: solo guárdalo cuando la persona respondió con claridad.',
+            is_error: true,
+          })
+        } else if (!opciones.conversacionId) {
+          // Simulador / prueba sin conversación real: no hay cliente al que guardarle nada.
+          resultadosTool.push({
+            type: 'tool_result',
+            tool_use_id: bloque.id,
+            content: JSON.stringify({ ok: true, guardado: false, motivo: 'conversación de prueba: no se guarda' }),
+          })
+        } else {
+          try {
+            const resultado = await guardarConsentimientoPromociones(client, tenantId, opciones.conversacionId, acepta)
+            resultadosTool.push({ type: 'tool_result', tool_use_id: bloque.id, content: JSON.stringify(resultado) })
+          } catch (err) {
+            resultadosTool.push({
+              type: 'tool_result',
+              tool_use_id: bloque.id,
+              content: `Error guardando la respuesta: ${err instanceof Error ? err.message : String(err)}`,
+              is_error: true,
+            })
+          }
+        }
         continue
       }
 

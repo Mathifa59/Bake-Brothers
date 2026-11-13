@@ -41,7 +41,7 @@ export async function findOrCreateCustomer(
 
   const buscar = () =>
     client.query<{ id: string; nombre_confirmado: boolean }>(
-      `select id, nombre_confirmado from customers where tenant_id = $1 and telefono = $2`,
+      `select id, nombre_confirmado from customers where tenant_id = $1 and (telefono = $2 or telefono_secundario = $2)`,
       [tenantId, telefono]
     )
   let existente = (await buscar()).rows[0]
@@ -102,7 +102,7 @@ export async function encontrarOCrearClienteDeWhatsApp(
   const telefono = normalizarTelefonoWhatsApp(waId)
   if (!telefono) return null
   const buscar = () =>
-    client.query<{ id: string }>(`select id from customers where tenant_id = $1 and telefono = $2`, [tenantId, telefono])
+    client.query<{ id: string }>(`select id from customers where tenant_id = $1 and (telefono = $2 or telefono_secundario = $2)`, [tenantId, telefono])
   const existente = (await buscar()).rows[0]
   if (existente) return existente.id
   const nombre = nombrePerfil?.trim() || telefonoLegible(telefono)
@@ -286,7 +286,7 @@ export async function listarPedidos(
   if (filtros.telefono) {
     // Se guarda en E.164: el filtro se normaliza igual (si no es un teléfono válido, no puede coincidir con nadie).
     params.push(normalizarTelefono(filtros.telefono) ?? filtros.telefono)
-    condiciones.push(`and c.telefono = $${params.length}`)
+    condiciones.push(`and (c.telefono = $${params.length} or c.telefono_secundario = $${params.length})`)
   }
   if (filtros.correo) {
     params.push(filtros.correo)

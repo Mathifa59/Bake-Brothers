@@ -154,7 +154,9 @@ export async function crearPedido(
   {
     const { rows } = await client.query<{ es_mayorista: boolean }>(
       `select bool_or(es_mayorista) as es_mayorista from customers
-        where tenant_id = $1 and right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = $2`,
+        where tenant_id = $1
+          and (right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = $2
+            or right(regexp_replace(coalesce(telefono_secundario, ''), '\\D', '', 'g'), 9) = $2)`,
       [tenantId, ultimos9(input.cliente.telefono)]
     )
     const corte = validarFechaPorCorte(input.fechaEntregaISO, input.ahora ?? new Date(), rows[0]?.es_mayorista ? 'mayorista' : 'cliente')

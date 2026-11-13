@@ -77,12 +77,15 @@ export default function NuevoPedido() {
     let vivo = true
     supabase
       .from('customers')
-      .select('id, nombre, telefono')
-      .ilike('telefono', `%${ultimos9(telefonoDeLaConversacion)}%`)
+      .select('id, nombre, telefono, telefono_secundario')
+      .or(`telefono.ilike.%${ultimos9(telefonoDeLaConversacion)}%,telefono_secundario.ilike.%${ultimos9(telefonoDeLaConversacion)}%`)
       .limit(5)
       .then(({ data }) => {
         if (!vivo) return
-        const existente = (data ?? []).find((c) => mismoTelefono(c.telefono, telefonoDeLaConversacion))
+        // Puede escribir desde cualquiera de sus dos números; el pedido se registra con el principal del cliente.
+        const existente = (data ?? []).find(
+          (c) => mismoTelefono(c.telefono ?? '', telefonoDeLaConversacion) || mismoTelefono(c.telefono_secundario ?? '', telefonoDeLaConversacion)
+        )
         if (existente) {
           setModoCliente('buscar')
           setClienteSeleccionado(existente)
@@ -107,7 +110,7 @@ export default function NuevoPedido() {
     // mayoristas sin teléfono hacen sus pedidos en Órdenes.
     const texto = `%${busquedaCliente.trim()}%`
     const digitos = busquedaCliente.replace(/\D/g, '')
-    const filtro = digitos.length >= 3 && /^[\d\s+().-]+$/.test(busquedaCliente.trim()) ? `telefono.ilike.%${digitos}%` : `nombre.ilike.${texto},telefono.ilike.${texto}`
+    const filtro = digitos.length >= 3 && /^[\d\s+().-]+$/.test(busquedaCliente.trim()) ? `telefono.ilike.%${digitos}%,telefono_secundario.ilike.%${digitos}%` : `nombre.ilike.${texto},telefono.ilike.${texto},telefono_secundario.ilike.${texto}`
     const t = setTimeout(() => {
       supabase
         .from('customers')

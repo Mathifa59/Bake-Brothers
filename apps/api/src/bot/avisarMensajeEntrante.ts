@@ -25,7 +25,9 @@ export async function avisarMensajeEntrante(
     if (digitos.length === 9) {
       const cliente = await pool.query(
         `select nombre from customers
-          where tenant_id = $1 and nombre is not null and right(regexp_replace(telefono, '\\D', '', 'g'), 9) = $2
+          where tenant_id = $1 and nombre is not null
+            and (right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = $2
+              or right(regexp_replace(coalesce(telefono_secundario, ''), '\\D', '', 'g'), 9) = $2)
           order by creado_en desc limit 1`,
         [tenantId, digitos]
       )

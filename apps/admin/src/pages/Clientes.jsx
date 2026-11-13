@@ -14,7 +14,7 @@ import { Cargando, EncabezadoBloque, ErrorCarga, Hero, Portada, Tarjeta } from '
 // en su sede (política de 0014), y sus pedidos.
 async function cargarClientes() {
   const [clientes, pedidos] = await Promise.all([
-    traerTodo(() => supabase.from('customers').select('id, nombre, telefono, creado_en, es_mayorista, tamano_habitual, es_interno, origen').order('nombre')),
+    traerTodo(() => supabase.from('customers').select('id, nombre, telefono, telefono_secundario, creado_en, es_mayorista, tamano_habitual, es_interno, origen').order('nombre')),
     traerTodo(() => supabase.from('orders').select('customer_id, creado_en, estado').order('creado_en', { ascending: false })),
   ])
   return { clientes, pedidos }
@@ -79,7 +79,7 @@ export default function Clientes() {
   // Nombre sin tildes y teléfono en dígitos, calculados UNA vez (no en cada tecla del buscador).
   const indice = useMemo(() => {
     const m = new Map()
-    for (const c of datos?.clientes ?? []) m.set(c.id, { nombre: sinTildes(c.nombre), digitos: (c.telefono ?? '').replace(/\D/g, '') })
+    for (const c of datos?.clientes ?? []) m.set(c.id, { nombre: sinTildes(c.nombre), digitos: `${c.telefono ?? ''} ${c.telefono_secundario ?? ''}`.replace(/\D/g, '') })
     return m
   }, [datos])
 
@@ -214,7 +214,10 @@ export default function Clientes() {
                               </span>
                             )}
                           </span>
-                          <span className="block text-xs text-gris">{c.telefono ? telefonoLegible(c.telefono) : 'Sin teléfono'}</span>
+                          <span className="block text-xs text-gris">
+                            {c.telefono ? telefonoLegible(c.telefono) : 'Sin teléfono'}
+                            {c.telefono_secundario && <span> · 2.º {telefonoLegible(c.telefono_secundario)}</span>}
+                          </span>
                         </span>
                         <span className="shrink-0 text-right text-[11px] text-gris">
                           Último pedido
