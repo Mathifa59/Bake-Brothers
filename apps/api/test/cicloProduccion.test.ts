@@ -1,6 +1,6 @@
 // Ciclo Órdenes → Producción → Stock, de punta a punta contra Postgres real y las rutas reales:
 //   · órdenes de mayoristas (cantidades por sabor, total por cotizar, «repetir el anterior») y de Rappi;
-//   · corte de las 10:30 p. m. (avisa, no bloquea);
+//   · corte de las 11:00 p. m. (avisa, no bloquea);
 //   · empanada MEDIANA oculta para la web y el bot;
 //   · plan del día (por pedido + vitrina) y hojas para imprimir (PDF);
 //   · «producido» deja el stock de la sede disponible, suma el conteo solo si se lleva y no duplica al repetir;
@@ -194,7 +194,7 @@ describe.skipIf(!hayBaseDeDatosReal)('ciclo Órdenes → Producción → Stock',
   })
 
   // ———————————————————————————————————————————————————— corte 10:30 p. m. ————
-  describe('corte de las 10:30 p. m.: avisa, no bloquea', () => {
+  describe('corte de las 11:00 p. m.: avisa, no bloquea', () => {
     const conAhora = async (iso: string) => {
       const c = await pool.connect()
       try {
@@ -215,14 +215,14 @@ describe.skipIf(!hayBaseDeDatosReal)('ciclo Órdenes → Producción → Stock',
         c.release()
       }
     }
-    // Entrega el lunes 10/03/2031: el corte es el domingo 09/03 a las 22:30 hora de Lima (= 03:30Z del lunes).
-    it('registrada el domingo 10:29 p. m. → a tiempo', async () => {
-      const { r, fuera } = await conAhora('2031-03-10T03:29:00Z')
+    // Entrega el lunes 10/03/2031: el corte es el domingo 09/03 a las 23:00 hora de Lima (= 04:00Z del lunes).
+    it('registrada el domingo 10:59 p. m. → a tiempo', async () => {
+      const { r, fuera } = await conAhora('2031-03-10T03:59:00Z')
       expect(r.ok).toBe(true)
       expect(fuera).toBe(false)
     })
-    it('registrada el domingo 10:30 p. m. → se registra igual, marcada fuera de corte', async () => {
-      const { r, fuera } = await conAhora('2031-03-10T03:30:00Z')
+    it('registrada el domingo 11:00 p. m. → se registra igual, marcada fuera de corte', async () => {
+      const { r, fuera } = await conAhora('2031-03-10T04:00:00Z')
       expect(r.ok).toBe(true) // no bloquea
       if (r.ok) expect(r.corte).toEqual({ fueraDeCorte: true, motivo: 'pasado_el_corte' })
       expect(fuera).toBe(true)
@@ -282,7 +282,7 @@ describe.skipIf(!hayBaseDeDatosReal)('ciclo Órdenes → Producción → Stock',
           fechaEntregaISO: LUNES,
           items: [{ productoId: prod['Cupcakes Artesanal'], cantidad: 1 }],
           total: 8.9,
-          ahora: new Date('2031-03-10T03:45:00Z'),
+          ahora: new Date('2031-03-10T04:15:00Z'),
         })
         expect(r.ok && r.corte.fueraDeCorte).toBe(true)
         await c.query('rollback')

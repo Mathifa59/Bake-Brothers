@@ -6,6 +6,7 @@ import Stepper from './Stepper'
 import ListaProductos from './ListaProductos'
 import SelectorHora from './SelectorHora'
 import BarraRegistrar from './BarraRegistrar'
+import { CORTE_TEXTO } from '@bakebrothers/domain'
 
 const TAMANOS = ['Mediana', 'Grande']
 const clave = (id, tamano) => `${id}|${tamano}`
@@ -13,7 +14,7 @@ const clave = (id, tamano) => `${id}|${tamano}`
 /**
  * Orden de un mayorista, tan rápida como mandar un mensaje: cliente (con su tamaño y hora habituales), hora,
  * cantidad por sabor y una línea de postres. «Repetir el anterior» carga lo de su última orden. El precio no se
- * pide: queda por cotizar. Pasado el corte de las 10:30 p. m. se avisa, pero se registra igual.
+ * pide: queda por cotizar. Pasado el corte de las 11:00 p. m. se avisa, pero se registra igual.
  */
 export default function FormMayorista({ empanadas, postres, mayoristas, fecha, corte, onRegistrada, sedeId }) {
   const [clienteId, setClienteId] = useState('')
@@ -137,7 +138,7 @@ export default function FormMayorista({ empanadas, postres, mayoristas, fecha, c
       {corte?.fueraDeCorte && (
         <p role="status" className="rounded-xl bg-acento-suave px-3 py-2.5 text-sm font-semibold text-acento-oscuro">
           {corte.motivo === 'pasado_el_corte'
-            ? 'Ya pasó el corte de las 10:30 p. m. Se registra igual, pero queda marcada como fuera de corte.'
+            ? `Ya pasó el corte de las ${CORTE_TEXTO}. Se registra igual, pero queda marcada como fuera de corte.`
             : 'Esta orden es para hoy o antes: queda marcada como fuera de corte.'}
         </p>
       )}

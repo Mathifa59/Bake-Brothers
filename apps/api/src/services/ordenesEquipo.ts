@@ -18,7 +18,7 @@ import {
  * Órdenes de equipo (reemplazan al grupo de WhatsApp + Excel de la noche): MAYORISTAS (cantidad por sabor, el total
  * se cotiza después) y RAPPI (la orden de la tablet: número, productos, total). Las dos entran como pedidos
  * normales (`confirmed`, mismo número `BB-…`, mismos estados) para que Pedidos, Producción y el plan del día las
- * vean sin un camino aparte. El corte de las 10:30 p. m. AVISA, no bloquea (`fuera_de_corte`).
+ * vean sin un camino aparte. El corte de las 11:00 p. m. AVISA, no bloquea (`fuera_de_corte`).
  *
  * No se captura el pago aquí: el mayorista se factura/cobra aparte y Rappi liquida con el negocio. `metodo_pago`
  * es obligatorio en `orders`, así que se guarda 'transferencia' como valor neutro — no es un dato del cliente.

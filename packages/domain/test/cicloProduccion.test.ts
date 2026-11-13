@@ -46,28 +46,28 @@ describe('hora de un pedido', () => {
   })
 })
 
-describe('corte de las 10:30 p. m. (hora de Lima)', () => {
-  // Lima = UTC-5: 22:29 Lima = 03:29Z del día siguiente.
+describe('corte de las 11:00 p. m. (hora de Lima)', () => {
+  // Lima = UTC-5: 22:59 Lima = 03:59Z del día siguiente.
   const lima = (fecha: string, hhmm: string) => new Date(`${fecha}T${hhmm}:00-05:00`)
 
-  it('para mañana, a las 10:29 p. m. de hoy → a tiempo', () => {
-    expect(evaluarCorteOrden(lima('2026-11-06', '22:29'), '2026-11-07')).toEqual({ fueraDeCorte: false, motivo: null })
+  it('para mañana, a las 10:59 p. m. de hoy → a tiempo', () => {
+    expect(evaluarCorteOrden(lima('2026-11-06', '22:59'), '2026-11-07')).toEqual({ fueraDeCorte: false, motivo: null })
   })
-  it('para mañana, a las 10:30 p. m. en punto → fuera de corte (avisa, no bloquea)', () => {
-    expect(evaluarCorteOrden(lima('2026-11-06', '22:30'), '2026-11-07')).toEqual({ fueraDeCorte: true, motivo: 'pasado_el_corte' })
+  it('para mañana, a las 11:00 p. m. en punto → fuera de corte (avisa, no bloquea)', () => {
+    expect(evaluarCorteOrden(lima('2026-11-06', '23:00'), '2026-11-07')).toEqual({ fueraDeCorte: true, motivo: 'pasado_el_corte' })
     expect(evaluarCorteOrden(lima('2026-11-06', '23:59'), '2026-11-07').fueraDeCorte).toBe(true)
   })
-  it('usa la hora de Lima aunque el servidor esté en UTC: 10:45 p. m. Lima ya es el día siguiente en UTC', () => {
-    // 03:45Z del 07/11 = 22:45 del 06/11 en Lima: «mañana» es el 07, y ya pasó el corte (leído en UTC, el 07 sería «hoy»).
-    expect(evaluarCorteOrden(new Date('2026-11-07T03:45:00Z'), '2026-11-07').motivo).toBe('pasado_el_corte')
-    expect(evaluarCorteOrden(new Date('2026-11-07T03:45:00Z'), '2026-11-08').fueraDeCorte).toBe(false)
+  it('usa la hora de Lima aunque el servidor esté en UTC: 11:15 p. m. Lima ya es el día siguiente en UTC', () => {
+    // 04:15Z del 07/11 = 23:15 del 06/11 en Lima: «mañana» es el 07, y ya pasó el corte (leído en UTC, el 07 sería «hoy»).
+    expect(evaluarCorteOrden(new Date('2026-11-07T04:15:00Z'), '2026-11-07').motivo).toBe('pasado_el_corte')
+    expect(evaluarCorteOrden(new Date('2026-11-07T04:15:00Z'), '2026-11-08').fueraDeCorte).toBe(false)
   })
   it('para hoy o una fecha pasada → fuera de corte', () => {
     expect(evaluarCorteOrden(lima('2026-11-06', '09:00'), '2026-11-06')).toEqual({ fueraDeCorte: true, motivo: 'para_hoy_o_antes' })
     expect(evaluarCorteOrden(lima('2026-11-06', '09:00'), '2026-11-04').fueraDeCorte).toBe(true)
   })
   it('para pasado mañana o más: todavía no llega su corte', () => {
-    expect(evaluarCorteOrden(lima('2026-11-06', '23:30'), '2026-11-08').fueraDeCorte).toBe(false)
+    expect(evaluarCorteOrden(lima('2026-11-06', '23:45'), '2026-11-08').fueraDeCorte).toBe(false)
   })
 })
 

@@ -165,7 +165,7 @@ export interface OrderInsert {
   // packages/domain campana.ts). null si no vino de ninguna.
   campana?: string | null
   // Órdenes de equipo (0039): número de orden de Rappi, total por cotizar (mayoristas) y si se registró pasado el
-  // corte de las 10:30 p. m. Nulos/false para todo lo demás.
+  // corte de las 11:00 p. m. Nulos/false para todo lo demás.
   referenciaExterna?: string | null
   totalPendiente?: boolean
   fueraDeCorte?: boolean

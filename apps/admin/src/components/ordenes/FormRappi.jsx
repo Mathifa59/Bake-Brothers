@@ -5,6 +5,7 @@ import { mensajeDeError } from '../../utils/ordenes'
 import ListaProductos from './ListaProductos'
 import SelectorHora from './SelectorHora'
 import BarraRegistrar from './BarraRegistrar'
+import { CORTE_TEXTO } from '@bakebrothers/domain'
 
 /**
  * Registro rápido de la orden de la tablet de Rappi: número de orden, productos y el total tal cual lo dice la
@@ -79,7 +80,7 @@ export default function FormRappi({ productos, fecha, corte, onRegistrada, sedeI
       {corte?.fueraDeCorte && (
         <p role="status" className="rounded-xl bg-acento-suave px-3 py-2.5 text-sm font-semibold text-acento-oscuro">
           {corte.motivo === 'pasado_el_corte'
-            ? 'Ya pasó el corte de las 10:30 p. m. Se registra igual, pero queda marcada como fuera de corte.'
+            ? `Ya pasó el corte de las ${CORTE_TEXTO}. Se registra igual, pero queda marcada como fuera de corte.`
             : 'Esta orden es para hoy o antes: queda marcada como fuera de corte.'}
         </p>
       )}
