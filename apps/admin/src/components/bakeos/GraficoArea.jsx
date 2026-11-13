@@ -1,8 +1,9 @@
 import { useId } from 'react'
+import { useAncho } from '../../lib/useAncho'
 
-const W = 320
-const H = 150
-const M = { izq: 40, der: 8, arr: 8, abajo: 22 }
+// Dibujado a tamaño real: el ancho sale del contenedor (useAncho), el alto es fijo y el texto mide siempre 11 px.
+const M = { izq: 56, der: 12, arr: 10, abajo: 26 }
+const PX_POR_ETIQUETA = 72
 
 /** "10 a. m." / "6 p. m." para una hora 0-23. */
 export function etiquetaHora(h) {
@@ -10,9 +11,10 @@ export function etiquetaHora(h) {
   return `${h % 12 === 0 ? 12 : h % 12} ${suf}`
 }
 
-// Escala "bonita" para el eje Y: 4 divisiones con paso redondo (100, 200, 500…).
+// Escala "bonita" para el eje Y: 4 divisiones con paso redondo (100, 200, 500…). Sin ventas, 0-25-50-75-100.
 function escalaY(max) {
-  const bruto = Math.max(max, 1) / 4
+  if (max <= 0) return { paso: 25, tope: 100 }
+  const bruto = max / 4
   const mag = 10 ** Math.floor(Math.log10(bruto))
   const paso = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((p) => p >= bruto) ?? mag * 10
   return { paso, tope: paso * 4 }
@@ -25,7 +27,9 @@ function escalaY(max) {
  */
 export default function GraficoArea({ puntos, alt }) {
   const id = useId().replace(/:/g, '')
+  const [ref, W] = useAncho(320)
   if (!puntos.length) return null
+  const H = W >= 640 ? 220 : 170
   const { paso, tope } = escalaY(Math.max(...puntos.map((p) => p.ventas)))
   const ancho = W - M.izq - M.der
   const alto = H - M.arr - M.abajo
@@ -33,33 +37,37 @@ export default function GraficoArea({ puntos, alt }) {
   const y = (v) => M.arr + alto - (v / tope) * alto
   const linea = puntos.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.ventas).toFixed(1)}`).join(' ')
   const area = `${linea} L${x(puntos.length - 1).toFixed(1)},${M.arr + alto} L${x(0).toFixed(1)},${M.arr + alto} Z`
-  const cadaN = puntos.length > 8 ? 2 : 1
+  // Una etiqueta cada tantos puntos como quepan sin pisarse (≈72 px por etiqueta).
+  const caben = Math.max(1, Math.floor(ancho / PX_POR_ETIQUETA))
+  const cadaN = Math.max(1, Math.ceil(puntos.length / caben))
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={alt} className="h-auto w-full">
-      <defs>
-        <linearGradient id={`g${id}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#D86820" stopOpacity="0.28" />
-          <stop offset="100%" stopColor="#D86820" stopOpacity="0.03" />
-        </linearGradient>
-      </defs>
-      {[0, 1, 2, 3, 4].map((i) => (
-        <g key={i}>
-          <line x1={M.izq} x2={W - M.der} y1={y(i * paso)} y2={y(i * paso)} stroke="#E8E5DE" strokeWidth="1" />
-          <text x={M.izq - 6} y={y(i * paso) + 3} textAnchor="end" fontSize="9" fill="#6B665E">
-            S/ {i * paso}
-          </text>
-        </g>
-      ))}
-      <path d={area} fill={`url(#g${id})`} />
-      <path d={linea} fill="none" stroke="#D86820" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-      {puntos.map((p, i) =>
-        i % cadaN === 0 ? (
-          <text key={p.hora} x={x(i)} y={H - 6} textAnchor="middle" fontSize="9" fill="#6B665E">
-            {etiquetaHora(p.hora)}
-          </text>
-        ) : null
-      )}
-    </svg>
+    <div ref={ref} className="w-full">
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={alt} className="block max-w-full">
+        <defs>
+          <linearGradient id={`g${id}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#D86820" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="#D86820" stopOpacity="0.03" />
+          </linearGradient>
+        </defs>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <g key={i}>
+            <line x1={M.izq} x2={W - M.der} y1={y(i * paso)} y2={y(i * paso)} stroke="#E8E5DE" strokeWidth="1" />
+            <text x={M.izq - 8} y={y(i * paso) + 4} textAnchor="end" fontSize="11" fill="#6B665E">
+              S/ {i * paso}
+            </text>
+          </g>
+        ))}
+        <path d={area} fill={`url(#g${id})`} />
+        <path d={linea} fill="none" stroke="#D86820" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        {puntos.map((p, i) =>
+          i % cadaN === 0 ? (
+            <text key={p.hora} x={x(i)} y={H - 7} textAnchor="middle" fontSize="11" fill="#6B665E">
+              {etiquetaHora(p.hora)}
+            </text>
+          ) : null
+        )}
+      </svg>
+    </div>
   )
 }
