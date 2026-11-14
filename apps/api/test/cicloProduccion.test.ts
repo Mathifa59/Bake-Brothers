@@ -293,11 +293,11 @@ describe.skipIf(!hayBaseDeDatosReal)('ciclo Órdenes → Producción → Stock',
   })
 
   // ————————————————————————————————————————————— MEDIANA oculta (web y bot) ————
-  describe('empanada MEDIANA: oculta para la web y el bot, sin precio hasta confirmarlo', () => {
-    it('existe en la base en los 10 sabores, oculta y sin precio', async () => {
+  describe('empanada MEDIANA: oculta para la web y el bot, «desde S/ 5.00» (migración 0049)', () => {
+    it('existe en la base en los 10 sabores, oculta y con su precio desde S/ 5.00', async () => {
       const { rows } = await pool.query(`select visible_publico, precio from product_sizes where tamano = 'Mediana'`)
       expect(rows).toHaveLength(10)
-      expect(rows.every((r) => r.visible_publico === false && r.precio === null)).toBe(true)
+      expect(rows.every((r) => r.visible_publico === false && Number(r.precio) === 5)).toBe(true)
     })
     it('el catálogo de la web sigue diciendo que la empanada no tiene tamaños', async () => {
       const c = await pool.connect()
