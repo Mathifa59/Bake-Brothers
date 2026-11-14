@@ -1782,9 +1782,30 @@ Estado de cada punto: **[código]** hecho en la rama, con pruebas · **[base]** 
   - **Pruebas:** `apps/api/test/clientesTelefonoSecundario.test.ts` (11: formato, secundario sin principal/igual, repetido, cruces en insert y update, reconocimiento por bot y pedidos, corte de mayorista con el segundo número). API 561 pasan / 65 saltados / 0 fallos; build del panel OK. **Pendiente de verificar a ojo en el panel** (necesita sesión real).
 - **`GET /health` ahora dice qué commit corre (2026-11-13):** `{"ok":true,"commit":"25a7044"}` — solo el hash corto (7 hex) de `SOURCE_COMMIT` (que entrega Coolify; el Dockerfile lo declara también como `ARG`/`ENV`) o `GIT_COMMIT_SHA`; con algo que no sea un hash, o sin variable, devuelve `"desconocido"` y el healthcheck sigue en 200 (`src/version.ts`, `test/versionHealth.test.ts`). **Cómo verificar un Redeploy desde fuera:** `curl https://api.bake-brothers.com/health` y comparar `commit` con `git rev-parse --short HEAD`. Si dice `desconocido` tras el primer deploy con este código, Coolify no está entregando `SOURCE_COMMIT` en ejecución: agregarlo a mano en las variables de la app (o revisar el log del deploy).
 
-### Horarios: una sola fuente (rama `feature/horarios-una-fuente`, sin mergear hasta el OK de Mathias)
+### Horarios: una sola fuente (en `main` desde el 2026-11-14; migración 0051 aplicada)
 - **La tabla por día `sedes_horarios` es la única fuente** del horario de cada local. De ahí se generan, con lógica pura del dominio (`packages/domain/src/horarioSemanal.ts`, que junta los días iguales en rangos, también dando la vuelta a la semana: «viernes a miércoles»): (1) el **texto que lee el bot** (`textoHorarioBot`, en cada turno desde `horariosDeLocales`; ya no lee `sedes.horario`); (2) los **renglones de la web** («Lunes a sábado · 7:30 a. m. – 8:30 p. m.», `renglonesHorarioWeb`) y (3) el **JSON-LD** de Google (`horarioJsonLd`, `openingHoursSpecification`).
 - **Cómo se cambia un horario (un solo lugar):** se cambia `sedes_horarios` (un `update`/migración). El bot lo toma en el siguiente mensaje, sin deploy. Para la web, que es estática y no consulta la API: correr `pnpm --filter @bakebrothers/api horarios:web` (con `DATABASE_URL` de la base real; reescribe `apps/web/src/config/horarios.generated.json`; se niega a escribir si algún local no tiene horario) y commitear/publicar. El JSON-LD de `apps/web/index.html` lleva marcadores `__HORARIOS_JSONLD_*__` que el build reemplaza con ese archivo (plugin en `apps/web/vite.config.js`). **Un test compara el archivo del repo contra la tabla** (`horariosUnaFuente.test.ts`): si el horario cambia y no se regenera la web, el test falla.
 - **`sedes.horario` (texto):** en desuso desde la 0051 (solo un comentario de columna; no se borró porque la API anterior todavía la seleccionaba). Se puede borrar en una migración posterior, ya sin despliegues viejos. El mediodía ahora sale como «12:00 p. m.» (antes «12:00 m.»).
 - **Pruebas:** dominio 423 · API 623 pasan, 0 fallos; build de la web verificado (el JSON-LD generado es idéntico al que se escribía a mano). La tabla real tiene los mismos datos que la local (verificado fila por fila).
-- **Para mergear:** aplicar la **0051** al Supabase real (solo un comentario) y Redeploy de la API (el bot deja de leer `sedes.horario`); la web se publica sola con el push a `main`.
+
+#### Cómo cambiar un horario (pasos exactos)
+Ejemplo: Cedros pasa a abrir los sábados a las 9:00 a. m. y a cerrar a las 2:00 p. m. El horario vive **solo** en la tabla `sedes_horarios` (una fila por local y día; `dia_semana` 0 = domingo … 6 = sábado; un día sin fila = cerrado; se recoge desde `abre` hasta antes de `cierra`).
+
+1. **Cambiar la tabla** (Supabase → SQL Editor, o una migración nueva `00NN_...sql` en `apps/api/migrations/` para que quede en el historial; si es migración, aplicarla al Supabase real y registrarla):
+   ```sql
+   update sedes_horarios set abre = '09:00', cierra = '14:00'
+    where dia_semana = 6 and sede_id = (select id from sedes where nombre = 'Cedros');
+   -- cerrar un día: delete from sedes_horarios where dia_semana = 0 and sede_id = (select id from sedes where nombre = 'Cedros');
+   -- abrir un día que estaba cerrado: insert into sedes_horarios (sede_id, dia_semana, abre, cierra) values ((select id from sedes where nombre = 'Cedros'), 0, '10:30', '20:30');
+   ```
+   **Con esto el bot ya lo usa** en el siguiente mensaje (texto del prompt, horas que ofrece y validación del recojo en el servidor): no hace falta Redeploy.
+2. **Regenerar la web** (desde la raíz del repo, con `apps/api/.env` apuntando a la base real; `npx pnpm` no existe en este equipo: usar `pnpm` instalado o `npx tsx`):
+   ```bash
+   cd apps/api
+   pnpm horarios:web
+   ```
+   Reescribe `apps/web/src/config/horarios.generated.json` (renglones de «Nuestros locales» y JSON-LD) y muestra el horario de cada local en pantalla para revisarlo. Se niega a escribir si algún local no tiene horario.
+3. **Revisar y publicar**: `git diff apps/web/src/config/horarios.generated.json` (solo debe cambiar lo que cambiaste), `pnpm test` (el test `horariosUnaFuente.test.ts` falla si el archivo no coincide con la tabla), y luego `git add apps/web/src/config/horarios.generated.json` (más la migración, si hiciste una), `git commit` y `git push origin main`. Vercel publica la web sola (1–2 min).
+4. **Comprobar**: en `https://www.bakebrothers.pe/locales` los renglones nuevos, y en el código fuente de la página el bloque `application/ld+json` con `openingHoursSpecification` del local.
+
+**No se edita a mano** `horarios.generated.json`, ni el JSON-LD de `apps/web/index.html` (lleva marcadores que el build reemplaza), ni la columna de texto `sedes.horario` (en desuso: nada la lee). El horario de las **personas que atienden WhatsApp** es otra cosa y vive en `packages/domain/src/cortesAtencion.ts`.
