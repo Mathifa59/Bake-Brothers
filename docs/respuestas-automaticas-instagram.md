@@ -99,7 +99,7 @@ Hasta que se apruebe, las respuestas automáticas no llegan a los clientes.
       `POST https://graph.facebook.com/v21.0/{PAGE_ID}/subscribed_apps?subscribed_fields=feed` → `{ "success": true }`.
 - [ ] **Roles para probar:** dar rol de *tester* (o desarrollador) en la app a 1 o 2 cuentas de Instagram del equipo, que
       son las que van a comentar en la prueba mientras no esté la revisión.
-- [ ] **App Review:** pedir acceso avanzado según la tabla de arriba.
+- [ ] **App Review:** pedir acceso avanzado según la tabla de arriba (paso a paso en la sección 6).
 - [ ] La app en modo **Live** (ya lo está por WhatsApp).
 
 **Los dos ids que hacen falta:**
@@ -153,8 +153,174 @@ Hasta que se apruebe, las respuestas automáticas no llegan a los clientes.
   clientes → Por campaña).
 - Una campaña se **pausa** (deja de responder) sin perder sus números; los links ya enviados siguen funcionando.
 
+## 6. Pasos para la App Review
+
+> Para que las respuestas automáticas lleguen a **cualquier persona que comente** (no solo a las cuentas con rol en la app),
+> Meta tiene que aprobar el **acceso avanzado** de `instagram_manage_comments`, `pages_messaging` y la función **Human
+> Agent**. Esta sección dice qué preparar, qué mostrar en los videos y qué escribir en cada permiso. Lo marcado
+> *(verificar en pantalla)* depende de cómo se vea el formulario de Meta ese día; lo marcado **(no confirmado)** no figura
+> en la documentación oficial que se pudo leer. Meta dice que suele decidir **en una semana**, pero los tiempos los pone Meta.
+
+### 6.1 Antes de enviar (si falta algo, Meta rechaza todo el envío)
+
+**Verificación del negocio** (la hace un **administrador del portafolio** en Configuración del negocio → Centro de
+seguridad / Verificación del negocio *(verificar en pantalla)*). Meta la exige para cualquier acceso avanzado. El
+checklist de `docs/migracion-numero.md` ya la pedía para WhatsApp: si el portafolio **ya está verificado**, este paso está
+hecho; confirmarlo en pantalla.
+
+Si todavía no lo está, Meta pide (lista general; la lista oficial de documentos aceptados es **por país** y está en el
+artículo de ayuda de Meta *About Business Verification*: revisarla para Perú antes de subir nada):
+
+| Dato | Qué poner |
+|---|---|
+| Razón social | La **exacta** de la empresa dueña del portafolio (la que figura en el documento que se sube). Bake Brothers tiene dos razones sociales (Corporación Hermanos Loarte S.A.C. y Baker Brothers E.I.R.L.): usar la que sea dueña del portafolio de Meta. |
+| Dirección y teléfono | **Idénticos** a como aparecen en el documento (Meta rechaza diferencias parciales). |
+| Sitio web | `https://www.bakebrothers.pe`. Conviene **verificar el dominio** en el portafolio (Configuración del negocio → Seguridad de la marca → Dominios, con etiqueta meta o registro DNS TXT) *(verificar en pantalla)*. |
+| Correo | Mejor uno con el dominio de la marca (`@bakebrothers.pe`) que uno de Gmail **(no confirmado: lo recomiendan guías de terceros)**. |
+| Documento oficial | Uno vigente, no editado, que muestre la razón social **y** la dirección o el teléfono cargados. Para Perú lo esperable es la **Ficha RUC de SUNAT** o la **licencia municipal de funcionamiento**; también se suele aceptar un **extracto bancario de la empresa** **(no confirmado: comprobar en la lista de Meta para Perú)**. **No sirven:** facturas, boletas, capturas de pantalla, impresiones de la web ni documentos vencidos. |
+
+**Configuración de la app** (App Dashboard → Configuración → Básica):
+- [ ] Ícono de 1024 × 1024.
+- [ ] URL de la política de privacidad: `https://www.bakebrothers.pe/privacidad` (ya existe; conviene que mencione que se
+      procesan comentarios y mensajes de Instagram para responderlos).
+- [ ] Propósito de la app: **«Tú mismo o tu propia empresa»** (no «Clientes»).
+- [ ] Categoría (por ejemplo *Business and Pages* / *Mensajería*) y correo de contacto: los avisos de la revisión llegan ahí.
+
+**Llamadas de prueba:** Meta pide **al menos una llamada exitosa a la API por cada permiso** en los **30 días** previos al
+envío. Se cumplen haciendo la prueba de la sección 4 con una cuenta *tester*: el comentario dispara la respuesta pública
+(`instagram_manage_comments`) y la respuesta privada (`pages_messaging`). Si hace falta, también desde el Graph API Explorer.
+
+**Pedir solo lo que se usa** (pedir de más es un motivo común de rechazo):
+
+| Pedir acceso avanzado | Por qué |
+|---|---|
+| `instagram_manage_comments` | Leer el comentario y responderlo en público. |
+| `pages_messaging` | Mandar la respuesta privada al comentario. |
+| Función **Human Agent** | Meta la lista como requisito de las respuestas privadas (*Private Replies*). Su uso permitido es que **una persona** responda dentro de 7 días cuando algo no se resuelve en la ventana normal. Si el formulario no la exige una vez aprobado `pages_messaging`, **no pedirla** **(no confirmado: depende de lo que muestre el formulario)**. |
+| `instagram_basic`, `pages_read_engagement`, `pages_show_list` | Son dependencias de `instagram_manage_comments` según Meta; el formulario las suele agregar solo. |
+| `pages_manage_metadata` | Dependencia de `pages_messaging` (y la usa la suscripción de la página al webhook). |
+
+> Ojo: en la tabla de permisos de Meta, las columnas «qué incluir en la revisión» de `instagram_manage_comments` y
+> `pages_messaging` tienen textos copiados de otros permisos (hablan de publicar fotos y de anuncios). No seguir esos
+> textos: describir el uso real, como abajo.
+
+### 6.2 Cómo van a probar los revisores
+
+Meta prueba la app con **sus propias cuentas** (nunca se les da la contraseña de nadie del equipo) y **rechaza todo el envío
+si no puede probarla**. Bake OS no tiene una pantalla pública: lo que el revisor puede probar es Instagram. En
+«Verificación de la app» / instrucciones de prueba poner (en inglés):
+
+```
+How to test:
+1. During the review, the keyword "BAKETEST" is active on our account @bakebrothers.pe.
+2. Open any Reel of https://www.instagram.com/bakebrothers.pe/ and comment "BAKETEST".
+3. Within a few seconds you will see a public reply under your comment, and a private reply (Private Replies API)
+   in your Instagram inbox or Message Requests folder, with a link to order via WhatsApp.
+4. Tapping the link opens a WhatsApp chat with our business number, with the message pre-filled.
+The management screen (Bake OS, our internal back office) is shown in the screen recordings; it contains customer
+data, so no login is shared.
+```
+
+Antes de enviar: crear en el panel la respuesta automática **BAKETEST** (activa durante toda la revisión) y probarla desde una
+cuenta *tester*.
+
+### 6.3 Qué mostrar en los videos
+
+Reglas de Meta para los videos: **uno por permiso o función** (sin video, ese permiso no se aprueba); en **1080 p** o más,
+con el ancho de pantalla en **1440 o menos**; solo la ventana de la app o la pantalla completa; **sin audio** (no lo
+escuchan); usar el mouse; si la interfaz no está en inglés, **subtítulos o rótulos en inglés** explicando cada paso;
+empezar **sin sesión iniciada** y mostrar el inicio de sesión y la **pantalla donde se conceden los permisos**.
+
+Guion base (el mismo flujo, con el foco en el permiso de cada video):
+
+1. **Conceder permisos:** inicio de sesión con Facebook y la pantalla donde la página y la cuenta de Instagram le dan los
+   permisos a la app *(con token de usuario del sistema no hay esta pantalla para el cliente: mostrar la asignación de
+   activos y permisos en Configuración del negocio → Usuarios del sistema, verificar en pantalla)*.
+2. **Bake OS → Respuestas automáticas:** crear la respuesta con la palabra **BAKETEST** (formulario y vista previa) y mostrarla
+   activa.
+3. **Instagram (app o web), con otra cuenta:** comentar «TEST» en un reel de @bakebrothers.pe.
+4. Se ve la **respuesta pública** bajo el comentario.
+5. Se ve la **respuesta privada** en la bandeja (o «Solicitudes») de esa cuenta, con el link.
+6. Se toca el link y se abre **WhatsApp** con el mensaje escrito.
+7. De vuelta en **Bake OS:** «Actividad» muestra el comentario como **DM enviado** y la tarjeta de la campaña suma
+   comentario, DM y clic.
+
+| Video | En qué hacer foco |
+|---|---|
+| `instagram_manage_comments` | Pasos 2 a 4 y 7: el comentario llega a Bake OS y la app lo **responde en público**; mostrar que la respuesta aparece en la app nativa de Instagram. |
+| `pages_messaging` | Pasos 3, 5 y 7: la app **envía** la respuesta privada y la persona la **recibe**. Meta pide ver que el mensaje **sale desde la app** (no capturas del mensaje recibido) y una **petición cURL** del envío: mostrar el `curl` a `POST /{PAGE_ID}/messages` con `recipient.comment_id` (o el *API Integration Helper* del panel de Messenger). |
+| Human Agent | El caso de uso: la persona responde a la respuesta privada con una pregunta que el mensaje automático no resuelve y **alguien del equipo** le contesta dentro de los 7 días. **Bake OS hoy no tiene bandeja de Instagram**: si Meta exige demostrarlo con la app, este video no se puede grabar todavía (ver «Fase siguiente»). |
+
+### 6.4 Qué escribir en cada permiso (en inglés, uno distinto para cada uno; Meta pide no copiar y pegar)
+
+**instagram_manage_comments**
+```
+Bake Brothers is a bakery in Lima, Peru (@bakebrothers.pe). In our Reels we invite followers to comment a keyword
+(for example "ALFAJOR") to receive the details of a product. Our internal back office (Bake OS), used only by our own
+staff, receives the "comments" webhook for our own Instagram professional account, checks whether the comment
+contains an active campaign keyword, and replies publicly to that comment (POST /{comment-id}/replies) with a short
+confirmation such as "We sent you the details by DM". We only read comments on our own account's media and only reply
+to comments that contain a keyword our team configured. We store the comment ID, text, author username and the result
+of the reply to avoid answering twice and to measure each campaign. Without this permission customers who ask for a
+product in a comment would not get an answer, and our staff would have to reply to hundreds of comments manually.
+```
+
+**pages_messaging**
+```
+When someone comments one of our campaign keywords on a Reel of our own Instagram account, our back office sends one
+private reply to that comment using the Private Replies API (POST /{page-id}/messages with recipient.comment_id). The
+message is plain text with the product information and a link to our WhatsApp business number, where our staff and our
+ordering assistant take the order. We send at most one private reply per comment, only within 7 days of the comment,
+and never more than one per person and campaign every 24 hours. We do not send promotional or unsolicited messages:
+every message is a direct answer to the person's own comment. Without this permission the customer would have to find
+our contact details by themselves, and we could not answer the request they made in the comment.
+```
+
+**Human Agent**
+```
+Our private replies tell customers that a person from our team will help them with their order. When a customer
+answers our private reply with a question that needs our staff (custom cakes, large orders, delivery coordination),
+and the question arrives near closing time or on Sunday, our staff may need to answer after the standard 24-hour
+window. The Human Agent tag lets a member of our staff (never an automated message) reply within 7 days, only to
+resolve the customer's request.
+```
+
+**Dependencias** (si el formulario pide texto para cada una):
+- `instagram_basic`: *Read basic information of our own Instagram professional account (ID and username) to link it to
+  our back office and identify which account received each comment.*
+- `pages_read_engagement` / `pages_show_list`: *List and read our own Facebook Page linked to the Instagram account, to
+  obtain the Page ID used to send private replies.*
+- `pages_manage_metadata`: *Subscribe our own Page and Instagram account to our app's webhooks so that new comments are
+  delivered to our back office.*
+
+**Preguntas de manejo de datos** (las hace el formulario): los datos de Instagram que se guardan son el id y el texto del
+comentario, el usuario que comentó y el resultado del envío (tabla `respuestas_automaticas_envios`, en Supabase, región
+São Paulo); el token, cifrado. Los usa solo el equipo de Bake Brothers, no se venden ni se comparten, y se borran a
+pedido de la persona (política de privacidad). Proveedores que procesan datos: Supabase (base de datos), el servidor de
+la API (Coolify) y Vercel (web).
+
+### 6.5 Después de la aprobación
+
+- [ ] Comentar la palabra de prueba desde una cuenta **sin rol** en la app: tiene que llegar la respuesta pública y la
+      privada.
+- [ ] Borrar o pausar la respuesta **BAKETEST**.
+- [ ] Si un permiso queda sin usarse 90 días, Meta puede pedir concederlo de nuevo; y puede pedir una revisión anual del
+      uso de datos (*Data Use Checkup*).
+
+Fuentes (Meta): [App Review — Submission Guide](https://developers.facebook.com/docs/app-review/submission-guide),
+[Screen recordings](https://developers.facebook.com/docs/app-review/submission-guide/screen-recordings),
+[Permissions reference](https://developers.facebook.com/docs/permissions/reference),
+[Human Agent](https://developers.facebook.com/docs/features-reference/human-agent),
+[Private Replies](https://developers.facebook.com/docs/messenger-platform/instagram/features/private-replies/),
+[Access Levels](https://developers.facebook.com/docs/graph-api/overview/access-levels),
+[Business Verification](https://developers.facebook.com/docs/development/release/business-verification).
+Sobre documentos aceptados para la verificación (fuentes de terceros, confirmar con la lista oficial de Meta):
+[Wati — documentos por país](https://support.wati.io/es/articles/11463208-verificacion-de-negocios-de-meta-documentos-requeridos-por-pais),
+[360dialog](https://docs.360dialog.com/docs/resources/meta-business-verification).
+
 ## Fase siguiente
 
 - Lo mismo para **comentarios de Facebook** (mismo patrón, webhook `feed` de la página).
 - Elegir **un reel específico** para una respuesta (hoy aplica a todas las publicaciones: la palabra clave es la campaña).
+- **Bandeja de Instagram en Bake OS** (responder a mano las respuestas a la respuesta privada): es lo que permitiría demostrar Human Agent en la App Review.
 - Botón en el DM: la documentación de respuestas privadas de Meta solo muestra texto, por eso el link va en el texto.
