@@ -13,7 +13,44 @@ import {
   type LineaDemanda,
   type PedidoAgendado,
 } from '@bakebrothers/domain'
-import { fechaDeHoja, hojaAgendadosPdf, hojaEmpaqueMayoristaPdf, hojaProduccionPdf, limpiarResponsable } from '../src/services/hojasPdf.js'
+import zlib from 'node:zlib'
+import {
+  TEXTO_CORTE_MAYORISTA,
+  TEXTO_CORTE_PRINCIPAL,
+  fechaDeHoja,
+  hojaAgendadosPdf,
+  hojaDelDiaPdf,
+  hojaEmpaqueMayoristaPdf,
+  hojaProduccionPdf,
+  limpiarResponsable,
+} from '../src/services/hojasPdf.js'
+
+/**
+ * El texto que de verdad quedó escrito en el PDF, página por página (pdfkit comprime cada página y escribe las
+ * cadenas en hexadecimal): permite comprobar lo que el equipo ve impreso, no solo que el PDF exista.
+ */
+function textoPorPagina(pdf: Buffer): string[] {
+  // latin1 mapea un byte a un carácter: los índices de la cadena son los del Buffer. El largo exacto de cada stream
+  // sale de su /Length (el contenido comprimido cambia en cada corrida por la hora de impresión del pie).
+  const crudo = pdf.toString('latin1')
+  const paginas: string[] = []
+  for (const m of crudo.matchAll(/\/Length (\d+)[^>]*>>\s*stream\r?\n/g)) {
+    const inicio = (m.index ?? 0) + m[0].length
+    let contenido: string
+    try {
+      contenido = zlib.inflateSync(pdf.subarray(inicio, inicio + Number(m[1]))).toString('latin1')
+    } catch {
+      continue // no es un contenido de página comprimido (fuente, imagen…)
+    }
+    if (!/\bTJ\b|\bTj\b/.test(contenido)) continue
+    const lineas: string[] = []
+    for (const tj of contenido.matchAll(/\[([^\]]*)\]\s*TJ/g)) {
+      lineas.push([...tj[1].matchAll(/<([0-9a-fA-F]+)>/g)].map((h) => Buffer.from(h[1], 'hex').toString('latin1')).join(''))
+    }
+    paginas.push(lineas.join('\n'))
+  }
+  return paginas
+}
 
 const FECHA = '2026-11-13'
 const guardar = (nombre: string, pdf: Buffer) => {
@@ -173,6 +210,49 @@ describe('hojas PDF (réplica de su Excel)', () => {
     guardar('vacia-mayoristas.pdf', a)
     guardar('vacia-agendados.pdf', b2)
     guardar('vacia-resumen.pdf', c)
+  })
+
+  it('el corte que dicen las hojas es 11:00 p. m. (nunca 8:00 p. m.): constantes y texto realmente impreso', async () => {
+    expect(TEXTO_CORTE_MAYORISTA).toBe('CORTE MAYORISTA: 11:00 p. m.')
+    expect(TEXTO_CORTE_PRINCIPAL).toBe('CORTE PRINCIPAL: 11:00 p. m.')
+    const agendadosPdf = textoPorPagina(await hojaAgendadosPdf(armarAgendados(agendados), { fecha: FECHA, sede: 'Cedros' })).join('\n')
+    expect(agendadosPdf).toContain('CORTE PRINCIPAL: 11:00 p. m.')
+    expect(agendadosPdf).not.toMatch(/CORTE[^\n]*8:00 p\. m\./)
+    const mayoristasPdf = textoPorPagina(await hojaEmpaqueMayoristaPdf(armarFilasMayoristas(bloques), { fecha: FECHA, sede: 'Cedros' })).join('\n')
+    expect(mayoristasPdf).toContain('CORTE MAYORISTA: 11:00 p. m.')
+  })
+
+  it('la hoja del día: UNA sola hoja con mayoristas, agendados y resumen, en el orden de su Excel', async () => {
+    const pdf = await hojaDelDiaPdf(
+      { mayoristas: armarFilasMayoristas(bloques), agendados: armarAgendados(agendados), hoja, criticos },
+      { fecha: FECHA, sede: 'Cedros', cargaPor: 'Luciana', empaquePor: 'Sheyla', pagoPendiente: 0, sinAsignar: 0 }
+    )
+    expect(pdf.subarray(0, 5).toString()).toBe('%PDF-')
+    expect(paginas(pdf)).toBeGreaterThanOrEqual(3)
+    const texto = textoPorPagina(pdf).join('\n')
+    const a = texto.indexOf('PEDIDOS MAYORISTAS')
+    const b = texto.indexOf('PEDIDOS AGENDADOS')
+    const c = texto.indexOf('RESUMEN DE PRODUCCIÓN DEL DÍA')
+    expect(a).toBeGreaterThanOrEqual(0)
+    expect(b).toBeGreaterThan(a)
+    expect(c).toBeGreaterThan(b)
+    expect(texto).toContain('CORTE MAYORISTA: 11:00 p. m.')
+    expect(texto).toContain('CORTE PRINCIPAL: 11:00 p. m.')
+    expect(texto).toContain('RESPONSABLE CARGA: Luciana')
+    expect(texto).toContain('RESPONSABLE EMPAQUE: Sheyla')
+    // La hoja DATOS del Excel es interna: no se imprime.
+    expect(texto).not.toContain('DATOS')
+    guardar('hoja-del-dia.pdf', pdf)
+  })
+
+  it('la hoja del día sin ningún pedido también sale completa (las tres hojas, vacías)', async () => {
+    const pdf = await hojaDelDiaPdf(
+      { mayoristas: [], agendados: [], hoja: armarHojaProduccion([]), criticos: [] },
+      { fecha: FECHA, sede: 'Cedros', pagoPendiente: 0, sinAsignar: 0 }
+    )
+    const texto = textoPorPagina(pdf).join('\n')
+    expect(paginas(pdf)).toBeGreaterThanOrEqual(3)
+    for (const t of ['PEDIDOS MAYORISTAS', 'PEDIDOS AGENDADOS', 'RESUMEN DE PRODUCCIÓN DEL DÍA']) expect(texto).toContain(t)
   })
 
   it('con muchos pedidos sigue en más páginas sin romperse', async () => {

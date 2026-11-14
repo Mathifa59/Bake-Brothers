@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CheckCircle2, FileText, Settings2 } from 'lucide-react'
+import { CheckCircle2, Printer, Settings2 } from 'lucide-react'
 import { fechaLimaISO, nombreDeArea, sumarDiasISO } from '@bakebrothers/domain'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { useAhora, useDatosVivos } from '../../lib/datos'
-import { abrirPdfAutenticado, marcarProducido, traerPlanDelDia } from '../../lib/apiClient'
+import { marcarProducido, traerPlanDelDia } from '../../lib/apiClient'
+import { imprimirHoja, responsablesGuardados } from '../../lib/hojaDelDia'
 import { fechaCorta } from '../../utils/formato'
 import { mensajeDeError } from '../../utils/ordenes'
 import { Cargando, ErrorCarga, Pill, Tarjeta } from '../bakeos/ui'
@@ -117,7 +118,7 @@ export default function PlanDelDia() {
   const [sedeId, setSedeId] = useState('') // admin: '' = todas las sedes
   const [guardando, setGuardando] = useState(null)
   const [errorAccion, setErrorAccion] = useState(null)
-  const [imprimiendo, setImprimiendo] = useState(false)
+  const [imprimiendo, setImprimiendo] = useState(null)
 
   useEffect(() => {
     if (!esAdmin) return
@@ -154,15 +155,17 @@ export default function PlanDelDia() {
     }
   }
 
-  const imprimir = async () => {
-    setImprimiendo(true)
+  // `imprimiendo` guarda qué hoja se está generando ('dia' o 'produccion'). La principal es la hoja del día (todas las
+  // órdenes en un PDF); el resumen suelto es secundario. Los responsables son los últimos escritos en Órdenes.
+  const imprimir = async (hoja) => {
+    setImprimiendo(hoja)
     setErrorAccion(null)
     try {
-      await abrirPdfAutenticado(`/api/dashboard/produccion/hoja.pdf?fecha=${fecha}${esAdmin && sedeId ? `&sedeId=${sedeId}` : ''}`, `hoja-produccion-${fecha}.pdf`)
+      await imprimirHoja(hoja, { fecha, sedeId, esAdmin, ...responsablesGuardados() })
     } catch (err) {
       setErrorAccion(mensajeDeError(err))
     } finally {
-      setImprimiendo(false)
+      setImprimiendo(null)
     }
   }
 
@@ -236,13 +239,23 @@ export default function PlanDelDia() {
 
       <button
         type="button"
-        onClick={imprimir}
-        disabled={imprimiendo}
+        onClick={() => imprimir('dia')}
+        disabled={imprimiendo !== null}
         className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-tinta text-sm font-semibold text-white disabled:opacity-50"
       >
-        <FileText size={16} aria-hidden="true" />
-        {imprimiendo ? 'Generando…' : 'Imprimir resumen de producción'}
+        <Printer size={16} aria-hidden="true" />
+        {imprimiendo === 'dia' ? 'Generando…' : 'Imprimir hoja del día'}
       </button>
+      <p className="mt-1 text-xs text-gris">
+        <button
+          type="button"
+          onClick={() => imprimir('produccion')}
+          disabled={imprimiendo !== null}
+          className="inline-block py-2 font-semibold text-acento-oscuro underline underline-offset-2 disabled:opacity-50"
+        >
+          {imprimiendo === 'produccion' ? 'Generando…' : 'Solo el resumen de producción'}
+        </button>
+      </p>
 
       {errorAccion && (
         <p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">

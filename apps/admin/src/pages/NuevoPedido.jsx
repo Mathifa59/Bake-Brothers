@@ -279,19 +279,21 @@ export default function NuevoPedido() {
           <p className="mt-1 text-sm text-gris">
             Estado: {resultado.estado === 'paid' ? 'Pagado' : 'Confirmado'} — Total S/ {Number(resultado.total).toFixed(2)}
           </p>
-          <div className="mt-5 flex justify-center gap-3">
+          {/* Lo que se imprime para el equipo es la hoja del día (Órdenes), no cada pedido: el comprobante suelto
+              queda como opción secundaria, solo por si el cliente pide uno. */}
+          <div className="mt-5 flex flex-col items-center gap-1">
+            <button
+              onClick={() => setResultado(null)}
+              className="rounded-full bg-tinta px-5 py-2.5 text-sm font-bold text-white hover:bg-black"
+            >
+              Registrar otro pedido
+            </button>
             <button
               onClick={verComprobante}
               disabled={cargandoPdf}
-              className="rounded-full bg-tinta px-5 py-2.5 text-sm font-bold text-white hover:bg-black disabled:opacity-50"
+              className="py-2 text-xs font-semibold text-acento-oscuro underline underline-offset-2 disabled:opacity-50"
             >
-              {cargandoPdf ? 'Generando…' : 'Ver comprobante (PDF)'}
-            </button>
-            <button
-              onClick={() => setResultado(null)}
-              className="rounded-full border border-borde px-5 py-2.5 text-sm font-bold hover:bg-hueso"
-            >
-              Registrar otro pedido
+              {cargandoPdf ? 'Generando…' : 'Comprobante del pedido para el cliente (PDF)'}
             </button>
           </div>
         </div>

@@ -183,11 +183,19 @@ const num = (n: number) => (n === 0 ? '' : String(n))
 
 // ——————————————————————————————————————————————— 1. pedidos mayoristas ————
 
-export async function hojaEmpaqueMayoristaPdf(
-  filas: FilaMayorista[],
-  meta: { fecha: string; sede: string; cargaPor?: string; empaquePor?: string }
-): Promise<Buffer> {
-  const { doc, fin, ancho } = nuevoDoc()
+/** Encabezados de corte de las hojas: una sola definición (el corte es el de `corteOrdenes.ts`, 11:00 p. m. para todos). */
+export const TEXTO_CORTE_MAYORISTA = `CORTE MAYORISTA: ${CORTE_TEXTO}`
+export const TEXTO_CORTE_PRINCIPAL = `CORTE PRINCIPAL: ${CORTE_TEXTO}`
+
+type Doc = PDFKit.PDFDocument
+export interface MetaHoja {
+  fecha: string
+  sede: string
+  cargaPor?: string
+  empaquePor?: string
+}
+
+function dibujarMayoristas(doc: Doc, ancho: number, filas: FilaMayorista[], meta: MetaHoja) {
   doc.y = M
   titulo(doc, ancho, 'BAKE BROTHERS | PEDIDOS MAYORISTAS')
   franja(doc, ancho, 'EMPAQUE: LÍNEA BLANCA / SIN BRANDING • Hoja operativa para empaque 6:00–8:00 a. m.', { fondo: DURAZNO })
@@ -195,7 +203,7 @@ export async function hojaEmpaqueMayoristaPdf(
     { t: fechaDeHoja(meta.fecha), partes: 7 },
     { t: `RESPONSABLE CARGA: ${limpiarResponsable(meta.cargaPor)}`, partes: 8 },
     { t: `RESPONSABLE EMPAQUE: ${limpiarResponsable(meta.empaquePor)}`, partes: 8 },
-    { t: `CORTE MAYORISTA: ${CORTE_TEXTO}`, partes: 7 },
+    { t: TEXTO_CORTE_MAYORISTA, partes: 7 },
     { t: 'DESPACHO: 7:30–8:00 a. m.', partes: 7 },
   ])
   franja(doc, ancho, 'EMPAQUE POR MAYOR – EMPANADAS', { color: NEGRO, fondo: '#f3f3f3', size: 8.5 })
@@ -227,6 +235,11 @@ export async function hojaEmpaqueMayoristaPdf(
     doc.moveDown(0.5)
     texto(doc, 'No hay órdenes de mayoristas para este día.', M, doc.y, ancho, { size: 9, color: GRIS })
   }
+}
+
+export async function hojaEmpaqueMayoristaPdf(filas: FilaMayorista[], meta: MetaHoja): Promise<Buffer> {
+  const { doc, fin, ancho } = nuevoDoc()
+  dibujarMayoristas(doc, ancho, filas, meta)
   pie(doc, meta.sede)
   doc.end()
   return fin
@@ -236,15 +249,14 @@ export async function hojaEmpaqueMayoristaPdf(
 
 const COLOR_PRIORIDAD: Record<string, string> = { ALTA: ROJO, MEDIA: NARANJA, NORMAL: GRIS }
 
-export async function hojaAgendadosPdf(grupos: GrupoAgendado[], meta: { fecha: string; sede: string; cargaPor?: string }): Promise<Buffer> {
-  const { doc, fin, ancho } = nuevoDoc()
+function dibujarAgendados(doc: Doc, ancho: number, grupos: GrupoAgendado[], meta: MetaHoja) {
   doc.y = M
   titulo(doc, ancho, 'BAKE BROTHERS | PEDIDOS AGENDADOS – VENTA DIGITAL')
   franja(doc, ancho, 'WhatsApp • Recojo • Delivery • Pedidos especiales • Empaque estándar brandeado', { fondo: DURAZNO, color: GRIS })
   filaInfo(doc, ancho, [
     { t: fechaDeHoja(meta.fecha), partes: 3 },
     { t: `RESPONSABLE DE CARGA: ${limpiarResponsable(meta.cargaPor)}`, partes: 4 },
-    { t: `CORTE PRINCIPAL: ${CORTE_TEXTO}`, partes: 3 },
+    { t: TEXTO_CORTE_PRINCIPAL, partes: 3 },
   ])
   franja(
     doc,
@@ -341,6 +353,11 @@ export async function hojaAgendadosPdf(grupos: GrupoAgendado[], meta: { fecha: s
     doc.moveDown(0.5)
     texto(doc, 'No hay pedidos agendados para este día.', M, doc.y, ancho, { size: 9, color: GRIS })
   }
+}
+
+export async function hojaAgendadosPdf(grupos: GrupoAgendado[], meta: { fecha: string; sede: string; cargaPor?: string }): Promise<Buffer> {
+  const { doc, fin, ancho } = nuevoDoc()
+  dibujarAgendados(doc, ancho, grupos, meta)
   pie(doc, meta.sede)
   doc.end()
   return fin
@@ -351,12 +368,14 @@ export async function hojaAgendadosPdf(grupos: GrupoAgendado[], meta: { fecha: s
 const REGLA_DE_PRODUCCION =
   'REGLA DE PRODUCCIÓN: pedidos que requieren producción de madrugada y tienen hora LISTO/SALIDA hasta las 8:00 a. m. inclusive son PRIORIDAD ALTA y deben atenderse primero. Después de las 8:00 a. m. y hasta las 12:00 p. m. = PRIORIDAD MEDIA. Después del mediodía o sin producción madrugada = NORMAL.'
 
-export async function hojaProduccionPdf(
-  hoja: HojaProduccion,
-  criticos: LineaCritica[],
-  meta: { fecha: string; sede: string; pagoPendiente: number; sinAsignar: number }
-): Promise<Buffer> {
-  const { doc, fin, ancho } = nuevoDoc()
+export interface MetaProduccion {
+  fecha: string
+  sede: string
+  pagoPendiente: number
+  sinAsignar: number
+}
+
+function dibujarProduccion(doc: Doc, ancho: number, hoja: HojaProduccion, criticos: LineaCritica[], meta: MetaProduccion) {
   doc.y = M
   titulo(doc, ancho, 'BAKE BROTHERS | RESUMEN DE PRODUCCIÓN DEL DÍA')
   franja(doc, ancho, fechaDeHoja(meta.fecha), { size: 8.5 })
@@ -464,6 +483,33 @@ export async function hojaProduccionPdf(
     doc.y += 6
     texto(doc, avisos.join(' '), M, doc.y, ancho, { size: 7.5, color: GRIS })
   }
+}
+
+export async function hojaProduccionPdf(hoja: HojaProduccion, criticos: LineaCritica[], meta: MetaProduccion): Promise<Buffer> {
+  const { doc, fin, ancho } = nuevoDoc()
+  dibujarProduccion(doc, ancho, hoja, criticos, meta)
+  pie(doc, meta.sede)
+  doc.end()
+  return fin
+}
+
+// ———————————————————————————————————————————— la hoja única del día ————
+
+/**
+ * LA hoja que se imprime: todas las órdenes del día en un solo PDF, en el orden de su Excel — pedidos mayoristas,
+ * pedidos agendados (venta digital) y resumen de producción —, cada una empezando en su propia página. La hoja DATOS
+ * del Excel es interna y no se imprime. No hay impresión por orden individual.
+ */
+export async function hojaDelDiaPdf(
+  d: { mayoristas: FilaMayorista[]; agendados: GrupoAgendado[]; hoja: HojaProduccion; criticos: LineaCritica[] },
+  meta: MetaHoja & { pagoPendiente: number; sinAsignar: number }
+): Promise<Buffer> {
+  const { doc, fin, ancho } = nuevoDoc()
+  dibujarMayoristas(doc, ancho, d.mayoristas, meta)
+  doc.addPage()
+  dibujarAgendados(doc, ancho, d.agendados, meta)
+  doc.addPage()
+  dibujarProduccion(doc, ancho, d.hoja, d.criticos, meta)
   pie(doc, meta.sede)
   doc.end()
   return fin

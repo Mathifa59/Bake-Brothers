@@ -89,7 +89,8 @@ describe.skipIf(!hayBaseDeDatosReal)('horario de los locales: una sola fuente (s
 
   it('la web (renglones y JSON-LD) está al día con la tabla: si cambió el horario hay que correr «pnpm horarios:web»', async () => {
     const generado = await enTransaccion(() => generarHorariosWeb(client))
-    const enElRepo = fs.readFileSync(RUTA_WEB, 'utf8')
+    // En Windows Git puede dejar el archivo con CRLF; el generador escribe LF. El contenido es lo que importa.
+    const enElRepo = fs.readFileSync(RUTA_WEB, 'utf8').replace(/\r\n/g, '\n')
     expect(enElRepo, 'apps/web/src/config/horarios.generated.json está desactualizado respecto de sedes_horarios: corre `pnpm --filter @bakebrothers/api horarios:web`').toBe(
       serializarHorariosWeb(generado)
     )

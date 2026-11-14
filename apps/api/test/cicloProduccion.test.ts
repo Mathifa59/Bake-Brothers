@@ -421,6 +421,20 @@ describe.skipIf(!hayBaseDeDatosReal)('ciclo Órdenes → Producción → Stock',
       expect((await get(`/api/dashboard/produccion/hoja.pdf?fecha=${LUNES}`, {})).statusCode).toBe(401)
       expect((await get(`/api/dashboard/produccion/hoja.pdf?fecha=mañana`, como('admin'))).statusCode).toBe(400)
     })
+
+    it('la hoja del día (un solo PDF con las tres hojas) respeta sede y sesión', async () => {
+      await post('/api/dashboard/ordenes/mayorista', como('operador', cedros), mayorista())
+      const r = await get(`/api/dashboard/ordenes/hoja-del-dia.pdf?fecha=${LUNES}&carga=Luciana&empaque=Sheyla`, como('operador', cedros))
+      expect(r.statusCode).toBe(200)
+      expect(r.headers['content-type']).toBe('application/pdf')
+      expect(r.headers['content-disposition']).toContain(`hoja-del-dia-${LUNES}.pdf`)
+      expect(r.rawPayload.subarray(0, 4).toString()).toBe('%PDF')
+      expect((r.rawPayload.toString('latin1').match(/\/Type\s*\/Page\b/g) ?? []).length).toBeGreaterThanOrEqual(3)
+      expect((await get(`/api/dashboard/ordenes/hoja-del-dia.pdf?fecha=${LUNES}`, {})).statusCode).toBe(401)
+      expect((await get(`/api/dashboard/ordenes/hoja-del-dia.pdf?fecha=mañana`, como('admin'))).statusCode).toBe(400)
+      // Un empleado sin sede asignada no puede pedirla.
+      expect((await get(`/api/dashboard/ordenes/hoja-del-dia.pdf?fecha=${LUNES}`, como('operador', null))).statusCode).toBe(403)
+    })
   })
 
   // ———————————————————————————————————————————————— producido → stock ————

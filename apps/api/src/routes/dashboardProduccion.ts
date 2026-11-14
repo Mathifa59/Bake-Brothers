@@ -10,7 +10,7 @@ import {
 } from '../services/ordenesEquipo.js'
 import { armarFilasMayoristas } from '@bakebrothers/domain'
 import { cargarAgendados, cargarEmpaqueMayorista, cargarPlanDelDia, marcarProducido } from '../services/planProduccionDia.js'
-import { hojaAgendadosPdf, hojaEmpaqueMayoristaPdf, hojaProduccionPdf } from '../services/hojasPdf.js'
+import { hojaAgendadosPdf, hojaDelDiaPdf, hojaEmpaqueMayoristaPdf, hojaProduccionPdf } from '../services/hojasPdf.js'
 
 /**
  * Ciclo Órdenes → Producción → Stock (apps/admin): órdenes de mayoristas y de Rappi, el plan del día, «producido»
@@ -151,6 +151,32 @@ export function dashboardProduccionRoutes(app: FastifyInstance) {
     })
     reply.header('Content-Type', 'application/pdf')
     reply.header('Content-Disposition', `inline; filename="hoja-produccion-${q.fecha}.pdf"`)
+    return reply.send(pdf)
+  })
+
+  // LA hoja del día: mayoristas + agendados + resumen de producción en un solo PDF (lo que se imprime).
+  app.get('/api/dashboard/ordenes/hoja-del-dia.pdf', pre, async (req, reply) => {
+    const q = consultaHoja.parse(req.query)
+    const sede = resolverSede(req.operador!, q.sedeId)
+    if (!sede.ok) return reply.code(sede.codigo).send({ error: sede.error })
+    const pdf = await withTenantTx(req.tenantId, async (client) => {
+      const bloques = await cargarEmpaqueMayorista(client, req.tenantId, q.fecha, sede.sedeId)
+      const agendados = await cargarAgendados(client, req.tenantId, q.fecha, sede.sedeId)
+      const plan = await cargarPlanDelDia(client, req.tenantId, q.fecha, sede.sedeId)
+      return hojaDelDiaPdf(
+        { mayoristas: armarFilasMayoristas(bloques), agendados, hoja: plan.hoja, criticos: plan.criticos },
+        {
+          fecha: q.fecha,
+          sede: await nombreDeSede(client, sede.sedeId),
+          cargaPor: q.carga,
+          empaquePor: q.empaque,
+          pagoPendiente: plan.pagoPendiente,
+          sinAsignar: plan.sinAsignar,
+        }
+      )
+    })
+    reply.header('Content-Type', 'application/pdf')
+    reply.header('Content-Disposition', `inline; filename="hoja-del-dia-${q.fecha}.pdf"`)
     return reply.send(pdf)
   })
 
