@@ -3,6 +3,7 @@ import {
   conAvisoPrimeraHora,
   fechaMinimaDeEntrega,
   hayPersonasAtendiendo,
+  proximaAtencionLegible,
   pasoElCorte,
   textoContextoCortes,
   validarFechaPorCorte,
@@ -43,12 +44,29 @@ describe('corte del día (8:00 p. m. clientes, 11:00 p. m. mayoristas)', () => {
 })
 
 describe('atención de personas y «te escribimos a primera hora»', () => {
-  it('hay personas de 7:30 a. m. a 10:00 p. m.', () => {
-    expect(hayPersonasAtendiendo(lima('2026-11-13', '07:29'))).toBe(false)
-    expect(hayPersonasAtendiendo(lima('2026-11-13', '07:30'))).toBe(true)
-    expect(hayPersonasAtendiendo(lima('2026-11-13', '21:59'))).toBe(true)
-    expect(hayPersonasAtendiendo(lima('2026-11-13', '22:00'))).toBe(false)
+  it('de lunes a sábado hay personas de 8:00 a. m. a 8:30 p. m. (viernes 13)', () => {
+    expect(hayPersonasAtendiendo(lima('2026-11-13', '07:59'))).toBe(false)
+    expect(hayPersonasAtendiendo(lima('2026-11-13', '08:00'))).toBe(true)
+    expect(hayPersonasAtendiendo(lima('2026-11-13', '20:29'))).toBe(true)
+    expect(hayPersonasAtendiendo(lima('2026-11-13', '20:30'))).toBe(false)
     expect(hayPersonasAtendiendo(lima('2026-11-13', '03:00'))).toBe(false)
+    // sábado 14: mismo horario que entre semana
+    expect(hayPersonasAtendiendo(lima('2026-11-14', '08:00'))).toBe(true)
+  })
+
+  it('el domingo (15) las personas atienden de 10:00 a. m. a 8:30 p. m.', () => {
+    expect(hayPersonasAtendiendo(lima('2026-11-15', '08:30'))).toBe(false)
+    expect(hayPersonasAtendiendo(lima('2026-11-15', '09:59'))).toBe(false)
+    expect(hayPersonasAtendiendo(lima('2026-11-15', '10:00'))).toBe(true)
+    expect(hayPersonasAtendiendo(lima('2026-11-15', '20:29'))).toBe(true)
+    expect(hayPersonasAtendiendo(lima('2026-11-15', '20:30'))).toBe(false)
+  })
+
+  it('«te escribimos a primera hora» dice a qué hora vuelven: hoy si aún no abren, mañana si ya cerraron', () => {
+    expect(proximaAtencionLegible(lima('2026-11-13', '06:00'))).toBe('desde las 8:00 a. m.')
+    expect(proximaAtencionLegible(lima('2026-11-13', '21:00'))).toBe('mañana desde las 8:00 a. m.') // sábado 14
+    expect(proximaAtencionLegible(lima('2026-11-14', '21:00'))).toBe('mañana desde las 10:00 a. m.') // mañana es domingo
+    expect(proximaAtencionLegible(lima('2026-11-15', '07:00'))).toBe('desde las 10:00 a. m.') // domingo antes de abrir
   })
 
   it('fuera de horario se agrega el aviso una sola vez; en horario no se toca el texto', () => {
@@ -57,7 +75,7 @@ describe('atención de personas y «te escribimos a primera hora»', () => {
     const noche = conAvisoPrimeraHora(base, lima('2026-11-13', '23:10'))
     expect(noche).toContain(base)
     expect(noche).toContain('te escribimos a primera hora')
-    expect(noche).toContain('7:30 a. m.')
+    expect(noche).toContain('mañana desde las 8:00 a. m.')
     expect(conAvisoPrimeraHora(noche, lima('2026-11-13', '23:10'))).toBe(noche) // no se duplica
     expect(conAvisoPrimeraHora('Te escribimos a primera hora.', lima('2026-11-13', '23:10'))).toBe('Te escribimos a primera hora.')
   })

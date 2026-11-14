@@ -173,9 +173,12 @@ export { ESTADOS_EQUIPO, estadoEquipo, type EstadoEquipo } from './estadosEquipo
 export {
   CORTE_CLIENTES_MINUTOS,
   CORTE_MAYORISTAS_MINUTOS,
-  ATENCION_PERSONAS_DESDE_MINUTOS,
+  ATENCION_PERSONAS_DESDE_LUN_SAB_MINUTOS,
+  ATENCION_PERSONAS_DESDE_DOMINGO_MINUTOS,
   ATENCION_PERSONAS_HASTA_MINUTOS,
-  TEXTO_PRIMERA_HORA,
+  atencionPersonasDesde,
+  proximaAtencionLegible,
+  textoPrimeraHora,
   pasoElCorte,
   fechaMinimaDeEntrega,
   validarFechaPorCorte,
@@ -187,6 +190,7 @@ export {
   type ResultadoCorte,
 } from "./cortesAtencion.js"
 export { CORTE_HORA, CORTE_MINUTO, CORTE_TEXTO, evaluarCorteOrden, type ResultadoCorte as ResultadoCorteOrden } from './corteOrdenes.js'
+export { entidadDeCobro, NOMBRE_ENTIDAD_COBRO, type EntidadCobro } from './cobros.js'
 export { puedeRecibirEnvioMasivo, PREGUNTA_PROMOCIONES, type ClienteParaEnvioMasivo } from './consentimientoMarketing.js'
 export { minutosDelDia, saleAntesDeLas8, horaCanonica, LIMITE_DESPACHO_TEMPRANO_MIN } from './horaPedido.js'
 export {

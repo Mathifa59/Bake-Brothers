@@ -86,6 +86,7 @@ describe.skipIf(!hayBaseDeDatosReal || !hayAnthropicKey)('evaluarTurno (cerebro 
     // Con datos de pago configurados el bot cierra el pedido de recojo sin pasar a una persona (sin ellos,
     // la conversación queda escalada para que alguien los envíe: eso lo prueba reglasLanzamiento.test.ts).
     env.DATOS_PAGO = 'Yape 999 999 999 a nombre de Bake Brothers (datos de prueba)'
+    env.DATOS_PAGO_CEDROS = env.DATOS_PAGO
   })
 
   afterAll(async () => {

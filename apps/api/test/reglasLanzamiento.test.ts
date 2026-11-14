@@ -30,6 +30,7 @@ const { evaluarTurno, textoContextoLocales, decidirEscaladaForzadaPorTool, RESPU
   await import('../src/bot/cerebro.js')
 
 const DATOS_PAGO_DE_PRUEBA = 'Yape 999 999 999 a nombre de Bake Brothers'
+const DATOS_PAGO_CEDROS_DE_PRUEBA = 'Yape 888 888 888 a nombre de Hermanos Loarte (Cedros)'
 
 /** Próxima fecha (a 10 días) que no sea domingo. */
 function fechaValida(): string {
@@ -91,6 +92,7 @@ describe.skipIf(!hayBaseDeDatosReal)('crearPedido — reglas de lanzamiento (Pos
   let tenantId: string
   let sedeCedrosId: string
   const datosPagoOriginal = env.DATOS_PAGO
+  const datosPagoCedrosOriginal = env.DATOS_PAGO_CEDROS
   const distritosOriginal = env.DISTRITOS_DELIVERY
 
   beforeAll(async () => {
@@ -104,6 +106,7 @@ describe.skipIf(!hayBaseDeDatosReal)('crearPedido — reglas de lanzamiento (Pos
   })
   afterEach(() => {
     env.DATOS_PAGO = datosPagoOriginal
+    env.DATOS_PAGO_CEDROS = datosPagoCedrosOriginal
     env.DISTRITOS_DELIVERY = distritosOriginal
     mockCreate.mockReset()
   })
@@ -170,25 +173,94 @@ describe.skipIf(!hayBaseDeDatosReal)('crearPedido — reglas de lanzamiento (Pos
     })
   })
 
-  it('sin DATOS_PAGO: no hay datos que dar y el pedido pasa a una persona para enviarlos', async () => {
+  it('sin datos de pago: no hay datos que dar y el pedido pasa a una persona para enviarlos (con el nombre de la razón social)', async () => {
     await enTransaccion(async () => {
       env.DATOS_PAGO = undefined
+      env.DATOS_PAGO_CEDROS = undefined
       const r = await crearPedido(client, tenantId, 'whatsapp', base())
       expect(r.ok).toBe(true)
       if (r.ok) {
         expect(r.datosPago).toBeNull()
-        expect(r.atencionHumana).toMatch(/enviar los datos de pago/)
+        expect(r.atencionHumana).toMatch(/enviar los datos de pago de Corporación Hermanos Loarte S\.A\.C\./)
       }
     })
   })
 
-  it('con DATOS_PAGO: se los da al cliente de recojo y no hace falta una persona', async () => {
+  it('recojo en Cedros con DATOS_PAGO_CEDROS: se los da al cliente (Hermanos Loarte) y no hace falta una persona', async () => {
     await enTransaccion(async () => {
       env.DATOS_PAGO = DATOS_PAGO_DE_PRUEBA
+      env.DATOS_PAGO_CEDROS = DATOS_PAGO_CEDROS_DE_PRUEBA
       const r = await crearPedido(client, tenantId, 'whatsapp', base())
       expect(r.ok).toBe(true)
       if (r.ok) {
+        expect(r.datosPago).toBe(DATOS_PAGO_CEDROS_DE_PRUEBA)
+        expect(r.atencionHumana).toBeUndefined()
+      }
+    })
+  })
+
+  it('recojo en Cedros SIN DATOS_PAGO_CEDROS: NUNCA usa los de Baker Brothers (otra razón social): una persona los envía', async () => {
+    await enTransaccion(async () => {
+      env.DATOS_PAGO = DATOS_PAGO_DE_PRUEBA
+      env.DATOS_PAGO_CEDROS = undefined
+      const r = await crearPedido(client, tenantId, 'whatsapp', base())
+      expect(r.ok).toBe(true)
+      if (r.ok) {
+        expect(r.datosPago).toBeNull()
+        expect(r.atencionHumana).toMatch(/Hermanos Loarte/)
+      }
+    })
+  })
+
+  it('recojo en Santa Marina: usa DATOS_PAGO (Baker Brothers) aunque existan los de Cedros', async () => {
+    await enTransaccion(async () => {
+      env.DATOS_PAGO = DATOS_PAGO_DE_PRUEBA
+      env.DATOS_PAGO_CEDROS = DATOS_PAGO_CEDROS_DE_PRUEBA
+      const sm = (await client.query(`select id from sedes where nombre = 'Santa Marina'`)).rows[0].id
+      const r = await crearPedido(client, tenantId, 'whatsapp', base({ sedeId: sm }))
+      expect(r.ok).toBe(true)
+      if (r.ok) {
         expect(r.datosPago).toBe(DATOS_PAGO_DE_PRUEBA)
+        expect(r.atencionHumana).toBeUndefined()
+      }
+    })
+  })
+
+  it('delivery (aunque lo prepare Cedros): no se dan datos todavía y la persona cobra con los de Baker Brothers E.I.R.L.', async () => {
+    await enTransaccion(async () => {
+      env.DATOS_PAGO = DATOS_PAGO_DE_PRUEBA
+      env.DATOS_PAGO_CEDROS = DATOS_PAGO_CEDROS_DE_PRUEBA
+      const r = await crearPedido(client, tenantId, 'whatsapp', base({ tipoEntrega: 'delivery', direccion: 'Av. Prueba 1', distrito: 'Surco' }))
+      expect(r.ok).toBe(true)
+      if (r.ok) {
+        expect(r.datosPago).toBeNull()
+        expect(r.atencionHumana).toMatch(/Baker Brothers E\.I\.R\.L\./)
+        expect(r.atencionHumana).not.toMatch(/Hermanos Loarte/)
+      }
+    })
+  })
+
+  it('tarjeta (link de pago): el bot no genera el link ni da datos: lo registra y una persona genera el link de Izipay', async () => {
+    await enTransaccion(async () => {
+      env.DATOS_PAGO = DATOS_PAGO_DE_PRUEBA
+      env.DATOS_PAGO_CEDROS = DATOS_PAGO_CEDROS_DE_PRUEBA
+      const r = await crearPedido(client, tenantId, 'whatsapp', base({ metodoPago: 'tarjeta' }))
+      expect(r.ok).toBe(true)
+      if (r.ok) {
+        expect(r.estado).toBe('payment_pending')
+        expect(r.datosPago).toBeNull()
+        expect(r.atencionHumana).toMatch(/link de pago con tarjeta \(Izipay\)/)
+        expect(r.atencionHumana).not.toMatch(/enviar los datos de pago/)
+      }
+    })
+  })
+
+  it('pagar con tarjeta AL RECOGER en el local no es un link: sigue siendo «paga al recoger» (confirmado, sin pendientes)', async () => {
+    await enTransaccion(async () => {
+      const r = await crearPedido(client, tenantId, 'whatsapp', base({ pagoPorAdelantado: false, metodoPago: 'tarjeta' }))
+      expect(r.ok).toBe(true)
+      if (r.ok) {
+        expect(r.estado).toBe('confirmed')
         expect(r.atencionHumana).toBeUndefined()
       }
     })
@@ -305,6 +377,7 @@ describe.skipIf(!hayBaseDeDatosReal)('crearPedido — reglas de lanzamiento (Pos
 
   it('bot, recojo CON datos de pago configurados: no escala y el modelo recibe los datos en el resultado', async () => {
     await enTransaccion(async () => {
+      env.DATOS_PAGO_CEDROS = DATOS_PAGO_DE_PRUEBA // el local de la conversación es Cedros
       env.DATOS_PAGO = DATOS_PAGO_DE_PRUEBA
       mockCreate
         .mockResolvedValueOnce({ content: [pedidoDelModelo()] })
@@ -330,14 +403,15 @@ describe.skipIf(!hayBaseDeDatosReal)('crearPedido — reglas de lanzamiento (Pos
     })
   })
 
-  it('bot: el prompt incluye los locales con su horario real (sábado de Cedros por confirmar) y la cobertura de delivery', async () => {
+  it('bot: el prompt incluye los locales con su horario real (migración 0048: ya no hay «por confirmar») y la cobertura de delivery', async () => {
     await enTransaccion(async () => {
       mockCreate.mockResolvedValueOnce({ content: [{ type: 'text', text: 'Hola 😊' }] })
       await evaluarTurno(client, tenantId, [], 'hola', 'activa', 'whatsapp', sedeCedrosId)
       const system = mockCreate.mock.calls[0][0].system as string
       expect(system).toContain('LOCALES Y HORARIOS')
-      expect(system).toMatch(/Cedros \(.*horario: lunes a viernes 7:30 a\. m\. a 8:30 p\. m\.; sábado por confirmar; domingo 10:00 a\. m\. a 8:30 p\. m\./)
-      expect(system).toMatch(/Santa Marina \(.*horario: todos los días 12:00 p\. m\. a 10:00 p\. m\./)
+      expect(system).toMatch(/Cedros \(.*horario: lunes a sábado 7:30 a\. m\. a 8:30 p\. m\.; domingo 10:30 a\. m\. a 8:30 p\. m\./)
+      expect(system).toMatch(/Santa Marina \(.*horario: viernes a miércoles 12:00 m\. a 10:00 p\. m\.; jueves 1:00 p\. m\. a 10:00 p\. m\./)
+      expect(system).not.toContain('por confirmar; domingo')
       expect(system).toContain('Delivery de tienda solo a: Chorrillos, Surco, Miraflores')
       // Y las reglas nuevas del prompt.
       expect(system).toMatch(/delivery se paga SIEMPRE por adelantado/)

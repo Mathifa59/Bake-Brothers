@@ -64,7 +64,7 @@ export const locales = [
     direccion: 'Av. Alameda Los Horizontes 820, Chorrillos',
     horarios: [
       { dias: 'Lunes a sábado', horas: '7:30 a. m. – 8:30 p. m.' },
-      { dias: 'Domingo', horas: '10:00 a. m. – 8:30 p. m.' },
+      { dias: 'Domingo', horas: '10:30 a. m. – 8:30 p. m.' },
     ],
     mapaUrl: 'https://www.google.com/maps/dir/?api=1&destination=Av.%20Alameda%20Los%20Horizontes%20820%2C%20Chorrillos%2C%20Lima',
     mapaSrc:
@@ -73,7 +73,10 @@ export const locales = [
   {
     nombre: 'Santa Marina',
     direccion: 'Av. Defensores del Morro 2270',
-    horarios: [{ dias: 'Lunes a domingo', horas: '12:00 p. m. – 10:00 p. m.' }],
+    horarios: [
+      { dias: 'Viernes a miércoles', horas: '12:00 m. – 10:00 p. m.' },
+      { dias: 'Jueves', horas: '1:00 p. m. – 10:00 p. m.' },
+    ],
     mapaUrl: 'https://www.google.com/maps/dir/?api=1&destination=Av.%20Defensores%20del%20Morro%202270%2C%20Chorrillos%2C%20Lima',
     mapaSrc:
       'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3899.978303909021!2d-77.0125961!3d-12.181879400000001!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x9105b77db00554d9%3A0x62bc17c099226c51!2sMercado%20Santa%20Marina%2C%20Av.%20Defensores%20del%20Morro%202270%2C%20Chorrillos%2015067!5e0!3m2!1ses-419!2spe!4v1790625055996!5m2!1ses-419!2spe',

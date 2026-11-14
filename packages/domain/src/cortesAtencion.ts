@@ -14,11 +14,18 @@ export const CORTE_CLIENTES_MINUTOS = 20 * 60 // 8:00 p. m.
 export const CORTE_MAYORISTAS_MINUTOS = 23 * 60 // 11:00 p. m.
 
 /**
- * Horario en que hay personas atendiendo el panel: desde que abre el primer local (Cedros, 7:30 a. m.) hasta que
- * cierra el último (Santa Marina, 10:00 p. m.). Supuesto que se ajusta aquí si cambia.
+ * Horario en que las PERSONAS atienden WhatsApp (dato confirmado por el cliente, 2026-11-13): lunes a sábado de
+ * 8:00 a. m. a 8:30 p. m.; domingo de 10:00 a. m. a 8:30 p. m. Es distinto del horario de cada local (que vive en
+ * `sedes.horario`). Si cambia, se ajusta aquí.
  */
-export const ATENCION_PERSONAS_DESDE_MINUTOS = 7 * 60 + 30
-export const ATENCION_PERSONAS_HASTA_MINUTOS = 22 * 60
+export const ATENCION_PERSONAS_DESDE_LUN_SAB_MINUTOS = 8 * 60
+export const ATENCION_PERSONAS_DESDE_DOMINGO_MINUTOS = 10 * 60
+export const ATENCION_PERSONAS_HASTA_MINUTOS = 20 * 60 + 30
+
+const esDomingo = (fechaISO: string) => new Date(`${fechaISO}T12:00:00Z`).getUTCDay() === 0
+/** Minutos desde la medianoche a los que las personas empiezan a atender ese día (YYYY-MM-DD, Lima). */
+export const atencionPersonasDesde = (fechaISO: string) =>
+  esDomingo(fechaISO) ? ATENCION_PERSONAS_DESDE_DOMINGO_MINUTOS : ATENCION_PERSONAS_DESDE_LUN_SAB_MINUTOS
 
 export type TipoCliente = 'cliente' | 'mayorista'
 
@@ -60,18 +67,30 @@ export function validarFechaPorCorte(fechaEntregaISO: string, ahora: Date, tipo:
   return { ok: true }
 }
 
-/** ¿Hay personas atendiendo ahora? */
+/** ¿Hay personas atendiendo ahora? (el horario cambia por día: el domingo empiezan a las 10:00 a. m.) */
 export function hayPersonasAtendiendo(ahora: Date): boolean {
   const m = minutosDelDiaLima(ahora)
-  return m >= ATENCION_PERSONAS_DESDE_MINUTOS && m < ATENCION_PERSONAS_HASTA_MINUTOS
+  return m >= atencionPersonasDesde(fechaLimaISO(ahora)) && m < ATENCION_PERSONAS_HASTA_MINUTOS
 }
 
-export const TEXTO_PRIMERA_HORA = `Ahora estamos fuera de horario: te escribimos a primera hora (desde las ${formatoHora(ATENCION_PERSONAS_DESDE_MINUTOS)}). 🙏`
+/**
+ * Cuándo vuelven a atender las personas: «desde las 8:00 a. m.» si todavía es antes de abrir hoy, o «mañana desde
+ * las 10:00 a. m.» si ya cerraron (o si mañana es domingo, que abre más tarde). Solo tiene sentido cuando nadie atiende.
+ */
+export function proximaAtencionLegible(ahora: Date): string {
+  const hoy = fechaLimaISO(ahora)
+  if (minutosDelDiaLima(ahora) < atencionPersonasDesde(hoy)) return `desde las ${formatoHora(atencionPersonasDesde(hoy))}`
+  const manana = sumarDiasISO(hoy, 1)
+  return `mañana desde las ${formatoHora(atencionPersonasDesde(manana))}`
+}
+
+export const textoPrimeraHora = (ahora: Date) =>
+  `Ahora estamos fuera de horario: te escribimos a primera hora (${proximaAtencionLegible(ahora)}). 🙏`
 
 /** Agrega «te escribimos a primera hora» a un texto que deriva a una persona, solo si nadie atiende y aún no lo dice. */
 export function conAvisoPrimeraHora(texto: string, ahora: Date): string {
   if (hayPersonasAtendiendo(ahora) || /primera hora/i.test(texto)) return texto
-  return `${texto.trimEnd()}\n\n${TEXTO_PRIMERA_HORA}`
+  return `${texto.trimEnd()}\n\n${textoPrimeraHora(ahora)}`
 }
 
 /** Lo que se le dice al modelo en cada turno sobre el corte y la atención de personas. */
@@ -87,7 +106,7 @@ export function textoContextoCortes(ahora: Date): string {
   lineas.push(
     hayPersonasAtendiendo(ahora)
       ? 'ATENCIÓN DE PERSONAS: ahora hay equipo atendiendo.'
-      : `ATENCIÓN DE PERSONAS: ahora NO hay equipo atendiendo. Si derivas a una persona (escalarAHumano), dile al cliente que «te escribimos a primera hora» (desde las ${formatoHora(ATENCION_PERSONAS_DESDE_MINUTOS)}); nunca prometas una hora exacta ni una respuesta inmediata.`
+      : `ATENCIÓN DE PERSONAS: ahora NO hay equipo atendiendo. Si derivas a una persona (escalarAHumano), dile al cliente que «te escribimos a primera hora» (${proximaAtencionLegible(ahora)}); nunca prometas una hora exacta ni una respuesta inmediata.`
   )
   return lineas.join('\n')
 }

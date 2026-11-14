@@ -30,8 +30,9 @@
 
     <link rel="canonical" href="https://www.bakebrothers.pe/" />
 
-    <!-- Datos estructurados (schema.org): un Bakery por local. Sin horarios a propósito: el sábado de Cedros
-         está por confirmar y un dato equivocado en Google es peor que ninguno. -->
+    <!-- Datos estructurados (schema.org): un Bakery por local, con su horario real (confirmado por el cliente el
+         2026-11-13; ya no hay «por confirmar»). Si cambia un horario, cambiarlo también en src/config/landing.js
+         y en sedes.horario (el bot lo lee de la base). -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -45,6 +46,10 @@
             "logo": "https://www.bakebrothers.pe/img/logo-landing.png",
             "telephone": "+51912944096",
             "address": { "@type": "PostalAddress", "streetAddress": "Av. Alameda Los Horizontes 820", "addressLocality": "Chorrillos", "addressRegion": "Lima", "addressCountry": "PE" },
+            "openingHoursSpecification": [
+              { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"], "opens": "07:30", "closes": "20:30" },
+              { "@type": "OpeningHoursSpecification", "dayOfWeek": "Sunday", "opens": "10:30", "closes": "20:30" }
+            ],
             "sameAs": ["https://instagram.com/bakebrothers.pe", "https://facebook.com/bakebrothers.pe"]
           },
           {
@@ -56,6 +61,10 @@
             "logo": "https://www.bakebrothers.pe/img/logo-landing.png",
             "telephone": "+51912944096",
             "address": { "@type": "PostalAddress", "streetAddress": "Av. Defensores del Morro 2270", "addressLocality": "Chorrillos", "addressRegion": "Lima", "addressCountry": "PE" },
+            "openingHoursSpecification": [
+              { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday"], "opens": "12:00", "closes": "22:00" },
+              { "@type": "OpeningHoursSpecification", "dayOfWeek": "Thursday", "opens": "13:00", "closes": "22:00" }
+            ],
             "sameAs": ["https://instagram.com/bakebrothers.pe", "https://facebook.com/bakebrothers.pe"]
           }
         ]

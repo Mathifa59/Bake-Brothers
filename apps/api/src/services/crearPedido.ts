@@ -6,6 +6,8 @@ import {
   normalizarTelefono,
   distritoTieneCobertura,
   parsearDistritosDelivery,
+  entidadDeCobro,
+  NOMBRE_ENTIDAD_COBRO,
   type EstadoPedido,
   type TipoEntrega,
 } from '@bakebrothers/domain'
@@ -299,11 +301,23 @@ export async function crearPedido(
 
   // Qué debe hacer una persona después de este pedido. En delivery el costo de envío lo cotiza ella, así que
   // tampoco se le dan datos de pago al cliente hasta tener el total final.
-  const datosPago = esDelivery || pagaAlRecoger ? null : (env.DATOS_PAGO ?? null)
+  // Cobros (decisión del cliente, 2026-11-13): cada razón social tiene sus datos — Baker Brothers E.I.R.L. cobra
+  // Santa Marina y TODO delivery; Corporación Hermanos Loarte cobra Cedros. Nunca se usan los de una para la otra: si
+  // faltan los de la que corresponde, el bot no inventa ni usa los de la otra, y una persona los envía. Con tarjeta
+  // el link de Izipay lo genera una persona (el bot no lo genera): tampoco se dan datos de pago.
+  const sedeNombre = sedes.find((s) => s.id === sede.sedeId)?.nombre ?? null
+  const entidad = entidadDeCobro({ tipoEntrega: input.tipoEntrega, sedeNombre })
+  const conTarjeta = !pagaAlRecoger && metodoPagoFinal === 'tarjeta'
+  const datosDeLaEntidad = entidad === 'hermanos_loarte' ? env.DATOS_PAGO_CEDROS : env.DATOS_PAGO
+  const datosPago = esDelivery || pagaAlRecoger || conTarjeta ? null : (datosDeLaEntidad ?? null)
   const pendientes: string[] = []
   if (esDelivery) pendientes.push('cotizar el delivery y coordinar la entrega')
-  // Los datos de pago solo hacen falta si paga por adelantado (y en delivery, cuando ya esté el total final).
-  if (!datosPago && !pagaAlRecoger) pendientes.push('enviar los datos de pago al cliente')
+  if (conTarjeta) {
+    pendientes.push('generar y enviar el link de pago con tarjeta (Izipay)')
+  } else if (!datosPago && !pagaAlRecoger) {
+    // Los datos de pago solo hacen falta si paga por adelantado (y en delivery, cuando ya esté el total final).
+    pendientes.push(`enviar los datos de pago de ${NOMBRE_ENTIDAD_COBRO[entidad]} al cliente`)
+  }
 
   return {
     ok: true,

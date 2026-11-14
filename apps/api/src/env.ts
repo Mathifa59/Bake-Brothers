@@ -1,6 +1,14 @@
 import { z } from 'zod'
 import { parsearClaveCifrado } from './bot/cifrado.js'
 
+// Texto libre de una variable de entorno: recortado, y la secuencia literal «barra + n» (dos caracteres) se vuelve un
+// salto de línea (así se puede escribir en una sola línea en Coolify y que el cliente lo vea en varias líneas en WhatsApp).
+const textoLibre = z
+  .string()
+  .trim()
+  .optional()
+  .transform((v) => (v === undefined ? v : v.split(String.raw`\n`).join('\n')))
+
 const schema = z
   .object({
     DATABASE_URL: z.string().min(1, 'DATABASE_URL es obligatoria'),
@@ -33,10 +41,15 @@ const schema = z
     // Sonnet (el probado). Pasar a Haiku: BOT_MODELO=claude-haiku-5-5 (después de volver a probar, docs/cambio-a-haiku.md).
     BOT_MODELO: z.string().trim().optional(),
     BOT_MODELO_CAPTURAS: z.string().trim().optional(),
-    // Datos para pagar por adelantado (texto libre: número y titular de Yape, cuentas y CCI). Si está, el
-    // bot se los da al cliente de recojo apenas registra el pedido; si NO está, el bot avisa que una persona
-    // se los envía y la conversación pasa al equipo para que lo haga. No lleva secretos, pero tampoco va en el código.
-    DATOS_PAGO: z.string().trim().optional(),
+    // Datos para pagar por adelantado (texto libre: Yape, BCP, Interbank y su titular). Hay DOS razones sociales
+    // (ver packages/domain/src/cobros.ts):
+    //   · DATOS_PAGO        = Baker Brothers E.I.R.L. → recojo en Santa Marina (y todo delivery, que lo cobra una persona).
+    //   · DATOS_PAGO_CEDROS = Corporación Hermanos Loarte S.A.C. → recojo en Cedros.
+    // Si el que corresponde está, el bot se los da al cliente apenas registra el pedido; si NO está, el bot avisa que
+    // una persona se los envía y la conversación pasa al equipo. NUNCA se usan los de una razón social para el local de
+    // la otra. No llevan secretos, pero tampoco van en el código. Texto libre en una línea: la secuencia «barra n» se vuelve salto de línea.
+    DATOS_PAGO: textoLibre,
+    DATOS_PAGO_CEDROS: textoLibre,
     // Embedded Signup de Meta (conectar números desde el dashboard): NO se terminó de construir y el plan
     // vigente no lo usa (el número del bot se registra a mano). Reservado y APAGADO; hoy ninguna ruta lo lee.
     WHATSAPP_EMBEDDED_SIGNUP: z.enum(['true', 'false']).default('false'),
