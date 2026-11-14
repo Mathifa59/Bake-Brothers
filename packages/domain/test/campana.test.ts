@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { agregarReferenciaAlMensaje, extraerReferencia, limpiarReferencia, referenciaDeUtm } from '../src/campana.js'
+import {
+  agregarReferenciaAlMensaje,
+  describirCampana,
+  enlaceWhatsAppCampana,
+  extraerReferencia,
+  limpiarReferencia,
+  NUMERO_WHATSAPP_ATENCION,
+  referenciaDeCampana,
+  referenciaDeUtm,
+} from '../src/campana.js'
 
 describe('referenciaDeUtm', () => {
   it('fuente conocida abreviada + campaña: tiktok / halloween → tt-halloween', () => {
@@ -73,5 +82,44 @@ describe('limpiarReferencia', () => {
   it('minúsculas, sin tildes, guiones normalizados', () => {
     expect(limpiarReferencia('  Día   de la MADRE!! ')).toBe('dia-de-la-madre')
     expect(limpiarReferencia('***')).toBe('')
+  })
+})
+
+describe('campañas de redes (ManyChat → WhatsApp)', () => {
+  it('referenciaDeCampana: red + nombre limpio, mismo prefijo que los utm', () => {
+    expect(referenciaDeCampana('ig', 'Alfajor')).toBe('ig-alfajor')
+    expect(referenciaDeCampana('fb', 'Día de la Madre')).toBe('fb-dia-de-la-madre')
+    expect(referenciaDeCampana('tt', '  ¡Torta 3 Leches!  ')).toBe('tt-torta-3-leches')
+    expect(referenciaDeCampana('ig', 'alfajor')).toBe(referenciaDeUtm({ utm_source: 'instagram', utm_campaign: 'alfajor' }))
+  })
+
+  it('referenciaDeCampana: sin nombre útil no hay referencia; nunca pasa de 32 caracteres ni termina en guion', () => {
+    expect(referenciaDeCampana('ig', '')).toBeNull()
+    expect(referenciaDeCampana('ig', '¡¡!!')).toBeNull()
+    const larga = referenciaDeCampana('ig', 'una campaña con un nombre larguísimo de verdad')!
+    expect(larga.length).toBeLessThanOrEqual(32)
+    expect(larga.endsWith('-')).toBe(false)
+  })
+
+  it('enlaceWhatsAppCampana: wa.me al número de atención con el mensaje y la referencia', () => {
+    const url = enlaceWhatsAppCampana({ referencia: 'ig-alfajor', mensaje: 'Hola Bake Brothers 👋 Quiero la promo de alfajores' })
+    expect(url.startsWith(`https://wa.me/${NUMERO_WHATSAPP_ATENCION}?text=`)).toBe(true)
+    const texto = new URL(url).searchParams.get('text')!
+    expect(texto).toBe('Hola Bake Brothers 👋 Quiero la promo de alfajores (ref: ig-alfajor)')
+  })
+
+  it('lo que arma el enlace lo lee el bot tal cual (ida y vuelta)', () => {
+    const url = enlaceWhatsAppCampana({ numero: '+51 999 888 777', referencia: 'fb-dia-de-la-madre', mensaje: 'Hola' })
+    expect(url.startsWith('https://wa.me/51999888777?text=')).toBe(true)
+    const leido = extraerReferencia(new URL(url).searchParams.get('text')!)
+    expect(leido).toEqual({ texto: 'Hola', referencia: 'fb-dia-de-la-madre' })
+  })
+
+  it('describirCampana: red conocida + nombre legible; si no, la referencia tal cual', () => {
+    expect(describirCampana('ig-alfajor')).toEqual({ red: 'Instagram', nombre: 'alfajor' })
+    expect(describirCampana('fb-dia-de-la-madre')).toEqual({ red: 'Facebook', nombre: 'dia de la madre' })
+    expect(describirCampana('tt')).toEqual({ red: 'TikTok', nombre: '' })
+    expect(describirCampana('halloween')).toEqual({ red: null, nombre: 'halloween' })
+    expect(describirCampana('newslett-promo')).toEqual({ red: null, nombre: 'newslett-promo' })
   })
 })

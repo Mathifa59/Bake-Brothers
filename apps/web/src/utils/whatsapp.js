@@ -2,10 +2,10 @@
 // ficha del cliente (Bake Brothers); VITE_WHATSAPP_NUMBER permite
 // sobreescribirlo por entorno (ej. un número de pruebas en local).
 
-import { agregarReferenciaAlMensaje } from '@bakebrothers/domain'
+import { agregarReferenciaAlMensaje, NUMERO_WHATSAPP_ATENCION } from '@bakebrothers/domain'
 import { referenciaActual } from './campana'
 
-const NUMERO = import.meta.env.VITE_WHATSAPP_NUMBER || '51912944096'
+const NUMERO = import.meta.env.VITE_WHATSAPP_NUMBER || NUMERO_WHATSAPP_ATENCION
 
 export const whatsappNumero = NUMERO
 export const whatsappNumeroFormateado = `+${NUMERO.slice(0, 2)} ${NUMERO.slice(2)}`

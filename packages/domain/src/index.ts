@@ -125,6 +125,12 @@ export {
   agregarReferenciaAlMensaje,
   extraerReferencia,
   limpiarReferencia,
+  REDES_CAMPANA,
+  NUMERO_WHATSAPP_ATENCION,
+  referenciaDeCampana,
+  enlaceWhatsAppCampana,
+  describirCampana,
+  type RedCampana,
 } from './campana.js'
 
 export {

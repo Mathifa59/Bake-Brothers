@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { cuentaComoIngreso, inicioDiaLima, sumarDiasISO } from '@bakebrothers/domain'
+import { cuentaComoIngreso, describirCampana, inicioDiaLima, sumarDiasISO } from '@bakebrothers/domain'
 import { supabase } from '../lib/supabase'
 import { traerTodo } from '../lib/datos'
 import { formatoPrecio } from '../utils/formato'
-import { Cargando, ErrorCarga, Portada, Tarjeta } from '../components/bakeos/ui'
+import { Cargando, ErrorCarga, Pill, Portada, Tarjeta } from '../components/bakeos/ui'
+import GeneradorEnlaceCampana from '../components/campanas/GeneradorEnlaceCampana'
 
 const NOMBRE_CANAL = { web: 'Web', whatsapp: 'WhatsApp', facebook: 'Facebook', instagram: 'Instagram', presencial: 'Presencial' }
 const SIN_CAMPANA = 'Sin campaña'
@@ -59,6 +60,8 @@ export default function Atribucion() {
   return (
     <>
       <Portada titulo="Origen de clientes" subtitulo="De qué canal o campaña llegó cada cliente o pedido" />
+
+      <GeneradorEnlaceCampana />
 
       <div className="mt-5 flex flex-wrap items-end gap-3">
         <div className="flex gap-1 rounded-xl border border-borde bg-hueso p-1" role="group" aria-label="Agrupar por">
@@ -128,8 +131,8 @@ export default function Atribucion() {
               <div className="mt-4 rounded-xl bg-lila-suave/60 p-4 text-sm leading-relaxed">
                 <p className="font-bold text-tinta">Todavía no hay datos de origen.</p>
                 <p className="mt-1">
-                  Esta pantalla se activa con los links de campaña de Instagram y Facebook: cuando alguien entra por uno de
-                  ellos y escribe por WhatsApp, el pedido queda con su canal y su campaña.
+                  Esta pantalla se activa con los links de campaña (los de ManyChat que se arman arriba, o la web con
+                  parámetros): cuando alguien escribe por WhatsApp desde uno de ellos, el pedido queda con su canal y su campaña.
                 </p>
               </div>
             )
@@ -137,7 +140,7 @@ export default function Atribucion() {
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {grupos.map((g) => (
                 <Tarjeta key={g.clave} className="p-5">
-                  <p className="break-words text-xs font-bold uppercase tracking-wide text-gris">{g.clave}</p>
+                  <EtiquetaGrupo clave={g.clave} esCampana={agrupar === 'campana' && g.clave !== SIN_CAMPANA} />
                   <p className="mt-1 text-3xl font-extrabold text-tinta">{g.pedidos}</p>
                   <p className="mt-1 text-xs text-gris">
                     pedido{g.pedidos === 1 ? '' : 's'} · {((g.pedidos / total) * 100).toFixed(0)}% del total
@@ -150,13 +153,28 @@ export default function Atribucion() {
 
           {agrupar === 'campana' && conCampana === 0 && total > 0 && (
             <p className="mt-4 rounded-xl bg-lila-suave/60 p-4 text-sm leading-relaxed">
-              Todavía ningún pedido llegó con campaña. La referencia aparece cuando alguien entra a la web por un link con
-              parámetros (por ejemplo <code className="text-xs">?utm_source=tiktok&amp;utm_campaign=halloween</code>) y
-              escribe por WhatsApp desde ahí: el bot la lee del primer mensaje y la guarda en el pedido.
+              Todavía ningún pedido llegó con campaña. La referencia aparece cuando alguien escribe por WhatsApp desde un link
+              de campaña: el de ManyChat que se arma arriba, o la web con parámetros (por ejemplo{' '}
+              <code className="text-xs">?utm_source=tiktok&amp;utm_campaign=halloween</code>). El bot la lee del primer mensaje
+              y la guarda en el pedido.
             </p>
           )}
         </>
       )}
     </>
+  )
+}
+
+/** Título de cada tarjeta: el canal, o la campaña con su red («Instagram» + «alfajor») si la referencia empieza con una. */
+function EtiquetaGrupo({ clave, esCampana }) {
+  if (!esCampana) return <p className="break-words text-xs font-bold uppercase tracking-wide text-gris">{clave}</p>
+  const { red, nombre } = describirCampana(clave)
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {red && <Pill tono="lila">{red}</Pill>}
+      <p className="break-words text-xs font-bold uppercase tracking-wide text-gris" title={clave}>
+        {nombre || clave}
+      </p>
+    </div>
   )
 }

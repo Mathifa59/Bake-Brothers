@@ -83,3 +83,67 @@ export function extraerReferencia(texto: string): { texto: string; referencia: s
   const limpio = (texto.slice(0, m.index) + m[1] + texto.slice(m.index + m[0].length)).replace(/[ \t]{2,}/g, ' ').trim()
   return { texto: limpio, referencia: m[2].toLowerCase() }
 }
+
+/**
+ * Número de WhatsApp que atiende a los clientes (el que contesta el bot y ve el equipo en Bake OS), sin «+».
+ * La web y el generador de enlaces del panel lo usan por defecto; cada app lo puede pisar con VITE_WHATSAPP_NUMBER.
+ */
+export const NUMERO_WHATSAPP_ATENCION = '51912944096'
+
+/**
+ * Campañas de redes que terminan en WhatsApp (por ejemplo ManyChat: «comenta ALFAJOR y te mando el link»).
+ * El prefijo es el mismo que arma `referenciaDeUtm` para esa fuente, así una campaña de Instagram se ve igual
+ * venga por ManyChat o por un link de la web con utm_source=instagram.
+ */
+export const REDES_CAMPANA = [
+  { id: 'ig', nombre: 'Instagram' },
+  { id: 'fb', nombre: 'Facebook' },
+  { id: 'tt', nombre: 'TikTok' },
+] as const
+export type RedCampana = (typeof REDES_CAMPANA)[number]['id']
+
+/**
+ * Referencia de una campaña a partir de la red y de un nombre corto (la palabra clave de ManyChat):
+ * ('ig', 'Alfajor') → 'ig-alfajor'; ('fb', 'Día de la Madre') → 'fb-dia-de-la-madre'. Máximo 32 caracteres en total.
+ * Sin un nombre útil (vacío o solo símbolos) devuelve null: una campaña sin nombre no se puede distinguir de otra.
+ */
+export function referenciaDeCampana(red: RedCampana, nombre: string): string | null {
+  const limpio = limpiarReferencia(nombre ?? '')
+  if (!limpio) return null
+  return `${red}-${limpio}`.slice(0, LARGO_MAX).replace(/-+$/, '')
+}
+
+/**
+ * Link de WhatsApp listo para pegar en un botón de ManyChat (o en cualquier publicación): abre el chat con el
+ * mensaje escrito y la referencia al final («Hola… (ref: ig-alfajor)»). El bot lee la referencia del primer mensaje y la
+ * guarda en el pedido (`orders.campana`), así que se ve en «Origen de clientes».
+ */
+export function enlaceWhatsAppCampana(opciones: { numero?: string; referencia: string | null; mensaje: string }): string {
+  const numero = (opciones.numero ?? NUMERO_WHATSAPP_ATENCION).replace(/\D/g, '')
+  const texto = agregarReferenciaAlMensaje(opciones.mensaje.trim(), opciones.referencia)
+  return `https://wa.me/${numero}${texto ? `?text=${encodeURIComponent(texto)}` : ''}`
+}
+
+const NOMBRE_RED: Record<string, string> = {
+  ...Object.fromEntries(REDES_CAMPANA.map((r) => [r.id, r.nombre])),
+  wa: 'WhatsApp',
+  gg: 'Google',
+  yt: 'YouTube',
+  li: 'LinkedIn',
+  x: 'X',
+  em: 'Email',
+}
+
+/**
+ * Para mostrar una referencia guardada en un pedido: 'ig-alfajor' → { red: 'Instagram', nombre: 'alfajor' }.
+ * Si no empieza con una red conocida, red = null y el nombre es la referencia completa ('halloween').
+ */
+export function describirCampana(referencia: string): { red: string | null; nombre: string } {
+  const ref = (referencia ?? '').trim().toLowerCase()
+  const guion = ref.indexOf('-')
+  const prefijo = guion > 0 ? ref.slice(0, guion) : ref
+  const red = NOMBRE_RED[prefijo] ?? null
+  if (!red) return { red: null, nombre: ref }
+  const nombre = guion > 0 ? ref.slice(guion + 1).replace(/-/g, ' ') : ''
+  return { red, nombre }
+}
