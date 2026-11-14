@@ -17,15 +17,22 @@ export async function horariosDeSede(client: pg.PoolClient, sedeId: string): Pro
 }
 
 /** Los locales activos con su horario (para decirle al bot qué horas ofrecer y para sugerir «el otro local»). */
-export async function horariosDeLocales(client: pg.PoolClient): Promise<{ id: string; nombre: string; horarios: HorarioDia[] }[]> {
+export interface LocalConHorario {
+  id: string
+  nombre: string
+  direccion: string | null
+  horarios: HorarioDia[]
+}
+
+export async function horariosDeLocales(client: pg.PoolClient): Promise<LocalConHorario[]> {
   const { rows } = await client.query(
-    `select s.id, s.nombre, h.dia_semana, h.abre::text as abre, h.cierra::text as cierra
+    `select s.id, s.nombre, s.direccion, h.dia_semana, h.abre::text as abre, h.cierra::text as cierra
        from sedes s left join sedes_horarios h on h.sede_id = s.id
       where s.activo order by s.nombre`
   )
-  const porSede = new Map<string, { id: string; nombre: string; horarios: HorarioDia[] }>()
+  const porSede = new Map<string, LocalConHorario>()
   for (const r of rows) {
-    const s = porSede.get(r.id) ?? { id: r.id as string, nombre: r.nombre as string, horarios: [] }
+    const s = porSede.get(r.id) ?? { id: r.id as string, nombre: r.nombre as string, direccion: (r.direccion as string | null) ?? null, horarios: [] }
     if (r.dia_semana !== null) s.horarios.push(aHorarioDia(r))
     porSede.set(r.id, s)
   }

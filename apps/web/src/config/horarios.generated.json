@@ -1,0 +1,71 @@
+{
+  "_aviso": "GENERADO desde la tabla sedes_horarios (única fuente del horario). No se edita a mano: cambia el horario en la tabla y corre `pnpm --filter @bakebrothers/api horarios:web`.",
+  "locales": {
+    "Cedros": {
+      "renglones": [
+        {
+          "dias": "Lunes a sábado",
+          "horas": "7:30 a. m. – 8:30 p. m."
+        },
+        {
+          "dias": "Domingo",
+          "horas": "10:30 a. m. – 8:30 p. m."
+        }
+      ],
+      "jsonld": [
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday"
+          ],
+          "opens": "07:30",
+          "closes": "20:30"
+        },
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": "Sunday",
+          "opens": "10:30",
+          "closes": "20:30"
+        }
+      ]
+    },
+    "Santa Marina": {
+      "renglones": [
+        {
+          "dias": "Viernes a miércoles",
+          "horas": "12:00 p. m. – 10:00 p. m."
+        },
+        {
+          "dias": "Jueves",
+          "horas": "1:00 p. m. – 10:00 p. m."
+        }
+      ],
+      "jsonld": [
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": [
+            "Friday",
+            "Saturday",
+            "Sunday",
+            "Monday",
+            "Tuesday",
+            "Wednesday"
+          ],
+          "opens": "12:00",
+          "closes": "22:00"
+        },
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": "Thursday",
+          "opens": "13:00",
+          "closes": "22:00"
+        }
+      ]
+    }
+  }
+}

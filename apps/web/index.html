@@ -30,9 +30,9 @@
 
     <link rel="canonical" href="https://www.bakebrothers.pe/" />
 
-    <!-- Datos estructurados (schema.org): un Bakery por local, con su horario real (confirmado por el cliente el
-         2026-11-13; ya no hay «por confirmar»). Si cambia un horario, cambiarlo también en src/config/landing.js
-         y en sedes.horario (el bot lo lee de la base). -->
+    <!-- Datos estructurados (schema.org): un Bakery por local. El horario (openingHoursSpecification) NO se escribe aquí:
+         los marcadores __HORARIOS_JSONLD_*__ los reemplaza el build (vite.config.js) con src/config/horarios.generated.json,
+         que se genera desde la tabla sedes_horarios (única fuente del horario). -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -46,10 +46,7 @@
             "logo": "https://www.bakebrothers.pe/img/logo-landing.png",
             "telephone": "+51912944096",
             "address": { "@type": "PostalAddress", "streetAddress": "Av. Alameda Los Horizontes 820", "addressLocality": "Chorrillos", "addressRegion": "Lima", "addressCountry": "PE" },
-            "openingHoursSpecification": [
-              { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"], "opens": "07:30", "closes": "20:30" },
-              { "@type": "OpeningHoursSpecification", "dayOfWeek": "Sunday", "opens": "10:30", "closes": "20:30" }
-            ],
+            "openingHoursSpecification": "__HORARIOS_JSONLD_CEDROS__",
             "sameAs": ["https://instagram.com/bakebrothers.pe", "https://facebook.com/bakebrothers.pe"]
           },
           {
@@ -61,10 +58,7 @@
             "logo": "https://www.bakebrothers.pe/img/logo-landing.png",
             "telephone": "+51912944096",
             "address": { "@type": "PostalAddress", "streetAddress": "Av. Defensores del Morro 2270", "addressLocality": "Chorrillos", "addressRegion": "Lima", "addressCountry": "PE" },
-            "openingHoursSpecification": [
-              { "@type": "OpeningHoursSpecification", "dayOfWeek": ["Friday", "Saturday", "Sunday", "Monday", "Tuesday", "Wednesday"], "opens": "12:00", "closes": "22:00" },
-              { "@type": "OpeningHoursSpecification", "dayOfWeek": "Thursday", "opens": "13:00", "closes": "22:00" }
-            ],
+            "openingHoursSpecification": "__HORARIOS_JSONLD_SANTA_MARINA__",
             "sameAs": ["https://instagram.com/bakebrothers.pe", "https://facebook.com/bakebrothers.pe"]
           }
         ]

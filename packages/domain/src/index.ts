@@ -186,6 +186,7 @@ export {
   textoContextoCortes,
   type ResultadoFechaPedido,
 } from "./cortesAtencion.js"
+export { agruparHorario, rangoDeDias, textoHorarioBot, renglonesHorarioWeb, horarioJsonLd, type GrupoHorario } from './horarioSemanal.js'
 export {
   horaLegible,
   minutosDeTime,

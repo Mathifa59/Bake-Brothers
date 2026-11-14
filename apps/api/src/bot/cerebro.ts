@@ -10,6 +10,7 @@ import {
   conAvisoPrimeraHora,
   textoContextoCortes,
   textoHorarioDeHoy,
+  textoHorarioBot,
   PREGUNTA_PROMOCIONES,
   type EstadoConversacion,
 } from '@bakebrothers/domain'
@@ -722,15 +723,14 @@ export async function evaluarTurno(
 
   // Número del bot (la conversación no trae sede): el modelo tiene que preguntar en qué local recoge el cliente.
   // Locales, horarios y cobertura de delivery: van en TODA conversación (con o sin sede en el número).
-  const { rows: locales } = await client.query<{ nombre: string; direccion: string | null; horario: string | null }>(
-    `select nombre, direccion, horario from sedes where activo order by nombre`
-  )
-  const contextoLocales = `\n\n${textoContextoLocales(locales, parsearDistritosDelivery(env.DISTRITOS_DELIVERY))}`
+  // El horario de cada local sale SOLO de la tabla por día (`sedes_horarios`): el texto se genera de ahí, no se escribe a mano.
+  const locales = await horariosDeLocales(client)
+  const contextoLocales = `\n\n${textoContextoLocales(
+    locales.map((l) => ({ nombre: l.nombre, direccion: l.direccion, horario: textoHorarioBot(l.horarios) || null })),
+    parsearDistritosDelivery(env.DISTRITOS_DELIVERY)
+  )}`
   let contextoSede = ''
-  if (!sedeId) {
-    const { rows } = await client.query<{ nombre: string }>(`select nombre from sedes where activo order by nombre`)
-    contextoSede = `\n\n${textoContextoSede(rows.map((r) => r.nombre))}`
-  }
+  if (!sedeId) contextoSede = `\n\n${textoContextoSede(locales.map((l) => l.nombre))}`
 
   // Quién escribe: nombre confirmado y consentimiento de promociones (lo decide el servidor, ver textoContextoCliente).
   const clienteDeLaConversacion = opciones.conversacionId
@@ -743,7 +743,7 @@ export async function evaluarTurno(
   const mensajes = construirMensajesParaModelo(historialPrevio, mensajeEntrante)
   const ahoraDelTurno = opciones.ahora ?? new Date()
   // Corte, pedidos para hoy y horario de HOY de cada local (estructurado: sedes_horarios).
-  const contextoCortes = textoContextoCortes(ahoraDelTurno, textoHorarioDeHoy(ahoraDelTurno, await horariosDeLocales(client)))
+  const contextoCortes = textoContextoCortes(ahoraDelTurno, textoHorarioDeHoy(ahoraDelTurno, locales))
 
   const herramientasUsadas: string[] = []
   const pedidosCreados: NonNullable<ResultadoTurno['pedidosCreados']> = []

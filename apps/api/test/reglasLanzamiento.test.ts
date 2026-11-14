@@ -403,14 +403,14 @@ describe.skipIf(!hayBaseDeDatosReal)('crearPedido — reglas de lanzamiento (Pos
     })
   })
 
-  it('bot: el prompt incluye los locales con su horario real (migración 0048: ya no hay «por confirmar») y la cobertura de delivery', async () => {
+  it('bot: el prompt incluye los locales con su horario real (generado desde sedes_horarios; ya no hay «por confirmar») y la cobertura de delivery', async () => {
     await enTransaccion(async () => {
       mockCreate.mockResolvedValueOnce({ content: [{ type: 'text', text: 'Hola 😊' }] })
       await evaluarTurno(client, tenantId, [], 'hola', 'activa', 'whatsapp', sedeCedrosId)
       const system = mockCreate.mock.calls[0][0].system as string
       expect(system).toContain('LOCALES Y HORARIOS')
       expect(system).toMatch(/Cedros \(.*horario: lunes a sábado 7:30 a\. m\. a 8:30 p\. m\.; domingo 10:30 a\. m\. a 8:30 p\. m\./)
-      expect(system).toMatch(/Santa Marina \(.*horario: viernes a miércoles 12:00 m\. a 10:00 p\. m\.; jueves 1:00 p\. m\. a 10:00 p\. m\./)
+      expect(system).toMatch(/Santa Marina \(.*horario: viernes a miércoles 12:00 p\. m\. a 10:00 p\. m\.; jueves 1:00 p\. m\. a 10:00 p\. m\./)
       expect(system).not.toContain('por confirmar; domingo')
       expect(system).toContain('Delivery de tienda solo a: Chorrillos, Surco, Miraflores')
       // Y las reglas nuevas del prompt.
