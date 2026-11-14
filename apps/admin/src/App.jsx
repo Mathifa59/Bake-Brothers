@@ -16,6 +16,7 @@ import Catalogo from './pages/Catalogo'
 import Clientes from './pages/Clientes'
 import Atencion from './pages/Atencion'
 import Atribucion from './pages/Atribucion'
+import RespuestasAutomaticas from './pages/RespuestasAutomaticas'
 import Conversaciones from './pages/Conversaciones'
 import Metricas from './pages/Metricas'
 import Mifact from './pages/Mifact'
@@ -88,6 +89,7 @@ function Contenido() {
           <Route path="/conversaciones" element={protegida(<Conversaciones />)} />
           <Route path="/metricas" element={protegida(<Metricas />)} />
           <Route path="/atribucion" element={protegida(<Atribucion />)} />
+          <Route path="/respuestas-automaticas" element={protegida(<RespuestasAutomaticas />)} />
           {MIFACT_ACTIVO && <Route path="/mifact" element={protegida(<Mifact />)} />}
           <Route path="/ajustes" element={protegida(<Ajustes />)} />
           <Route path="/avisos" element={protegida(<Avisos />)} />

@@ -7,6 +7,8 @@ import { procesarMensajeWhatsAppEnBackground } from '../bot/procesarWebhookWhats
 import { marcarMensajeComoProcesado } from '../repositories/conversacionesRepo.js'
 import { phoneNumberIdsConectados } from '../repositories/whatsappConexionesRepo.js'
 import { guardarEventoMetaSinProcesar } from '../repositories/eventosMetaRepo.js'
+import { parsearComentariosInstagram } from '../bot/instagram.js'
+import { procesarComentarioInstagram } from '../services/respuestasAutomaticas.js'
 import { pool, tenantPorSlug } from '../db.js'
 
 declare module 'fastify' {
@@ -99,8 +101,18 @@ export function webhookRoutes(app: FastifyInstance) {
         // contra la documentación de Meta. Síncrono (una sola query rápida),
         // antes de responder, mismo criterio que la marca de idempotencia.
         await guardarEventoMetaSinProcesar(pool, canalNoWhatsApp, req.body)
-        app.log.info({ canal: canalNoWhatsApp }, 'Evento de Meta fuera de WhatsApp guardado para revisión — sin procesar')
-        return reply.code(200).send()
+        // Comentarios de Instagram: respuestas automáticas (comenta la palabra clave → respuesta + DM con el link a
+        // WhatsApp). Se responde 200 primero y se atiende después, igual que los mensajes de WhatsApp: llamar a Meta
+        // tarda y Meta reintenta si el webhook no contesta rápido (tomarComentario evita atender dos veces).
+        const comentarios = canalNoWhatsApp === 'instagram' ? parsearComentariosInstagram(req.body) : []
+        app.log.info({ canal: canalNoWhatsApp, comentarios: comentarios.length }, 'Evento de Meta fuera de WhatsApp guardado')
+        reply.code(200).send()
+        for (const comentario of comentarios) {
+          void procesarComentarioInstagram(app.log, comentario).catch((err) => {
+            app.log.error({ err, comentarioId: comentario.comentarioId }, 'Fallo inesperado atendiendo un comentario de Instagram')
+          })
+        }
+        return reply
       }
 
       // Solo se atienden mensajes de números CONECTADOS (whatsapp_conexiones,

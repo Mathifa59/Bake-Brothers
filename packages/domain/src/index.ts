@@ -253,3 +253,15 @@ export {
   type OrdenMayorista,
   type BloqueMayorista,
 } from './planProduccion.js'
+
+export {
+  normalizarPalabras,
+  coincidePalabraClave,
+  reglaParaComentario,
+  elegirRespuestaPublica,
+  textoDelDm,
+  LIMITES_RESPUESTA_AUTOMATICA,
+  RESPUESTAS_PUBLICAS_SUGERIDAS,
+  HORAS_ENTRE_DMS_MISMA_CAMPANA,
+  type ReglaRespuestaAutomatica,
+} from './respuestasAutomaticas.js'

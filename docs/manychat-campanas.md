@@ -1,5 +1,9 @@
 # ManyChat: campañas de comentarios en Instagram y Facebook
 
+> **Plan B, no vigente (2026-11-14).** Se decidió hacer las respuestas automáticas **dentro de Bake OS** (sin otra
+> herramienta ni mensualidad): ver `docs/respuestas-automaticas-instagram.md`. Esta guía queda solo por si algún día se
+> prefiere ManyChat.
+
 > Objetivo: que alguien comente una palabra clave en un reel (por ejemplo **ALFAJOR**), reciba un DM automático con la
 > promo y un botón que lo lleva al **WhatsApp de Bake Brothers**, donde pide como siempre. El pedido queda marcado con la
 > campaña y se ve en Bake OS → **Origen de clientes → Por campaña**.

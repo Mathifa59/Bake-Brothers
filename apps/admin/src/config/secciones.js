@@ -21,6 +21,7 @@ import {
   FileSpreadsheet,
   Settings,
   ClipboardList,
+  Zap,
 } from 'lucide-react'
 import { MIFACT_ACTIVO } from './funciones'
 
@@ -44,6 +45,8 @@ export const SECCIONES_ACTIVAS = [
   { ruta: '/metricas', etiqueta: 'Métricas', icono: TrendingUp },
   // Antes «Atribución»: de qué canal o campaña llegó cada cliente o pedido (ver pages/Atribucion.jsx).
   { ruta: '/atribucion', etiqueta: 'Origen de clientes', icono: PieChart },
+  // Solo dirección: comentan una palabra clave en Instagram y Bake OS responde con el link de WhatsApp (pages/RespuestasAutomaticas.jsx).
+  { ruta: '/respuestas-automaticas', etiqueta: 'Respuestas automáticas', icono: Zap },
   // Solo admin y solo con VITE_MIFACT_ACTIVO=true: cruza el Excel de productos de Mifact con el catálogo y
   // guarda sus códigos (ver pages/Mifact.jsx). Oculto por defecto en producción.
   ...(MIFACT_ACTIVO ? [{ ruta: '/mifact', etiqueta: 'Mifact', icono: FileSpreadsheet, soloAdmin: true }] : []),
