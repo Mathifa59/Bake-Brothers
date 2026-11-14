@@ -1,0 +1,33 @@
+{
+  "id": "34-hoy-agotado-en-un-local-disponible-en-el-otro",
+  "titulo": "Pedido para HOY agotado en Cedros: no lo crea, lo dice con el nombre del local y ofrece Santa Marina o el día siguiente",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [
+    {
+      "tipo": "stock_agotado",
+      "slug": "torta-carrot-cake",
+      "tamano": "Individual",
+      "sede": "Cedros"
+    }
+  ],
+  "turnos": [
+    {
+      "cliente": "Quiero un carrot cake individual para recoger hoy a las 4:30 pm. Soy Ana Torres, 999000111."
+    }
+  ],
+  "esperado": {
+    "pedidoCreado": false,
+    "textoContiene": [
+      "Cedros",
+      "Santa Marina"
+    ],
+    "textoContieneRegex": [
+      "agot"
+    ]
+  }
+}

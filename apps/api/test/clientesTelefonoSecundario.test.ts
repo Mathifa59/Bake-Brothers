@@ -133,8 +133,8 @@ describe.skipIf(!hayBaseDeDatosReal)('cliente con teléfono secundario', () => {
       // Con el número principal o con el secundario: el mismo mayorista, rechazado igual (a las 9:00 p. m. incluso).
       expect(await pedido(S1, lima('21:00'))).toMatchObject({ ok: false, error: 'MAYORISTA_ATENCION_DIRECTA' })
       expect(await pedido(P1, lima('21:00'))).toMatchObject({ ok: false, error: 'MAYORISTA_ATENCION_DIRECTA' })
-      // Un número que no es de ningún mayorista sigue su camino normal (aquí, el corte).
-      expect(await pedido('+51999000465', lima('21:00'))).toMatchObject({ error: 'CORTE_DEL_DIA' })
+      // Un número que no es de ningún mayorista sigue su camino normal (aquí, para hoy a las 9:00 p. m. la hora de recojo ya pasó).
+      expect(await pedido('+51999000465', lima('21:00'))).toMatchObject({ error: 'HORA_PASADA' })
     })
   })
 })

@@ -32,6 +32,7 @@
 // conversaciones/mensajes_webhook_procesados y update en order_sequences
 // (mismo criterio que test/dashboardOrders.test.ts) — membresía en app_api
 // alcanza para las políticas RLS de conversaciones.
+import { darHorarioTodosLosDias } from './horariosDePrueba.js'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import pg from 'pg'
 import { DATABASE_URL_PLACEHOLDER } from './testEnv.js'
@@ -105,6 +106,7 @@ describe.skipIf(!hayBaseDeDatosReal)('POST /webhook — async + idempotencia rea
     // en whatsapp_conexiones) para que el envío real pueda salir — ya no hay
     // un token global por variable de entorno.
     sedeDePruebaId = (await client.query(`insert into sedes (nombre) values ('TEST webhook whatsapp') returning id`)).rows[0].id
+    await darHorarioTodosLosDias(client, sedeDePruebaId)
     await sembrarConexion(client, { sedeId: sedeDePruebaId, phoneNumberId: PHONE_ID })
   })
 
@@ -317,6 +319,63 @@ describe.skipIf(!hayBaseDeDatosReal)('POST /webhook — async + idempotencia rea
           tenantId,
           telefono,
         ])
+        await client.query(`delete from mensajes_webhook_procesados where mensaje_id = $1`, [mensajeId])
+      }
+    },
+    20_000
+  )
+
+  it(
+    'un pedido PARA HOY que el bot registra avisa al local (aviso «pedido_nuevo», con su sede); uno para otro día no avisa',
+    async () => {
+      const telefono = '999000779'
+      const limpiar = async () => {
+        await client.query(`delete from avisos where tipo = 'pedido_nuevo' and cuerpo like '%Cliente Hoy Test%'`)
+        await client.query(`delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = $1)`, [telefono])
+        await client.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = $1`, [telefono])
+        await client.query(`delete from conversaciones where tenant_id = $1 and canal = 'whatsapp' and external_id = $2`, [tenantId, telefono])
+      }
+      await limpiar()
+      const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date())
+      const mensajeId = `wamid.TEST_HOY_${Date.now()}`
+      await client.query(`delete from mensajes_webhook_procesados where mensaje_id = $1`, [mensajeId])
+      mockCreate.mockResolvedValueOnce({
+        content: [
+          {
+            type: 'tool_use',
+            id: 'toolu_hoy',
+            name: 'crearPedido',
+            input: {
+              clienteNombre: 'Cliente Hoy Test',
+              clienteTelefono: telefono,
+              tipoEntrega: 'tienda',
+              fechaEntregaISO: hoy,
+              horario: '11:58 pm',
+              items: [{ tipo: 'producto', busqueda: 'carrot cake', tamano: 'Individual', cantidad: 1 }],
+              metodoPago: 'yape',
+              pagoPorAdelantado: false,
+            },
+          },
+        ],
+      })
+      mockCreate.mockResolvedValueOnce({ content: [{ type: 'text', text: 'Tu pedido quedó registrado; te avisamos cuando esté listo 😊' }] })
+
+      const app = await buildApp()
+      try {
+        const res = await app.inject({ method: 'POST', url: '/webhook', payload: payloadWhatsApp(mensajeId, telefono, 'Quiero un carrot cake individual para hoy a las 11:58 pm') })
+        expect(res.statusCode).toBe(200)
+        let avisos: { titulo: string; cuerpo: string; sede_id: string | null }[] = []
+        for (let intento = 0; intento < 20; intento++) {
+          await esperar(300)
+          avisos = (await client.query(`select titulo, cuerpo, sede_id from avisos where tipo = 'pedido_nuevo' and cuerpo like '%Cliente Hoy Test%'`)).rows
+          if (avisos.length > 0) break
+        }
+        expect(avisos).toHaveLength(1)
+        expect(avisos[0].titulo).toMatch(/^Pedido para hoy BB-\d+/)
+        expect(avisos[0].cuerpo).toContain('carrot cake')
+        expect(avisos[0].sede_id).toBe(sedeDePruebaId) // el local de la conversación
+      } finally {
+        await limpiar()
         await client.query(`delete from mensajes_webhook_procesados where mensaje_id = $1`, [mensajeId])
       }
     },

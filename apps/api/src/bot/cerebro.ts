@@ -9,6 +9,7 @@ import {
   parsearDistritosDelivery,
   conAvisoPrimeraHora,
   textoContextoCortes,
+  textoHorarioDeHoy,
   PREGUNTA_PROMOCIONES,
   type EstadoConversacion,
 } from '@bakebrothers/domain'
@@ -28,6 +29,7 @@ import {
   consultarReglasCatering,
   evaluarSemaforoCateringPedido,
 } from './tools.js'
+import { horariosDeLocales } from '../repositories/horariosRepo.js'
 import { crearPedido, type CrearPedidoInput, type ItemPedidoInput } from '../services/crearPedido.js'
 
 type Canal = 'whatsapp' | 'facebook' | 'instagram' | 'web'
@@ -101,7 +103,7 @@ REGLAS DURAS, sin excepción:
    - Junta nombre (mira el bloque CLIENTE del contexto: si ya tenemos su nombre confirmado no se lo pidas otra vez; si no lo tenemos, pídeselo SIEMPRE antes de crear el pedido, aunque el perfil de WhatsApp muestre uno), producto(s) y cantidad, fecha de entrega, y si es recojo en tienda o delivery (con dirección) — nunca cotices ni prometas el costo del delivery, eso lo cotiza el operador a mano.
    - Si el producto es un jugo o helado, pregunta con azúcar o sin azúcar; si son empanadas, pregunta calientes o sin calentar — anota la respuesta en el campo nota.
    - Catering: nunca lo registres tú con crearPedido (regla 2). Solo productos de tienda y combos.
-   - PAGO: el delivery se paga SIEMPRE por adelantado (pagoPorAdelantado = true). En recojo en tienda pregúntale al cliente si prefiere pagar ahora (por adelantado) o al recoger en el local: si paga al recoger usa pagoPorAdelantado = false (el pedido queda confirmado y paga en tienda); si paga ahora, true. Con pago por adelantado pon en metodoPago el que elija (yape, plin o transferencia). TARJETA: tú NUNCA generas ni ofreces un link de pago; si el cliente pide pagar con tarjeta o con link, usa metodoPago = tarjeta, registra el pedido y dile que una persona del equipo le envía el link de pago (el sistema no te da datos de pago en ese caso). Nunca inventes un link. Cuando crearPedido responda: si es por adelantado y trae datosPago, dáselos tal cual y pídele que mande la captura del pago por aquí; si datosPago es null, dile que una persona del equipo le escribe en un momento con los datos de pago. NUNCA inventes un número de Yape, una cuenta ni un link. Si paga al recoger, confírmaselo sin pedirle datos de pago.
+   - PAGO: el delivery se paga SIEMPRE por adelantado (pagoPorAdelantado = true) y los datos de pago los envía una persona cuando se cotiza el envío. El RECOJO se paga en la tienda: usa pagoPorAdelantado = false y NO ofrezcas pagar por adelantado ni le pidas datos de pago; confírmaselo diciendo que paga al recoger. Solo si el cliente pide por su cuenta pagar por adelantado un recojo: usa pagoPorAdelantado = true y en metodoPago el que elija (yape, plin o transferencia); en Santa Marina el sistema te da datosPago y se los das tal cual (pídele que mande la captura del pago por aquí); en Cedros el sistema no tiene datos para dar y deriva a una persona que se los envía (díselo así). TARJETA: tú NUNCA generas ni ofreces un link de pago; si el cliente pide pagar con tarjeta o con link, usa metodoPago = tarjeta, registra el pedido y dile que una persona del equipo le envía el link de pago (el sistema no te da datos de pago en ese caso). Nunca inventes un link. NUNCA inventes un número de Yape, una cuenta ni un link.
    - CAPTURAS DE PAGO: cuando el cliente manda la captura de su pago, el sistema la lee solo y la deja para que el equipo la confirme con un toque. Tú nunca des un pago por confirmado ni verifiques ningún comprobante: solo dile con calidez que el equipo lo confirma y le avisa.
    - DELIVERY: solo se hace a los distritos de la lista de cobertura (ver el contexto de locales y delivery). Si el distrito no está, dile con amabilidad que ahí no llegan y ofrécele recojo en tienda. El envío se cotiza al momento y una persona del equipo confirma el costo: tú NUNCA das un monto (ni aproximado ni «desde») ni prometas que sea gratis; dile que el costo del envío se cotiza al momento y que una persona se lo confirma. La coordinación también la hace una persona. Cuando crearPedido registre un delivery, llama a escalarAHumano (motivo: cotizar y coordinar el delivery) y dile al cliente que una persona le confirma el costo de envío y le pasa los datos de pago.
    - Si crearPedido devuelve atencionHumana, el pedido SÍ quedó registrado: cuéntale el número de pedido y el total de los productos, y llama a escalarAHumano con ese motivo.
@@ -127,9 +129,11 @@ REGLAS DURAS, sin excepción:
    - Un tamaño con agotado = true no lo ofrezcas ni lo pidas: ofrécele los otros tamaños, y si ese tamaño trae disponibleEn (nombres de locales), dile que ahí sí lo hay.
    - Con el número del bot el local todavía no está elegido: usa agotadoEn para decir en cuál se agotó y disponibleEn para el que sí tiene, y deja que elija.
    - Los productos que listarCatalogo omite por agotados (agotadosOmitidos) se agotaron en el local de esta conversación: si pregunta por uno, dile que se agotó en ese local y llama a consultarPrecio para saber si otro local lo tiene.
-   - Si crearPedido devuelve PRODUCTO_AGOTADO, no inventes un pedido: dile qué producto no se pudo y en qué local (detalle.sedeId y detalle.productos), y ofrécele disponibleEn (con su dirección, que ya tienes en LOCALES Y HORARIOS) u otro producto.
-10. Corte del día y atención fuera de horario: el contexto de cada turno te dice la hora de Lima, si ya pasó el corte del día y si hay personas atendiendo.
-   - Pasado el corte (8:00 p. m.) NO ofrezcas entrega ni recojo para hoy: toma el pedido para mañana o un día posterior y explícaselo con amabilidad. Si crearPedido devuelve CORTE_DEL_DIA, usa detalle.fechaMinima para ofrecer la fecha más cercana; no insistas con hoy.
+   - Si crearPedido devuelve PRODUCTO_AGOTADO, no inventes un pedido: dile qué producto no se pudo y en qué local (detalle.sedeId y detalle.productos), y ofrécele disponibleEn (con su dirección, que ya tienes en LOCALES Y HORARIOS), otro producto o dejarlo para el día siguiente.
+10. Fechas, pedidos para hoy y atención fuera de horario: el contexto de cada turno te dice la hora de Lima, el corte, el horario de HOY de cada local y si hay personas atendiendo.
+   - Para MAÑANA se toma hasta las 11:00 p. m. de hoy; desde esa hora la fecha más cercana es pasado mañana. Si crearPedido devuelve CORTE_DEL_DIA, usa detalle.fechaMinima para ofrecer la fecha más cercana.
+   - Para HOY SÍ puedes tomar el pedido: el servidor lo valida antes de crearlo (producto disponible en el Stock de ese local, hora de recojo dentro del horario del local y posterior a la hora actual, y que no sea solo por encargo). En recojo ofrece SOLO horas dentro del horario del local de ese día (desde que abre hasta antes de que cierre). Según lo que devuelva crearPedido: HORA_FUERA_DE_HORARIO, HORA_PASADA, HORA_NO_ENTENDIDA o LOCAL_CERRADO → ofrécele horas válidas (detalle trae abre, cierra y otrosLocales), el otro local u otro día; PRODUCTO_AGOTADO → regla 9 (otro local o el día siguiente); SOLO_POR_ENCARGO → explícale con amabilidad que eso es solo por encargo y no sale para hoy, y ofrécelo agendado desde detalle.fechaMinima; NO_SE_PUDO_VALIDAR → el pedido NO se creó y una persona lo confirma (no inventes nada).
+   - Cuando crearPedido registre un pedido para hoy: dile que quedó registrado y que le avisan cuando esté listo, SIN prometer una hora exacta (regla 13). Nunca confirmes tú un pedido que el servidor no registró.
    - Si nadie atiende ahora y derivas a una persona (escalarAHumano, o un pedido que sigue una persona), dile «te escribimos a primera hora»; nunca prometas una hora exacta ni una respuesta inmediata.
 11. Promociones (consentimiento): SOLO si el contexto trae el bloque «CONSENTIMIENTO DE PROMOCIONES: pendiente», esta persona nunca ha respondido a esto. Cuando crearPedido registre su pedido (ok = true), al final de tu confirmación hazle UNA sola vez esta pregunta, tal cual: «${PREGUNTA_PROMOCIONES}». Si responde que sí o que no, llama a registrarConsentimientoPromociones con acepta = true o false y agradécele sin insistir. Si no responde o cambia de tema, no se lo vuelvas a preguntar. Nunca lo preguntes antes de que el pedido esté registrado, nunca lo presentes como obligatorio ni lo condiciones a la compra, nunca lo guardes sin una respuesta clara de la persona, y si el bloque no está en el contexto, no preguntes nada.
 12. Mayoristas: la atención de mayoristas NO se hace por este chat. Si el contexto dice que el cliente es mayorista, o el cliente pide «por mayor», «al por mayor», precio de mayorista o compras grandes para revender o para su negocio, NO cotices ni tomes ningún pedido (nunca llames a crearPedido para él): dile con amabilidad que la atención de mayoristas es directa y pásale este link de WhatsApp: ${linkWhatsAppMayoristas()}. Ese es el único contacto que das para esto. Si crearPedido devuelve MAYORISTA_ATENCION_DIRECTA, haz lo mismo con el link que trae.
@@ -251,7 +255,7 @@ const TOOLS: Anthropic.Tool[] = [
             'Solo cuando este número NO pertenece a un local (ver el contexto de sede): el local donde el cliente recoge ("Cedros", "Santa Marina"…), tal como lo respondió. Para delivery no hace falta. Pregúntaselo siempre; nunca lo asumas.',
         },
         fechaEntregaISO: { type: 'string', description: 'Fecha de entrega, formato YYYY-MM-DD.' },
-        horario: { type: 'string', description: 'Horario acordado con el cliente, en texto libre.' },
+        horario: { type: 'string', description: 'Hora de recojo (o de entrega) acordada, concreta, por ejemplo "4:30 p. m.". En recojo tiene que caer dentro del horario del local ese día.' },
         items: {
           type: 'array',
           description: 'Uno o más productos/ítems de catering/combos del pedido.',
@@ -391,7 +395,7 @@ export interface ResultadoTurno {
   motivoEscalacion?: string
   // Pedidos que crearPedido registró de verdad en este turno (vacío si ninguno)
   // — el simulador del dashboard los muestra; el webhook real no los necesita.
-  pedidosCreados?: { numero: string; estado: string; total: number; sedeId?: string | null }[]
+  pedidosCreados?: { numero: string; estado: string; total: number; sedeId?: string | null; paraHoy?: boolean; resumen?: string }[]
 }
 
 export interface OpcionesTurno {
@@ -566,6 +570,22 @@ export function decidirEscaladaForzadaPorTool(
   ) {
     return { forzar: true, motivo: 'Pedido de catering — lo cotiza y confirma una persona del equipo.' }
   }
+  // Pedido que el servidor no pudo validar (sin horario cargado del local, producto sin clasificar…): no se creó nada y se
+  // deriva a una persona CON un resumen listo para confirmar. El texto del modelo no es confiable (no sabe que se forzó).
+  if (
+    nombreTool === 'crearPedido' &&
+    typeof resultadoTool === 'object' &&
+    resultadoTool !== null &&
+    'ok' in resultadoTool &&
+    (resultadoTool as { ok: boolean }).ok === false &&
+    (resultadoTool as { error?: string }).error === 'NO_SE_PUDO_VALIDAR'
+  ) {
+    const d = ((resultadoTool as { detalle?: { motivo?: string; resumen?: string } }).detalle ?? {}) as { motivo?: string; resumen?: string }
+    return {
+      forzar: true,
+      motivo: `Pedido que no se pudo validar solo (${d.motivo ?? 'sin detalle'}). Resumen para confirmar: ${d.resumen ?? 'sin resumen'}`,
+    }
+  }
   // Pedido registrado que una persona debe seguir (delivery por cotizar y coordinar, o datos de pago por
   // enviar). El pedido SÍ existe, así que el texto que escribió el modelo (número, total, qué sigue) es
   // confiable y NO se reemplaza por el mensaje fijo.
@@ -722,6 +742,8 @@ export async function evaluarTurno(
 
   const mensajes = construirMensajesParaModelo(historialPrevio, mensajeEntrante)
   const ahoraDelTurno = opciones.ahora ?? new Date()
+  // Corte, pedidos para hoy y horario de HOY de cada local (estructurado: sedes_horarios).
+  const contextoCortes = textoContextoCortes(ahoraDelTurno, textoHorarioDeHoy(ahoraDelTurno, await horariosDeLocales(client)))
 
   const herramientasUsadas: string[] = []
   const pedidosCreados: NonNullable<ResultadoTurno['pedidosCreados']> = []
@@ -737,7 +759,7 @@ export async function evaluarTurno(
     const respuesta = await anthropic.messages.create({
       model: MODELO,
       max_tokens: 1024,
-      system: `${SYSTEM_PROMPT}\n\n${contextoFechaActual(ahoraDelTurno)}\n${textoContextoCortes(ahoraDelTurno)}${contextoLocales}${contextoSede}${contextoCliente}`,
+      system: `${SYSTEM_PROMPT}\n\n${contextoFechaActual(ahoraDelTurno)}\n${contextoCortes}${contextoLocales}${contextoSede}${contextoCliente}`,
       tools: TOOLS,
       messages: mensajes,
     })
@@ -832,7 +854,7 @@ export async function evaluarTurno(
             )
           )
           if (resultado.ok) {
-            pedidosCreados.push({ numero: resultado.numero, estado: resultado.estado, total: resultado.total, sedeId: resultado.sedeId })
+            pedidosCreados.push({ numero: resultado.numero, estado: resultado.estado, total: resultado.total, sedeId: resultado.sedeId, paraHoy: resultado.paraHoy, resumen: resultado.resumen })
           }
           const decision = decidirEscaladaForzadaPorTool(bloque.name, resultado)
           if (decision.forzar) {

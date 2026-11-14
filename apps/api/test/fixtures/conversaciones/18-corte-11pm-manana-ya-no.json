@@ -1,0 +1,25 @@
+{
+  "id": "18-corte-11pm-manana-ya-no",
+  "titulo": "Pasadas las 11:00 p. m. un pedido para mañana ya no se toma: ofrece pasado mañana",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T23:30:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "Quiero un carrot cake individual para mañana a las 10 am, lo recojo en Cedros. Soy Ana Torres, 999000111."
+    }
+  ],
+  "esperado": {
+    "pedidoCreado": false,
+    "textoContieneRegex": [
+      "pasado ma[ñn]ana|domingo|15"
+    ],
+    "textoNoContieneRegex": [
+      "(queda|qued[oó]|est[aá]) (registrad|confirmad)"
+    ]
+  }
+}

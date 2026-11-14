@@ -9,6 +9,7 @@ import { extraerReferencia } from '@bakebrothers/domain'
 import { leerConfiguracionBot } from '../repositories/configuracionBotRepo.js'
 import { atenderMensajeSinBot } from './atencionSinBot.js'
 import { avisarMensajeEntrante } from './avisarMensajeEntrante.js'
+import { avisarAlEquipo } from '../services/avisos.js'
 import type { MensajeWhatsAppEntrante } from './parsearMensajesWhatsApp.js'
 
 /**
@@ -139,6 +140,18 @@ export async function procesarMensajeWhatsAppEnBackground(
     // procesarMensajeEntrante no generó ninguna respuesta del bot que mandar.
     if (resultado) {
       await enviarMensajeMeta('whatsapp', mensaje.phoneNumberId, mensaje.telefono, resultado.textoRespuesta)
+    }
+    // Un pedido PARA HOY que el bot registró (ya validado: stock, horario del local, no solo por encargo): se avisa al
+    // local (campana + push) para que lo prepare. Los pedidos para otro día no necesitan aviso.
+    for (const p of resultado?.pedidosCreados ?? []) {
+      if (!p.paraHoy) continue
+      await avisarAlEquipo(logger, {
+        tipo: 'pedido_nuevo',
+        titulo: `Pedido para hoy ${p.numero}`,
+        cuerpo: p.resumen ?? 'Pedido nuevo para hoy',
+        conversacionId,
+        sedeId: p.sedeId ?? null,
+      })
     }
     // Con el bot encendido el equipo solo se entera de lo que le toca: el bot derivó la conversación (esperando
     // persona) o el cliente escribió en una que ya está esperando / la tiene alguien (el bot no responde).

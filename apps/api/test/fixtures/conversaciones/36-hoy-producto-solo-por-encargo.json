@@ -1,0 +1,25 @@
+{
+  "id": "36-hoy-producto-solo-por-encargo",
+  "titulo": "Producto solo por encargo pedido para HOY: no lo crea, explica que es por encargo y ofrece agendarlo desde mañana",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "Quiero un pionono familiar para recoger hoy a las 4 pm en Cedros. Soy Ana Torres, 999000111."
+    }
+  ],
+  "esperado": {
+    "pedidoCreado": false,
+    "textoContieneRegex": [
+      "encargo|agend"
+    ],
+    "textoNoContieneRegex": [
+      "(queda|qued[oó]|est[aá]) (registrad|confirmad)"
+    ]
+  }
+}

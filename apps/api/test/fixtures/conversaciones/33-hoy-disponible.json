@@ -1,0 +1,35 @@
+{
+  "id": "33-hoy-disponible",
+  "titulo": "Pedido para HOY con producto disponible y hora dentro del horario: lo crea, avisa que le avisan cuando esté listo, sin prometer hora exacta",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "Quiero un carrot cake individual para recoger hoy a las 4:30 pm en Cedros. Soy Ana Torres, 999000111, pago en tienda."
+    },
+    {
+      "cliente": "Sí, confírmalo"
+    }
+  ],
+  "esperado": {
+    "estadoFinal": "activa",
+    "pedidoCreado": true,
+    "herramientas": {
+      "incluye": [
+        "crearPedido"
+      ]
+    },
+    "textoContieneRegex": [
+      "registrad"
+    ],
+    "textoNoContieneRegex": [
+      "estar[aá] listo (a las|en)",
+      "(a las|para las) 4:30.{0,40}(listo|garantiz)"
+    ]
+  }
+}

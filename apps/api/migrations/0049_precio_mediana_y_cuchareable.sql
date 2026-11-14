@@ -5,6 +5,7 @@
 --    no lo ven; solo lo usan las órdenes de mayoristas, que van «por cotizar»). Solo se rellena donde no tenía precio.
 -- 2) Cuchareable: no existe un sabor «manjar» aparte — lo que se llamaba así es el Cuchareable de ALFAJOR (que ya estaba
 --    en la lista). Se quita «chocolate con manjar blanco» (duplicado) de la descripción y el alfajor queda primero.
+--    También se agrega «fresa» (el cliente confirmó que existe y tiene foto).
 --    Los precios son los de Cedros, iguales para los dos locales (los de Mifact de Santa Marina no se usan).
 -- Idempotente: se puede correr de nuevo sin cambiar nada.
 -- ============================================================================
@@ -14,6 +15,9 @@ update product_sizes
  where lower(tamano) = 'mediana' and precio is null;
 
 update products
-   set descripcion = 'Postre en vaso de 16oz. Sabores: alfajor, chocolate con manjar de lúcuma, chocolate con Nutella, chocolate Princesa.'
+   set descripcion = 'Postre en vaso de 16oz. Sabores: fresa, alfajor, chocolate con manjar de lúcuma, chocolate con Nutella, chocolate Princesa.'
  where slug = 'cuchareable'
-   and descripcion = 'Postre en vaso de 16oz. Sabores: chocolate con manjar blanco, chocolate con manjar de lúcuma, chocolate con Nutella, chocolate Princesa, alfajor.';
+   and descripcion in (
+     'Postre en vaso de 16oz. Sabores: chocolate con manjar blanco, chocolate con manjar de lúcuma, chocolate con Nutella, chocolate Princesa, alfajor.',
+     'Postre en vaso de 16oz. Sabores: alfajor, chocolate con manjar de lúcuma, chocolate con Nutella, chocolate Princesa.'
+   );

@@ -3,6 +3,7 @@
 // la referencia se guarda en la conversación y NO llega al modelo → el pedido que crea
 // el bot la lleva en orders.campana. Con el SDK de Anthropic y el envío a Meta
 // mockeados (sin credenciales reales); todo lo demás corre real contra Postgres.
+import { darHorarioTodosLosDias } from './horariosDePrueba.js'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import pg from 'pg'
 import { fechaLimaISO, sumarDiasISO } from '@bakebrothers/domain'
@@ -89,6 +90,7 @@ describe.skipIf(!hayBaseDeDatosReal)('atribución de campañas — webhook real'
   beforeAll(async () => {
     tenantId = (await pool.query(`select id from tenants where slug = 'bake-brothers'`)).rows[0].id
     sedeId = (await pool.query(`insert into sedes (nombre) values ('TEST campana') returning id`)).rows[0].id
+    await darHorarioTodosLosDias(pool, sedeId)
     await sembrarConexion(pool, { sedeId, phoneNumberId: PHONE_ID })
     app = await buildApp()
   })

@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { BellRing, MessageCircle, UserRound } from 'lucide-react'
+import { BellRing, MessageCircle, ShoppingBag, UserRound } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useAlertas } from '../context/AlertasContext'
 import { useAvisos } from '../context/AvisosContext'
@@ -53,7 +53,7 @@ export default function Avisos() {
         {avisos && avisos.length > 0 && (
           <ul className="space-y-2">
             {avisos.map((a) => {
-              const Icono = a.tipo === 'esperando_persona' ? UserRound : MessageCircle
+              const Icono = a.tipo === 'esperando_persona' ? UserRound : a.tipo === 'pedido_nuevo' ? ShoppingBag : MessageCircle
               return (
                 <li key={a.id}>
                   <button
@@ -63,7 +63,7 @@ export default function Avisos() {
                       esNuevo(a) ? 'border-acento bg-acento-suave' : 'border-borde bg-hueso'
                     }`}
                   >
-                    <span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl ${a.tipo === 'esperando_persona' ? 'bg-acento-suave text-acento-oscuro' : 'bg-lila-suave text-lila'}`}>
+                    <span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl ${a.tipo === 'esperando_persona' || a.tipo === 'pedido_nuevo' ? 'bg-acento-suave text-acento-oscuro' : 'bg-lila-suave text-lila'}`}>
                       <Icono size={18} aria-hidden="true" />
                     </span>
                     <span className="min-w-0 flex-1">

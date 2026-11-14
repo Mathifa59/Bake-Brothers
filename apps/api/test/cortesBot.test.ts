@@ -49,17 +49,22 @@ describe.skipIf(!hayBaseDeDatosReal)('corte del día y atención fuera de horari
       ahora,
     } as never)
 
-  describe('crearPedido (el servidor hace cumplir el corte)', () => {
-    it('a las 8:30 p. m. «para hoy» se rechaza con la fecha mínima y no deja rastro', async () => {
-      const r = await pedidoPara('2026-11-13', '999000445', lima('20:30'))
-      expect(r).toMatchObject({ ok: false, error: 'CORTE_DEL_DIA', detalle: { fechaMinima: '2026-11-14' } })
+  describe('crearPedido (el servidor hace cumplir el corte de las 11:00 p. m.)', () => {
+    it('para MAÑANA a las 11:00 p. m. ya no se toma: se rechaza con la fecha mínima (pasado mañana) y no deja rastro', async () => {
+      const r = await pedidoPara('2026-11-14', '999000445', lima('23:00'))
+      expect(r).toMatchObject({ ok: false, error: 'CORTE_DEL_DIA', detalle: { fechaMinima: '2026-11-15' } })
       const { rows } = await client.query(`select count(*)::int n from customers where telefono = '+51999000445'`)
       expect(rows[0].n).toBe(0)
     })
 
-    it('antes del corte «para hoy» pasa el corte (y se cae después por el producto inexistente); mañana también', async () => {
+    it('para mañana a las 10:59 p. m. todavía pasa el corte (y se cae después por el producto inexistente); a las 8:30 p. m. también', async () => {
+      expect(await pedidoPara('2026-11-14', '999000445', lima('22:59'))).toMatchObject({ error: 'PRODUCTO_NO_ENCONTRADO' })
+      expect(await pedidoPara('2026-11-14', '999000445', lima('20:30'))).toMatchObject({ error: 'PRODUCTO_NO_ENCONTRADO' })
+    })
+
+    it('«para hoy» ya NO lo rechaza el corte (el servidor aplica las validaciones de pedido para hoy)', async () => {
       expect(await pedidoPara('2026-11-13', '999000445', lima('15:00'))).toMatchObject({ error: 'PRODUCTO_NO_ENCONTRADO' })
-      expect(await pedidoPara('2026-11-14', '999000445', lima('21:30'))).toMatchObject({ error: 'PRODUCTO_NO_ENCONTRADO' })
+      expect(await pedidoPara('2026-11-13', '999000445', lima('21:00'))).toMatchObject({ error: 'PRODUCTO_NO_ENCONTRADO' })
     })
 
     it('un mayorista NO pasa por el bot (lo atiende una persona por un WhatsApp directo); un cliente común sí, con su corte', async () => {
@@ -69,13 +74,13 @@ describe.skipIf(!hayBaseDeDatosReal)('corte del día y atención fuera de horari
       )
       // El mayorista se rechaza antes de cualquier otra regla (a cualquier hora), con el link de atención directa.
       for (const hora of ['15:00', '21:00', '23:05']) {
-        expect(await pedidoPara('2026-11-13', '999000446', lima(hora))).toMatchObject({
+        expect(await pedidoPara('2026-11-14', '999000446', lima(hora))).toMatchObject({
           ok: false,
           error: 'MAYORISTA_ATENCION_DIRECTA',
           detalle: { whatsapp: 'https://wa.me/51986639228' },
         })
       }
-      expect(await pedidoPara('2026-11-13', '999000447', lima('21:00'))).toMatchObject({ error: 'CORTE_DEL_DIA' })
+      expect(await pedidoPara('2026-11-14', '999000447', lima('23:05'))).toMatchObject({ error: 'CORTE_DEL_DIA' })
     })
   })
 
@@ -89,20 +94,26 @@ describe.skipIf(!hayBaseDeDatosReal)('corte del día y atención fuera de horari
       stop_reason: 'tool_use',
     })
 
-    it('después de las 8:00 p. m. el contexto dice que NO se ofrece entrega ni recojo para hoy', async () => {
-      mockCreate.mockResolvedValue(respuestaTexto('Para hoy ya no alcanza, ¿te lo preparo para mañana?'))
-      await turno(lima('20:30'))
+    it('después de las 11:00 p. m. el contexto dice que mañana ya no se toma y que la fecha más cercana es pasado mañana', async () => {
+      mockCreate.mockResolvedValue(respuestaTexto('Para mañana ya no alcanza, ¿te lo agendo para el domingo?'))
+      await turno(lima('23:30'))
       const sistema = sistemaDeLaLlamada()
-      expect(sistema).toContain('NO ofrezcas entrega ni recojo para HOY')
-      expect(sistema).toContain('2026-11-14')
+      expect(sistema).toContain('ya pasaron las 11:00 p. m.')
+      expect(sistema).toContain('2026-11-15')
       expect(sistema).toContain('CORTE_DEL_DIA') // la regla 10 del prompt
+      // Y el horario de HOY de cada local (estructurado, sedes_horarios): viernes.
+      expect(sistema).toContain('HORARIO DE HOY (viernes) PARA RECOJO')
+      expect(sistema).toMatch(/Cedros 7:30 a\. m\.–8:30 p\. m\./)
+      expect(sistema).toMatch(/Santa Marina 12:00 p\. m\.–10:00 p\. m\./)
     })
 
-    it('de día no hay aviso de corte y dice que hay equipo atendiendo', async () => {
+    it('de día el contexto dice el corte de mañana, que hoy SÍ se toma con validaciones y que hay equipo atendiendo', async () => {
       mockCreate.mockResolvedValue(respuestaTexto('¡Hola! ¿Qué te preparo?'))
       await turno(lima('12:00'))
       const sistema = sistemaDeLaLlamada()
-      expect(sistema).not.toContain('NO ofrezcas entrega ni recojo para HOY')
+      expect(sistema).toContain('los pedidos para mañana se toman hasta las 11:00 p. m. de hoy')
+      expect(sistema).toContain('PEDIDOS PARA HOY: SÍ los puedes tomar')
+      expect(sistema).not.toContain('ya pasaron las 11:00 p. m.')
       expect(sistema).toContain('ahora hay equipo atendiendo')
     })
 

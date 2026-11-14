@@ -16,7 +16,7 @@ import { pool } from '../db.js'
  * push y `GET /api/dashboard/push/clave` responde 503.
  */
 
-export type TipoAviso = 'mensaje_nuevo' | 'esperando_persona'
+export type TipoAviso = 'mensaje_nuevo' | 'esperando_persona' | 'pedido_nuevo'
 
 export interface NuevoAviso {
   tipo: TipoAviso

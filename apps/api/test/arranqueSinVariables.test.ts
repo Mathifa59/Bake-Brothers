@@ -40,19 +40,17 @@ describe('env.ts en producción', () => {
 })
 
 describe('avisosDeArranque — qué falta y qué pasa mientras tanto', () => {
-  it('con el entorno vacío avisa de las 6 funciones apagadas, cada una con su consecuencia', () => {
+  it('con el entorno vacío avisa de las 5 funciones apagadas, cada una con su consecuencia', () => {
     const avisos = avisosDeArranque({})
     expect(avisos.map((a) => a.variable)).toEqual([
       'WHATSAPP_TOKEN_ENCRYPTION_KEY',
       'META_APP_SECRET',
       'DATOS_PAGO',
-      'DATOS_PAGO_CEDROS',
       'ANTHROPIC_API_KEY',
       'VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY',
     ])
     expect(avisos.every((a) => a.consecuencia.length > 20)).toBe(true)
     expect(avisos.find((a) => a.variable === 'DATOS_PAGO')?.consecuencia).toMatch(/persona/)
-    expect(avisos.find((a) => a.variable === 'DATOS_PAGO_CEDROS')?.consecuencia).toMatch(/Hermanos Loarte/)
     expect(avisos.find((a) => a.variable === 'META_APP_SECRET')?.consecuencia).toMatch(/503/)
   })
 
@@ -61,7 +59,6 @@ describe('avisosDeArranque — qué falta y qué pasa mientras tanto', () => {
       WHATSAPP_TOKEN_ENCRYPTION_KEY: CLAVE_VALIDA,
       META_APP_SECRET: 'x',
       DATOS_PAGO: 'Yape 999 999 999',
-      DATOS_PAGO_CEDROS: 'Yape 888 888 888',
       ANTHROPIC_API_KEY: 'x',
       VAPID_PUBLIC_KEY: 'x',
       VAPID_PRIVATE_KEY: 'x',

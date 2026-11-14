@@ -1,5 +1,5 @@
 import type pg from 'pg'
-import type { EstadoPedido, TipoEntrega } from '@bakebrothers/domain'
+import { evaluarCorteOrden, type EstadoPedido, type TipoEntrega } from '@bakebrothers/domain'
 import {
   findOrCreateCustomer,
   siguienteNumeroDePedido,
@@ -48,6 +48,8 @@ export interface CrearPedidoDashboardInput {
   distrito?: string | null
   referencia?: string | null
   fechaEntregaISO: string
+  /** Instante «actual» para la marca de fuera de corte. Solo lo fijan los tests; en producción es el momento real. */
+  ahora?: Date
   horario: string
   items: ItemPedidoDashboardInput[]
   metodoPago: 'yape' | 'plin' | 'transferencia' | 'tarjeta' | 'contraentrega'
@@ -158,6 +160,9 @@ export async function crearPedidoDashboard(
       // Un operador ya confirma todo a mano al vender — este flag es
       // exclusivo del bot (ver 0028/pedidosCombos.ts).
       requiereConfirmarCombo: false,
+      // «Nuevo pedido» de un operador NO se bloquea por el corte: solo se MARCA si es para mañana y se registró desde las
+      // 11:00 p. m. (un pedido para hoy no es «fuera de corte»: lo valida quien lo toma).
+      fueraDeCorte: evaluarCorteOrden(input.ahora ?? new Date(), input.fechaEntregaISO).motivo === 'pasado_el_corte',
     },
     itemsParaInsertar
   )

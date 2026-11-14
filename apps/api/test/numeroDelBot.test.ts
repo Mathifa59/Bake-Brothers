@@ -14,6 +14,7 @@
 //      por el número del bot con su token.
 //   5. Responder desde el panel una conversación sin sede usa el número por el que escribió el cliente.
 //   6. La firma de Meta es obligatoria en producción (503 sin META_APP_SECRET, 401 con firma mala).
+import { darHorarioTodosLosDias } from './horariosDePrueba.js'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createHmac } from 'node:crypto'
 import pg from 'pg'
@@ -77,6 +78,8 @@ describe.skipIf(!hayBaseDeDatosReal)('número del bot — sede del pedido', () =
     await client.query(`delete from sedes where nombre in ($1, $2)`, [SEDE_UNO, SEDE_DOS])
     sedeUnoId = (await client.query(`insert into sedes (nombre) values ($1) returning id`, [SEDE_UNO])).rows[0].id
     sedeDosId = (await client.query(`insert into sedes (nombre) values ($1) returning id`, [SEDE_DOS])).rows[0].id
+    await darHorarioTodosLosDias(client, sedeUnoId)
+    await darHorarioTodosLosDias(client, sedeDosId)
   })
 
   afterAll(async () => {
@@ -247,6 +250,7 @@ describe.skipIf(!hayBaseDeDatosReal)('número del bot — de punta a punta por P
     tenantId = (await client.query(`select id from tenants where slug = 'bake-brothers'`)).rows[0].id
     await client.query(`delete from sedes where nombre = $1`, [SEDE_UNO])
     sedeId = (await client.query(`insert into sedes (nombre) values ($1) returning id`, [SEDE_UNO])).rows[0].id
+    await darHorarioTodosLosDias(client, sedeId)
     await client.query(`delete from whatsapp_conexiones where phone_number_id = $1`, [PHONE_ID_BOT])
     await registrarConexionWhatsApp(client, {
       sedeId: null,

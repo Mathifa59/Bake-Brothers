@@ -26,11 +26,6 @@ export function avisosDeArranque(entorno: Record<string, string | undefined>): A
       variable: 'DATOS_PAGO',
       consecuencia: 'el bot no inventa datos de cobro: registra el pedido y pasa el pago a una persona',
     })
-  if (falta('DATOS_PAGO_CEDROS'))
-    avisos.push({
-      variable: 'DATOS_PAGO_CEDROS',
-      consecuencia: 'los datos de pago de Corporación Hermanos Loarte (recojo en Cedros) no están: el bot no usa los de Baker Brothers para Cedros y pasa ese cobro a una persona',
-    })
   if (falta('ANTHROPIC_API_KEY'))
     avisos.push({ variable: 'ANTHROPIC_API_KEY', consecuencia: 'el bot y el simulador no pueden llamar al modelo (con el bot apagado no se necesita)' })
   if (falta('VAPID_PUBLIC_KEY') || falta('VAPID_PRIVATE_KEY'))

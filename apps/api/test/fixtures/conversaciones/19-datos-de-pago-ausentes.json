@@ -1,6 +1,6 @@
 {
   "id": "19-datos-de-pago-ausentes",
-  "titulo": "Sin datos de cobro configurados el bot NO los inventa: deriva a una persona (requiere DATOS_PAGO y DATOS_PAGO_CEDROS sin configurar)",
+  "titulo": "Pago por adelantado de un recojo en Cedros sin datos de cobro configurados: el bot NO los inventa y lo deriva a una persona (requiere DATOS_PAGO_CEDROS sin configurar)",
   "origen": "sintetica",
   "contexto": {
     "ahora": "2026-11-13T12:00:00-05:00",

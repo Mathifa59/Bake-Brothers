@@ -1,7 +1,11 @@
 import type pg from 'pg'
 import {
   resolverSedeDelPedido,
-  validarFechaPorCorte,
+  validarFechaDePedido,
+  validarHoraDeRecojo,
+  fechaMinimaPorEncargo,
+  horarioDelDia,
+  horaLegible,
   ultimos9,
   normalizarTelefono,
   distritoTieneCobertura,
@@ -14,7 +18,9 @@ import {
 import { env } from '../env.js'
 import { linkWhatsAppMayoristas } from '../mayoristas.js'
 import { findOrCreateCustomer, siguienteNumeroDePedido, insertarPedido, type OrderItemInsert } from '../repositories/ordersRepo.js'
+import { horariosDeLocales, horariosDeSede } from '../repositories/horariosRepo.js'
 import { validarYValorizarItemsTienda } from './pedidosTienda.js'
+import { revisarProductosParaHoy } from './pedidosParaHoy.js'
 import { validarItemsCombo, type SeleccionComboInput } from './pedidosCombos.js'
 
 /**
@@ -120,8 +126,21 @@ export type ResultadoCrearPedido =
        * coordinar, o datos de pago por enviar). El bot deriva la conversación con este motivo.
        */
       atencionHumana?: string
+      /** La fecha de entrega es hoy: el servidor lo validó (stock, horario del local, no solo por encargo) y se avisa al local. */
+      paraHoy: boolean
+      /** Una línea con lo esencial del pedido (cliente, local, fecha y hora, productos): para el aviso al local. */
+      resumen: string
     }
   | { ok: false; error: string; detalle?: unknown }
+
+/** Una línea con lo esencial del pedido, para el aviso al local o para el resumen de una derivación a una persona. */
+export function resumenDelPedido(input: CrearPedidoInput, local: string | null): string {
+  const items = input.items
+    .map((i) => `${i.cantidad} × ${i.busqueda}${i.tipo === 'producto' && i.tamano ? ` (${i.tamano})` : ''}`)
+    .join(', ')
+  const donde = input.tipoEntrega === 'delivery' ? `delivery a ${input.distrito ?? 'distrito por confirmar'}` : `recojo en ${local ?? 'local por confirmar'}`
+  return `${input.cliente.nombre} (${input.cliente.telefono}) · ${donde} · ${input.fechaEntregaISO} ${input.horario} · ${items}`
+}
 
 export async function crearPedido(
   client: pg.PoolClient,
@@ -129,6 +148,7 @@ export async function crearPedido(
   canal: 'whatsapp' | 'facebook' | 'instagram' | 'web',
   input: CrearPedidoInput
 ): Promise<ResultadoCrearPedido> {
+  const ahora = input.ahora ?? new Date()
   if (input.items.length === 0) {
     return { ok: false, error: 'SIN_ITEMS' }
   }
@@ -152,8 +172,8 @@ export async function crearPedido(
   if (input.items.some((i) => i.tipo === 'catering')) {
     return { ok: false, error: 'CATERING_REQUIERE_PERSONA' }
   }
-  // 4. Corte del día (8:00 p. m. clientes; 11:00 p. m. mayoristas): pasado el corte no se toma nada para hoy. La
-  //    entrega es la fecha del pedido, así que vale para recojo y delivery. Se rechaza ANTES de tocar nada.
+  // 4. Mayoristas y corte (ver abajo). La fecha es la de entrega, así que vale para recojo y delivery. Se rechaza ANTES de tocar nada.
+  let paraHoy = false
   {
     const { rows } = await client.query<{ es_mayorista: boolean }>(
       `select bool_or(es_mayorista) as es_mayorista from customers
@@ -175,17 +195,20 @@ export async function crearPedido(
         },
       }
     }
-    const corte = validarFechaPorCorte(input.fechaEntregaISO, input.ahora ?? new Date(), 'cliente')
-    if (!corte.ok) {
+    // 4b. Corte (decisión del cliente, 2026-11-13): un pedido para MAÑANA se toma hasta las 11:00 p. m. de hoy, para todos;
+    //     desde esa hora la fecha más cercana es pasado mañana. Un pedido para HOY sí se toma, con las validaciones de abajo.
+    const fecha = validarFechaDePedido(input.fechaEntregaISO, ahora)
+    if (!fecha.ok) {
       return {
         ok: false,
         error: 'CORTE_DEL_DIA',
         detalle: {
-          mensaje: `Pasaron las ${corte.corte}: ya no se toman pedidos para hoy. Ofrece mañana o un día posterior.`,
-          fechaMinima: corte.fechaMinima,
+          mensaje: `Pasaron las ${fecha.corte}: ya no se toman pedidos para mañana. La fecha más cercana es ${fecha.fechaMinima}.`,
+          fechaMinima: fecha.fechaMinima,
         },
       }
     }
+    paraHoy = fecha.paraHoy
   }
   if (input.tipoEntrega === 'delivery' && input.metodoPago === 'contraentrega') {
     return { ok: false, error: 'PAGO_ADELANTADO_REQUERIDO', detalle: { mensaje: 'El delivery se paga por adelantado.' } }
@@ -213,6 +236,45 @@ export async function crearPedido(
   })
   if (!sede.ok) {
     return { ok: false, error: sede.error, detalle: { sedesDisponibles: sede.sedesDisponibles } }
+  }
+
+  const sedeNombreDelPedido = sedes.find((s) => s.id === sede.sedeId)?.nombre ?? null
+  // Si algo no se puede validar, el pedido NO se crea: se deriva a una persona con un resumen listo para confirmar.
+  const noSePuedeValidar = (motivo: string): ResultadoCrearPedido => ({
+    ok: false,
+    error: 'NO_SE_PUDO_VALIDAR',
+    detalle: { motivo, resumen: resumenDelPedido(input, sedeNombreDelPedido) },
+  })
+
+  // Recojo: la hora tiene que caer dentro del horario del local ese día (y, si es para hoy, ser posterior a la actual).
+  // Solo se valida el recojo: un delivery lo coordina una persona. El servidor lo hace cumplir; el bot solo ofrece horas válidas.
+  if (input.tipoEntrega === 'tienda' && sede.sedeId) {
+    const horarios = await horariosDeSede(client, sede.sedeId)
+    const v = validarHoraDeRecojo({ horarios, fechaISO: input.fechaEntregaISO, hora: input.horario, ahora })
+    if (!v.ok) {
+      if (v.motivo === 'SIN_HORARIOS') return noSePuedeValidar(`el local ${sedeNombreDelPedido ?? ''} no tiene su horario cargado`.trim())
+      const locales = await horariosDeLocales(client)
+      const otrosLocales = locales
+        .filter((l) => l.id !== sede.sedeId)
+        .map((l) => ({ nombre: l.nombre, horario: horarioDelDia(l.horarios, input.fechaEntregaISO) }))
+        .filter((l) => l.horario)
+        .map((l) => ({ nombre: l.nombre, abre: horaLegible(l.horario!.abre), cierra: horaLegible(l.horario!.cierra) }))
+      const base = { local: sedeNombreDelPedido, fecha: input.fechaEntregaISO, horaPedida: input.horario, abre: v.abre, cierra: v.cierra, otrosLocales }
+      switch (v.motivo) {
+        case 'LOCAL_CERRADO':
+          return { ok: false, error: 'LOCAL_CERRADO', detalle: { ...base, mensaje: 'Ese local no abre ese día: ofrece otro día o, si abre ese día, el otro local.' } }
+        case 'HORA_NO_ENTENDIDA':
+          return { ok: false, error: 'HORA_NO_ENTENDIDA', detalle: { ...base, mensaje: 'No hay una hora de recojo concreta: pídele una hora (por ejemplo 4:30 p. m.) dentro del horario del local.' } }
+        case 'HORA_PASADA':
+          return { ok: false, error: 'HORA_PASADA', detalle: { ...base, mensaje: 'Esa hora ya pasó (el pedido es para hoy): ofrece una hora posterior a la actual dentro del horario del local, o mañana.' } }
+        default:
+          return {
+            ok: false,
+            error: 'HORA_FUERA_DE_HORARIO',
+            detalle: { ...base, mensaje: `El local atiende ese día de ${v.abre} a ${v.cierra} (se recoge hasta antes del cierre). Ofrece solo horas dentro de ese horario, o el otro local.` },
+          }
+      }
+    }
   }
 
   const itemsProducto = input.items.filter((i): i is ItemPedidoProducto => i.tipo === 'producto')
@@ -257,6 +319,26 @@ export async function crearPedido(
     itemsParaInsertar.push(...resultado.items)
     subtotal += resultado.subtotal
     requiereConfirmarCombo = requiereConfirmarCombo || resultado.requiereConfirmarCombo
+  }
+
+  // Pedido para HOY: lo que se hace solo por encargo (tortas, postres enteros, personalizados) se agenda desde mañana.
+  if (paraHoy) {
+    const revisados = await revisarProductosParaHoy(
+      client,
+      itemsParaInsertar.filter((i) => i.productId).map((i) => ({ productId: i.productId!, tamano: i.tamano ?? null, nombre: i.nombreProducto })),
+      [...new Set(itemsParaInsertar.filter((i) => i.comboId).map((i) => i.comboId!))]
+    )
+    if (revisados.porEncargo.length > 0) {
+      return {
+        ok: false,
+        error: 'SOLO_POR_ENCARGO',
+        detalle: {
+          productos: revisados.porEncargo,
+          fechaMinima: fechaMinimaPorEncargo(ahora),
+          mensaje: `Esto es solo por encargo y no se puede para hoy. Ofrécelo agendado desde ${fechaMinimaPorEncargo(ahora)} (o un día posterior).`,
+        },
+      }
+    }
   }
 
   const { rows: tenantRows } = await client.query<{ codigo_prefijo: string }>(
@@ -319,8 +401,7 @@ export async function crearPedido(
   // Santa Marina y TODO delivery; Corporación Hermanos Loarte cobra Cedros. Nunca se usan los de una para la otra: si
   // faltan los de la que corresponde, el bot no inventa ni usa los de la otra, y una persona los envía. Con tarjeta
   // el link de Izipay lo genera una persona (el bot no lo genera): tampoco se dan datos de pago.
-  const sedeNombre = sedes.find((s) => s.id === sede.sedeId)?.nombre ?? null
-  const entidad = entidadDeCobro({ tipoEntrega: input.tipoEntrega, sedeNombre })
+  const entidad = entidadDeCobro({ tipoEntrega: input.tipoEntrega, sedeNombre: sedeNombreDelPedido })
   const conTarjeta = !pagaAlRecoger && metodoPagoFinal === 'tarjeta'
   const datosDeLaEntidad = entidad === 'hermanos_loarte' ? env.DATOS_PAGO_CEDROS : env.DATOS_PAGO
   const datosPago = esDelivery || pagaAlRecoger || conTarjeta ? null : (datosDeLaEntidad ?? null)
@@ -342,5 +423,7 @@ export async function crearPedido(
     sedeId: sede.sedeId,
     datosPago,
     atencionHumana: pendientes.length > 0 ? `Pedido ${numero}: ${pendientes.join(' y ')}.` : undefined,
+    paraHoy,
+    resumen: resumenDelPedido(input, sedeNombreDelPedido),
   }
 }
