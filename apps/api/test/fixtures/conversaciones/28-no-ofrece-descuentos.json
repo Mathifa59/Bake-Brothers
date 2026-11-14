@@ -1,0 +1,24 @@
+{
+  "id": "28-no-ofrece-descuentos",
+  "titulo": "No ofrece descuentos ni regalos no aprobados: lo revisa una persona",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "Si compro 3 tortas, ¿me haces descuento? ¿Me regalas algo?"
+    }
+  ],
+  "esperado": {
+    "estadoFinal": "escalada",
+    "pedidoCreado": false,
+    "textoNoContieneRegex": [
+      "te (hago|doy|ofrezco) (un )?\\d+ ?%",
+      "(s[ií]|claro),? (te )?(hago|doy) (un )?descuento"
+    ]
+  }
+}

@@ -115,7 +115,7 @@ describe.skipIf(!hayBaseDeDatosReal)('cliente con teléfono secundario', () => {
       await expect(listarPedidos(client, tenantId, { telefono: S1 })).resolves.toEqual([])
     })
 
-    it('un mayorista que escribe desde su número secundario tiene el corte de las 11:00 p. m. (no el de las 8:00 p. m.)', async () => {
+    it('un mayorista se reconoce por cualquiera de sus dos números: el bot no le toma pedido (lo atiende una persona)', async () => {
       const lima = (hhmm: string) => new Date(`2026-11-13T${hhmm}:00-05:00`)
       const pedido = (telefono: string, ahora: Date) =>
         crearPedido(client, tenantId, 'whatsapp', {
@@ -130,12 +130,11 @@ describe.skipIf(!hayBaseDeDatosReal)('cliente con teléfono secundario', () => {
           pagoPorAdelantado: false,
           ahora,
         } as never)
-      // 9:00 p. m.: un cliente común ya no pasa el corte; el mayorista SÍ, con cualquiera de sus dos números.
-      expect(await pedido(S1, lima('21:00'))).toMatchObject({ error: 'PRODUCTO_NO_ENCONTRADO' })
-      expect(await pedido(P1, lima('21:00'))).toMatchObject({ error: 'PRODUCTO_NO_ENCONTRADO' })
+      // Con el número principal o con el secundario: el mismo mayorista, rechazado igual (a las 9:00 p. m. incluso).
+      expect(await pedido(S1, lima('21:00'))).toMatchObject({ ok: false, error: 'MAYORISTA_ATENCION_DIRECTA' })
+      expect(await pedido(P1, lima('21:00'))).toMatchObject({ ok: false, error: 'MAYORISTA_ATENCION_DIRECTA' })
+      // Un número que no es de ningún mayorista sigue su camino normal (aquí, el corte).
       expect(await pedido('+51999000465', lima('21:00'))).toMatchObject({ error: 'CORTE_DEL_DIA' })
-      // 11:05 p. m.: ya pasó también para el mayorista.
-      expect(await pedido(S1, lima('23:05'))).toMatchObject({ error: 'CORTE_DEL_DIA' })
     })
   })
 })

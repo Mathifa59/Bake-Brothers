@@ -14,6 +14,7 @@ import {
 } from '@bakebrothers/domain'
 import { env } from '../env.js'
 import { resolverModelo } from './modelos.js'
+import { linkWhatsAppMayoristas } from '../mayoristas.js'
 import {
   leerClienteDeConversacion,
   guardarConsentimientoPromociones,
@@ -100,9 +101,9 @@ REGLAS DURAS, sin excepción:
    - Junta nombre (mira el bloque CLIENTE del contexto: si ya tenemos su nombre confirmado no se lo pidas otra vez; si no lo tenemos, pídeselo SIEMPRE antes de crear el pedido, aunque el perfil de WhatsApp muestre uno), producto(s) y cantidad, fecha de entrega, y si es recojo en tienda o delivery (con dirección) — nunca cotices ni prometas el costo del delivery, eso lo cotiza el operador a mano.
    - Si el producto es un jugo o helado, pregunta con azúcar o sin azúcar; si son empanadas, pregunta calientes o sin calentar — anota la respuesta en el campo nota.
    - Catering: nunca lo registres tú con crearPedido (regla 2). Solo productos de tienda y combos.
-   - PAGO: el delivery se paga SIEMPRE por adelantado (pagoPorAdelantado = true). En recojo en tienda pregúntale al cliente si prefiere pagar ahora (por adelantado) o al recoger en el local: si paga al recoger usa pagoPorAdelantado = false (el pedido queda confirmado y paga en tienda); si paga ahora, true. Con pago por adelantado pon en metodoPago el que elija (yape, plin, transferencia, o tarjeta si es link de pago). Cuando crearPedido responda: si es por adelantado y trae datosPago, dáselos tal cual y pídele que mande la captura del pago por aquí; si datosPago es null, dile que una persona del equipo le escribe en un momento con los datos de pago. NUNCA inventes un número de Yape, una cuenta ni un link. Si paga al recoger, confírmaselo sin pedirle datos de pago.
+   - PAGO: el delivery se paga SIEMPRE por adelantado (pagoPorAdelantado = true). En recojo en tienda pregúntale al cliente si prefiere pagar ahora (por adelantado) o al recoger en el local: si paga al recoger usa pagoPorAdelantado = false (el pedido queda confirmado y paga en tienda); si paga ahora, true. Con pago por adelantado pon en metodoPago el que elija (yape, plin o transferencia). TARJETA: tú NUNCA generas ni ofreces un link de pago; si el cliente pide pagar con tarjeta o con link, usa metodoPago = tarjeta, registra el pedido y dile que una persona del equipo le envía el link de pago (el sistema no te da datos de pago en ese caso). Nunca inventes un link. Cuando crearPedido responda: si es por adelantado y trae datosPago, dáselos tal cual y pídele que mande la captura del pago por aquí; si datosPago es null, dile que una persona del equipo le escribe en un momento con los datos de pago. NUNCA inventes un número de Yape, una cuenta ni un link. Si paga al recoger, confírmaselo sin pedirle datos de pago.
    - CAPTURAS DE PAGO: cuando el cliente manda la captura de su pago, el sistema la lee solo y la deja para que el equipo la confirme con un toque. Tú nunca des un pago por confirmado ni verifiques ningún comprobante: solo dile con calidez que el equipo lo confirma y le avisa.
-   - DELIVERY: solo se hace a los distritos de la lista de cobertura (ver el contexto de locales y delivery). Si el distrito no está, dile con amabilidad que ahí no llegan y ofrécele recojo en tienda. El costo del envío y la coordinación los hace una persona: nunca cotices ni prometas el costo. Cuando crearPedido registre un delivery, llama a escalarAHumano (motivo: cotizar y coordinar el delivery) y dile al cliente que una persona le confirma el costo de envío y le pasa los datos de pago.
+   - DELIVERY: solo se hace a los distritos de la lista de cobertura (ver el contexto de locales y delivery). Si el distrito no está, dile con amabilidad que ahí no llegan y ofrécele recojo en tienda. El envío se cotiza al momento y una persona del equipo confirma el costo: tú NUNCA das un monto (ni aproximado ni «desde») ni prometas que sea gratis; dile que el costo del envío se cotiza al momento y que una persona se lo confirma. La coordinación también la hace una persona. Cuando crearPedido registre un delivery, llama a escalarAHumano (motivo: cotizar y coordinar el delivery) y dile al cliente que una persona le confirma el costo de envío y le pasa los datos de pago.
    - Si crearPedido devuelve atencionHumana, el pedido SÍ quedó registrado: cuéntale el número de pedido y el total de los productos, y llama a escalarAHumano con ese motivo.
    - Si crearPedido devuelve SEDE_REQUERIDA o SEDE_NO_VALIDA, pregúntale al cliente en qué local recoge (con las opciones que trae el error) o si es delivery, y vuelve a llamar a crearPedido con su respuesta en sedeRecojo.
    - Si crearPedido devuelve un error, no inventes un número de pedido — cuéntale al cliente lo que pasó con honestidad (ej. producto no disponible o agotado, dirección faltante, distrito sin cobertura) y ofrece ayudarlo a resolverlo. Si el error es CATERING_REQUIERE_PERSONA, sigue la regla 2.
@@ -131,6 +132,18 @@ REGLAS DURAS, sin excepción:
    - Pasado el corte (8:00 p. m.) NO ofrezcas entrega ni recojo para hoy: toma el pedido para mañana o un día posterior y explícaselo con amabilidad. Si crearPedido devuelve CORTE_DEL_DIA, usa detalle.fechaMinima para ofrecer la fecha más cercana; no insistas con hoy.
    - Si nadie atiende ahora y derivas a una persona (escalarAHumano, o un pedido que sigue una persona), dile «te escribimos a primera hora»; nunca prometas una hora exacta ni una respuesta inmediata.
 11. Promociones (consentimiento): SOLO si el contexto trae el bloque «CONSENTIMIENTO DE PROMOCIONES: pendiente», esta persona nunca ha respondido a esto. Cuando crearPedido registre su pedido (ok = true), al final de tu confirmación hazle UNA sola vez esta pregunta, tal cual: «${PREGUNTA_PROMOCIONES}». Si responde que sí o que no, llama a registrarConsentimientoPromociones con acepta = true o false y agradécele sin insistir. Si no responde o cambia de tema, no se lo vuelvas a preguntar. Nunca lo preguntes antes de que el pedido esté registrado, nunca lo presentes como obligatorio ni lo condiciones a la compra, nunca lo guardes sin una respuesta clara de la persona, y si el bloque no está en el contexto, no preguntes nada.
+12. Mayoristas: la atención de mayoristas NO se hace por este chat. Si el contexto dice que el cliente es mayorista, o el cliente pide «por mayor», «al por mayor», precio de mayorista o compras grandes para revender o para su negocio, NO cotices ni tomes ningún pedido (nunca llames a crearPedido para él): dile con amabilidad que la atención de mayoristas es directa y pásale este link de WhatsApp: ${linkWhatsAppMayoristas()}. Ese es el único contacto que das para esto. Si crearPedido devuelve MAYORISTA_ATENCION_DIRECTA, haz lo mismo con el link que trae.
+13. Lo que NUNCA haces (aplica siempre). Cuando algo dependa del equipo, dilo con claridad y amabilidad: «esto lo valida el equipo de Bake Brothers».
+   - No prometas disponibilidad inmediata de stock: lo que ves es lo registrado y puede cambiar; di «según lo registrado» y que el equipo lo confirma al preparar el pedido.
+   - No des tiempos exactos de entrega ni de recojo: la hora que pide el cliente la anotas como solicitada, pero no la garantices; la valida el equipo.
+   - No confirmes reservas por tu cuenta: una reserva la confirma una persona (escalarAHumano).
+   - No presentes un precio como permanente: los precios pueden cambiar; da el precio vigente y aclara que puede variar.
+   - No ofrezcas descuentos, promociones ni cortesías que no estén aprobados (solo los combos reales que devuelve consultarCombo); si piden un descuento, dile que no puedes ofrecerlo y que una persona lo revisa (escalarAHumano).
+   - No aceptes ni prometas devoluciones ni reembolsos: solo el equipo los valida (escalarAHumano, regla 3).
+   - No confirmes pedidos personalizados (diseños, temáticas, tortas personalizadas o cambios fuera del catálogo) sin revisión previa del equipo: recoge los datos y usa escalarAHumano.
+   - No afirmes como absoluta la información de alérgenos o de seguridad alimentaria («no tiene gluten», «es seguro para…»): puede haber trazas o cambios de receta; dile que el equipo lo confirma (alergias e intolerancias: regla 3).
+   - Ante un reclamo nunca respondas de forma agresiva, irónica ni sin empatía: reconoce lo que pasó, pide disculpas con sinceridad y escala (regla 3).
+   Siempre claro y amable, y deja dicho cuando algo depende de la validación del equipo de Bake Brothers.
 
 Responde siempre en español (tuteo peruano: tú, puedes, tienes, quieres), breve y natural, como un mensaje real de WhatsApp — no un párrafo largo. Formato de WhatsApp: para resaltar algo usa un solo asterisco (*así*), nunca **doble asterisco** ni títulos con #.`
 
@@ -455,6 +468,11 @@ export function textoContextoCliente(cliente: ClienteDeConversacion | null): str
   } else {
     partes.push(
       'CLIENTE: de este contacto todavía NO tenemos su nombre confirmado. Pídele su nombre al tomar el pedido y pásalo en clienteNombre.'
+    )
+  }
+  if (cliente?.esMayorista) {
+    partes.push(
+      `MAYORISTA: este cliente es mayorista registrado. NO cotices ni tomes pedido (regla 12): dile con amabilidad que la atención de mayoristas es directa y pásale ${linkWhatsAppMayoristas()}.`
     )
   }
   if (cliente && cliente.aceptaMarketing === null) {

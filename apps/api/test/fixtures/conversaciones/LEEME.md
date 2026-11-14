@@ -2,8 +2,8 @@
 
 Cada archivo `NN-nombre.json` es una conversación: **qué escribe el cliente** y **qué se espera que haga el bot**.
 Sirven para comprobar el bot con Claude real el día del encendido (y después de cualquier cambio del prompt o del catálogo).
-Hay 20 casos sintéticos (saludo, precios, agotados, combos, recojo y delivery, catering, alergias, reclamos, fuera de
-horario, corte de las 8:00 p. m., datos de cobro ausentes) y una plantilla para sumar conversaciones reales.
+Hay 32 casos sintéticos (saludo, precios, agotados, combos, recojo y delivery, catering, alergias, reclamos, fuera de
+horario, corte de las 8:00 p. m., datos de cobro ausentes, mayoristas, tarjeta, y los límites que el cliente pidió: stock inmediato, tiempos exactos, reservas, precios, descuentos, devoluciones, personalizados, alérgenos y reclamos) y una plantilla para sumar conversaciones reales.
 
 ## Cómo sumar una conversación real
 
@@ -36,6 +36,6 @@ RUN_FIXTURES=1 VER_RESPUESTAS=1 DATABASE_URL=... ANTHROPIC_API_KEY=... pnpm exec
 - `VER_RESPUESTAS=1` imprime la conversación completa de cada caso (léelas: una expectativa puede pasar y la respuesta sonar mal).
 - `FILTRO=18` corre solo los archivos que empiezan con ese texto.
 - Cada caso corre dentro de una transacción que se revierte: no queda ningún pedido ni cambio.
-- El caso 19 requiere `DATOS_PAGO` **sin configurar** en ese entorno.
-- Costo aproximado: 20 casos, entre 1 y 3 turnos cada uno, con herramientas: unas 100 llamadas al modelo.
+- El caso 19 requiere `DATOS_PAGO` y `DATOS_PAGO_CEDROS` **sin configurar** en ese entorno.
+- Costo aproximado: 32 casos, entre 1 y 3 turnos cada uno, con herramientas: unas 160 llamadas al modelo.
 - Un modelo no es determinista: si un caso falla una vez, córrelo otra vez antes de tocar nada; si falla dos de tres, es real.

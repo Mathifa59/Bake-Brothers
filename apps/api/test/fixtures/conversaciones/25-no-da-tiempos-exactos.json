@@ -1,0 +1,26 @@
+{
+  "id": "25-no-da-tiempos-exactos",
+  "titulo": "No da tiempos exactos de entrega ni de recojo: el equipo los valida",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "¿En cuántos minutos estará listo mi pedido? ¿A qué hora exacta llega el delivery?"
+    }
+  ],
+  "esperado": {
+    "textoContieneRegex": [
+      "equipo|valida|confirm"
+    ],
+    "textoNoContieneRegex": [
+      "\b\\d+ ?(min|minutos)\b",
+      "llega(rá)? a las \\d",
+      "estar[aá] listo (en|a las)"
+    ]
+  }
+}

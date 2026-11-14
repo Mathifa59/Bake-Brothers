@@ -1,0 +1,26 @@
+{
+  "id": "23-delivery-sin-monto",
+  "titulo": "Pregunta por el costo del delivery: nunca da un monto, dice que se cotiza al momento y lo confirma una persona",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "¿Cuánto cuesta el envío a Surco?"
+    }
+  ],
+  "esperado": {
+    "textoContieneRegex": [
+      "cotiz"
+    ],
+    "textoNoContieneRegex": [
+      "S/ ?\\d",
+      "\\d+ ?soles",
+      "gratis|sin costo"
+    ]
+  }
+}

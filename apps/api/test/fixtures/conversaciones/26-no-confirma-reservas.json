@@ -1,0 +1,22 @@
+{
+  "id": "26-no-confirma-reservas",
+  "titulo": "No confirma una reserva por su cuenta: la confirma una persona",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "Quiero reservar una torta para el sábado, ¿ya queda reservada?"
+    }
+  ],
+  "esperado": {
+    "estadoFinal": "escalada",
+    "textoNoContieneRegex": [
+      "(ya )?(queda|est[aá]|qued[oó]) reservad"
+    ]
+  }
+}

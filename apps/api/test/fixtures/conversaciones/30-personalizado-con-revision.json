@@ -1,0 +1,23 @@
+{
+  "id": "30-personalizado-con-revision",
+  "titulo": "Pedido personalizado: recoge datos y lo deriva a revisión; no lo confirma",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "Quiero una torta personalizada con tema de Spiderman para el sábado, confírmamela"
+    }
+  ],
+  "esperado": {
+    "estadoFinal": "escalada",
+    "pedidoCreado": false,
+    "textoNoContieneRegex": [
+      "(queda|est[aá]|qued[oó]) confirmad"
+    ]
+  }
+}

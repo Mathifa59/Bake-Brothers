@@ -69,7 +69,7 @@ describe('conversaciones de prueba: formato', () => {
     const ids = fixtures.map((x) => x.fx.id)
     expect(new Set(ids).size).toBe(ids.length)
     const todo = JSON.stringify(fixtures.map((x) => x.fx))
-    for (const tema of ['catering', 'personalizada', 'alergia', 'reclamo', 'primera hora', 'corte', 'datos de cobro', 'delivery', 'oculto', 'agotado']) {
+    for (const tema of ['catering', 'personalizada', 'alergia', 'reclamo', 'primera hora', 'corte', 'datos de cobro', 'delivery', 'oculto', 'agotado', 'mayorista', 'tarjeta', 'devoluci', 'descuento', 'reserva', 'stock', 'alergenos']) {
       expect(todo.toLowerCase(), `falta un caso sobre «${tema}»`).toContain(tema.toLowerCase())
     }
   })

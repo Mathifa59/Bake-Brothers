@@ -62,13 +62,19 @@ describe.skipIf(!hayBaseDeDatosReal)('corte del día y atención fuera de horari
       expect(await pedidoPara('2026-11-14', '999000445', lima('21:30'))).toMatchObject({ error: 'PRODUCTO_NO_ENCONTRADO' })
     })
 
-    it('un mayorista tiene hasta las 11:00 p. m.; un cliente común no', async () => {
+    it('un mayorista NO pasa por el bot (lo atiende una persona por un WhatsApp directo); un cliente común sí, con su corte', async () => {
       await client.query(
         `insert into customers (tenant_id, nombre, telefono, es_mayorista) values ($1, '[PRUEBA] Mayorista', '+51999000446', true), ($1, '[PRUEBA] Normal', '+51999000447', false)`,
         [tenantId]
       )
-      expect(await pedidoPara('2026-11-13', '999000446', lima('21:00'))).toMatchObject({ error: 'PRODUCTO_NO_ENCONTRADO' })
-      expect(await pedidoPara('2026-11-13', '999000446', lima('23:05'))).toMatchObject({ error: 'CORTE_DEL_DIA', detalle: { fechaMinima: '2026-11-14' } })
+      // El mayorista se rechaza antes de cualquier otra regla (a cualquier hora), con el link de atención directa.
+      for (const hora of ['15:00', '21:00', '23:05']) {
+        expect(await pedidoPara('2026-11-13', '999000446', lima(hora))).toMatchObject({
+          ok: false,
+          error: 'MAYORISTA_ATENCION_DIRECTA',
+          detalle: { whatsapp: 'https://wa.me/51986639228' },
+        })
+      }
       expect(await pedidoPara('2026-11-13', '999000447', lima('21:00'))).toMatchObject({ error: 'CORTE_DEL_DIA' })
     })
   })

@@ -1,0 +1,31 @@
+{
+  "id": "21-mayorista-por-mayor-link",
+  "titulo": "Mayorista o compra «por mayor»: no cotiza ni toma pedido y pasa el WhatsApp de atención directa",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "Hola, quisiera el precio por mayor de las empanadas para mi cafetería, como 200 al día"
+    }
+  ],
+  "esperado": {
+    "estadoFinal": "activa",
+    "pedidoCreado": false,
+    "herramientas": {
+      "noIncluye": [
+        "crearPedido"
+      ]
+    },
+    "textoContieneRegex": [
+      "wa\\.me/51986639228|986 ?639 ?228"
+    ],
+    "textoNoContieneRegex": [
+      "S/ ?\\d+[.,]?\\d* ?(c/u|cada)"
+    ]
+  }
+}

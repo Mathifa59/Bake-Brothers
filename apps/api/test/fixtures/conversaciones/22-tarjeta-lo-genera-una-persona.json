@@ -1,0 +1,28 @@
+{
+  "id": "22-tarjeta-lo-genera-una-persona",
+  "titulo": "Pide pagar con tarjeta: el bot no genera ni inventa ningún link; una persona lo envía",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "Quiero un carrot cake individual para mañana a las 10 am, recojo en Cedros. Soy Ana Torres, 999000111. Quiero pagar con tarjeta, ¿me mandas el link de pago?"
+    },
+    {
+      "cliente": "Sí, confírmalo"
+    }
+  ],
+  "esperado": {
+    "textoContieneRegex": [
+      "persona|equipo"
+    ],
+    "textoNoContieneRegex": [
+      "https?://(?!wa\\.me)",
+      "izipay\\.pe"
+    ]
+  }
+}

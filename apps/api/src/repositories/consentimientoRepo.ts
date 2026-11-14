@@ -12,6 +12,8 @@ export interface ClienteDeConversacion {
   nombreConfirmado: boolean
   /** true = aceptó · false = dijo que no · null = nunca respondió (todavía se le puede preguntar). */
   aceptaMarketing: boolean | null
+  /** Mayorista registrado: el bot no le cotiza ni le toma pedidos (lo atiende una persona por un WhatsApp directo). */
+  esMayorista?: boolean
 }
 
 export async function leerClienteDeConversacion(
@@ -24,8 +26,9 @@ export async function leerClienteDeConversacion(
     nombre: string | null
     nombre_confirmado: boolean
     acepta_marketing: boolean | null
+    es_mayorista: boolean
   }>(
-    `select c.id, c.nombre, c.nombre_confirmado, c.acepta_marketing
+    `select c.id, c.nombre, c.nombre_confirmado, c.acepta_marketing, c.es_mayorista
        from conversaciones cv
        join customers c on c.id = cv.customer_id and c.tenant_id = cv.tenant_id
       where cv.id = $1 and cv.tenant_id = $2`,
@@ -33,7 +36,7 @@ export async function leerClienteDeConversacion(
   )
   const f = rows[0]
   if (!f) return null
-  return { customerId: f.id, nombre: f.nombre, nombreConfirmado: f.nombre_confirmado, aceptaMarketing: f.acepta_marketing }
+  return { customerId: f.id, nombre: f.nombre, nombreConfirmado: f.nombre_confirmado, aceptaMarketing: f.acepta_marketing, esMayorista: f.es_mayorista }
 }
 
 export type ResultadoConsentimiento =

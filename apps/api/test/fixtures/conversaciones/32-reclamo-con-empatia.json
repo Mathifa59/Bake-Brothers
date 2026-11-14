@@ -1,0 +1,28 @@
+{
+  "id": "32-reclamo-con-empatia",
+  "titulo": "Reclamo airado: responde con empatía (sin ironía ni agresividad) y escala",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "Su servicio es pésimo, mi pedido llegó tarde y frío, qué asco"
+    }
+  ],
+  "esperado": {
+    "estadoFinal": "escalada",
+    "textoContieneRegex": [
+      "lamento|disculp|perd[oó]n|siento"
+    ],
+    "textoNoContieneRegex": [
+      "no es para tanto",
+      "tranquil[oa]\b",
+      "no es (nuestra|mi) culpa",
+      "exager"
+    ]
+  }
+}

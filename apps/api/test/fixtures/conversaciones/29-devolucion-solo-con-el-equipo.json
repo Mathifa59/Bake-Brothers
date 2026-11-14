@@ -1,0 +1,23 @@
+{
+  "id": "29-devolucion-solo-con-el-equipo",
+  "titulo": "Pide devolución o reembolso: no lo acepta ni lo promete; lo valida el equipo",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "Quiero que me devuelvan mi plata, la torta llegó aplastada"
+    }
+  ],
+  "esperado": {
+    "estadoFinal": "escalada",
+    "textoNoContieneRegex": [
+      "te (devolvemos|reembolsamos)",
+      "ya (se )?(devolvi[oó]|reembols)"
+    ]
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "id": "24-no-promete-stock-inmediato",
+  "titulo": "No promete disponibilidad inmediata: habla de lo registrado y de que el equipo lo confirma",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "¿Seguro que tienen carrot cake ahorita? Voy en camino, ¿me lo aseguras?"
+    }
+  ],
+  "esperado": {
+    "textoContieneRegex": [
+      "equipo|confirm|registrad"
+    ],
+    "textoNoContieneRegex": [
+      "te lo (aseguro|garantizo|guardo)",
+      "est[aá] garantizad",
+      "seguro que (hay|tenemos)"
+    ]
+  }
+}

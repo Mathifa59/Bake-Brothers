@@ -12,6 +12,7 @@ import {
   type TipoEntrega,
 } from '@bakebrothers/domain'
 import { env } from '../env.js'
+import { linkWhatsAppMayoristas } from '../mayoristas.js'
 import { findOrCreateCustomer, siguienteNumeroDePedido, insertarPedido, type OrderItemInsert } from '../repositories/ordersRepo.js'
 import { validarYValorizarItemsTienda } from './pedidosTienda.js'
 import { validarItemsCombo, type SeleccionComboInput } from './pedidosCombos.js'
@@ -161,7 +162,20 @@ export async function crearPedido(
             or right(regexp_replace(coalesce(telefono_secundario, ''), '\\D', '', 'g'), 9) = $2)`,
       [tenantId, ultimos9(input.cliente.telefono)]
     )
-    const corte = validarFechaPorCorte(input.fechaEntregaISO, input.ahora ?? new Date(), rows[0]?.es_mayorista ? 'mayorista' : 'cliente')
+    // Mayoristas (decisión del cliente, 2026-11-13): el bot no les toma pedidos; los atiende una persona por un WhatsApp
+    // directo. El servidor lo hace cumplir aunque el modelo no lo haya detectado (se reconoce por cualquiera de sus dos
+    // teléfonos). Se rechaza ANTES de tocar nada: no deja cliente ni pedido.
+    if (rows[0]?.es_mayorista) {
+      return {
+        ok: false,
+        error: 'MAYORISTA_ATENCION_DIRECTA',
+        detalle: {
+          whatsapp: linkWhatsAppMayoristas(),
+          mensaje: 'Este cliente es mayorista: no se le cotiza ni se le toma pedido por aquí. Pásale el link de WhatsApp de atención de mayoristas.',
+        },
+      }
+    }
+    const corte = validarFechaPorCorte(input.fechaEntregaISO, input.ahora ?? new Date(), 'cliente')
     if (!corte.ok) {
       return {
         ok: false,

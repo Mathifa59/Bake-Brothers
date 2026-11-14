@@ -48,6 +48,9 @@ const schema = z
     // Si el que corresponde está, el bot se los da al cliente apenas registra el pedido; si NO está, el bot avisa que
     // una persona se los envía y la conversación pasa al equipo. NUNCA se usan los de una razón social para el local de
     // la otra. No llevan secretos, pero tampoco van en el código. Texto libre en una línea: la secuencia «barra n» se vuelve salto de línea.
+    // WhatsApp de atención directa de mayoristas (solo dígitos, con código de país). El bot no les cotiza ni toma pedidos:
+    // los deriva a este número con un link wa.me.
+    WHATSAPP_MAYORISTAS: z.string().trim().regex(/^[0-9]{8,15}$/, 'solo dígitos, con código de país').default('51986639228'),
     DATOS_PAGO: textoLibre,
     DATOS_PAGO_CEDROS: textoLibre,
     // Embedded Signup de Meta (conectar números desde el dashboard): NO se terminó de construir y el plan

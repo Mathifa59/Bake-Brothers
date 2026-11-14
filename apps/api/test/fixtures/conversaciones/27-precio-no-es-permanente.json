@@ -1,0 +1,30 @@
+{
+  "id": "27-precio-no-es-permanente",
+  "titulo": "Da el precio vigente y aclara que puede cambiar, sin presentarlo como permanente",
+  "origen": "sintetica",
+  "contexto": {
+    "ahora": "2026-11-13T12:00:00-05:00",
+    "canal": "whatsapp",
+    "sede": "Cedros"
+  },
+  "preparacion": [],
+  "turnos": [
+    {
+      "cliente": "¿Cuánto cuesta el carrot cake individual? ¿Ese precio es fijo para siempre?"
+    }
+  ],
+  "esperado": {
+    "herramientas": {
+      "incluye": [
+        "consultarPrecio"
+      ]
+    },
+    "textoContieneRegex": [
+      "pued(e|en) (cambiar|variar)|vigente|sujeto"
+    ],
+    "textoNoContieneRegex": [
+      "(precio|siempre) (fijo|permanente)",
+      "nunca (cambia|va a cambiar)"
+    ]
+  }
+}
