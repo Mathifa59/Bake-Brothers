@@ -127,6 +127,8 @@ export {
   limpiarReferencia,
   REDES_CAMPANA,
   NUMERO_WHATSAPP_ATENCION,
+  URL_ENLACES_CORTOS,
+  enlaceCortoCampana,
   referenciaDeCampana,
   enlaceWhatsAppCampana,
   describirCampana,
@@ -263,5 +265,7 @@ export {
   LIMITES_RESPUESTA_AUTOMATICA,
   RESPUESTAS_PUBLICAS_SUGERIDAS,
   HORAS_ENTRE_DMS_MISMA_CAMPANA,
+  VENTANA_RESPUESTA_PRIVADA_DIAS,
+  dentroDeVentanaRespuestaPrivada,
   type ReglaRespuestaAutomatica,
 } from './respuestasAutomaticas.js'

@@ -19,13 +19,19 @@ const hayBaseDeDatosReal = !!process.env.DATABASE_URL && process.env.DATABASE_UR
 const IG = `1784${Date.now()}`
 const PAGE = `PAGE_${Date.now()}`
 
-function payloadComentario(comentarioId: string, texto: string, autor = { id: 'USR_1', username: 'cliente_uno' }, cuenta = IG) {
+function payloadComentario(
+  comentarioId: string,
+  texto: string,
+  autor = { id: 'USR_1', username: 'cliente_uno' },
+  cuenta = IG,
+  time = Math.floor(Date.now() / 1000)
+) {
   return {
     object: 'instagram',
     entry: [
       {
         id: cuenta,
-        time: Math.floor(Date.now() / 1000),
+        time,
         changes: [
           {
             field: 'comments',
@@ -38,10 +44,20 @@ function payloadComentario(comentarioId: string, texto: string, autor = { id: 'U
 }
 
 describe('parsearComentariosInstagram (sin base)', () => {
-  it('lee el comentario con autor, texto y publicación', () => {
-    expect(parsearComentariosInstagram(payloadComentario('C1', 'ALFAJOR 😍'))).toEqual([
-      { igUserId: IG, comentarioId: 'C1', texto: 'ALFAJOR 😍', autorId: 'USR_1', autorUsuario: 'cliente_uno', mediaId: 'MEDIA_1' },
+  it('lee el comentario con autor, texto, publicación y fecha (entry.time en segundos o milisegundos)', () => {
+    expect(parsearComentariosInstagram(payloadComentario('C1', 'ALFAJOR 😍', undefined, IG, 1794600000))).toEqual([
+      {
+        igUserId: IG,
+        comentarioId: 'C1',
+        texto: 'ALFAJOR 😍',
+        autorId: 'USR_1',
+        autorUsuario: 'cliente_uno',
+        mediaId: 'MEDIA_1',
+        comentadoEn: new Date(1794600000 * 1000),
+      },
     ])
+    const [enMs] = parsearComentariosInstagram(payloadComentario('C1', 'x', undefined, IG, 1794600000123))
+    expect(enMs.comentadoEn).toEqual(new Date(1794600000123))
   })
 
   it('ignora los comentarios de la propia cuenta (sus respuestas públicas también llegan como comments)', () => {
@@ -108,10 +124,13 @@ describe.skipIf(!hayBaseDeDatosReal)('respuestas automáticas de Instagram (base
     expect(llamadas[0].url).toMatch(new RegExp(`/v\\d+\\.\\d+/A${sufijo}/replies$`))
     expect(['¡Te escribimos por DM!', 'Revisa tus mensajes']).toContain(llamadas[0].cuerpo.message)
     expect(llamadas[1].url).toMatch(new RegExp(`graph\\.facebook\\.com/v\\d+\\.\\d+/${PAGE}/messages$`))
-    expect(llamadas[1].cuerpo.recipient).toEqual({ comment_id: `A${sufijo}` })
+    // Respuesta privada, no un DM normal: el destinatario es SOLO el comentario (nunca un id de persona) y el mensaje
+    // es solo texto (lo único que admite una respuesta privada).
+    expect(llamadas[1].cuerpo).toEqual({ recipient: { comment_id: `A${sufijo}` }, message: { text: expect.any(String) } })
     const texto = (llamadas[1].cuerpo.message as { text: string }).text
     expect(texto.startsWith('Nuestros alfajores 🍪')).toBe(true)
-    expect(texto).toContain(`/w/${REF}`)
+    expect(texto).toContain(`https://www.bakebrothers.pe/w/${REF}`)
+    expect(texto).not.toContain('api.bake-brothers.com')
     const fila = await envio(`A${sufijo}`)
     expect(fila).toMatchObject({ estado: 'enviado', dm_ok: true, respuesta_publica_ok: true, autor_usuario: 'cliente_uno' })
   })
@@ -155,6 +174,16 @@ describe.skipIf(!hayBaseDeDatosReal)('respuestas automáticas de Instagram (base
     const [d] = parsearComentariosInstagram(payloadComentario(`F${sufijo}`, 'alfajortest', { id: 'USR_5', username: 'cinco' }))
     expect((await procesarComentarioInstagram(log, d)).estado).toBe('enviado')
     expect((await pool.query(`select ultimo_error from instagram_conexion where ig_user_id = $1`, [IG])).rows[0].ultimo_error).toBeNull()
+  })
+
+  it('un comentario de hace más de 7 días (webhook reintentado tarde): respuesta pública sí, respuesta privada no', async () => {
+    const hace8Dias = Math.floor(Date.now() / 1000) - 8 * 24 * 3600
+    const [c] = parsearComentariosInstagram(payloadComentario(`V${sufijo}`, 'alfajortest', { id: 'USR_7', username: 'siete' }, IG, hace8Dias))
+    expect((await procesarComentarioInstagram(log, c)).estado).toBe('omitido')
+    expect(llamadas.map((l) => l.url.split('/').pop())).toEqual(['replies'])
+    const fila = await envio(`V${sufijo}`)
+    expect(fila).toMatchObject({ estado: 'omitido', dm_ok: null })
+    expect(fila.motivo).toContain('7 días')
   })
 
   it('una cuenta sin conexión no dispara nada', async () => {

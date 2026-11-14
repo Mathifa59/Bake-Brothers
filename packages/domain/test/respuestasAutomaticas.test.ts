@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   coincidePalabraClave,
+  dentroDeVentanaRespuestaPrivada,
   elegirRespuestaPublica,
   normalizarPalabras,
   reglaParaComentario,
@@ -74,8 +75,23 @@ describe('elegirRespuestaPublica', () => {
 
 describe('textoDelDm', () => {
   it('mensaje y link corto al final', () => {
-    expect(textoDelDm('  Hola 🍪 ', 'https://api.bake-brothers.com/w/ig-alfajor')).toBe(
-      'Hola 🍪\n\n👉 Pídelo por WhatsApp: https://api.bake-brothers.com/w/ig-alfajor'
+    expect(textoDelDm('  Hola 🍪 ', 'https://www.bakebrothers.pe/w/ig-alfajor')).toBe(
+      'Hola 🍪\n\n👉 Pídelo por WhatsApp: https://www.bakebrothers.pe/w/ig-alfajor'
     )
+  })
+})
+
+describe('dentroDeVentanaRespuestaPrivada — Instagram solo la permite 7 días después del comentario', () => {
+  const ahora = new Date('2026-11-14T12:00:00Z')
+  const haceDias = (d: number) => new Date(ahora.getTime() - d * 24 * 3600 * 1000)
+  it('dentro de los 7 días sí; desde el día 7 en adelante no', () => {
+    expect(dentroDeVentanaRespuestaPrivada(haceDias(0), ahora)).toBe(true)
+    expect(dentroDeVentanaRespuestaPrivada(haceDias(6.9), ahora)).toBe(true)
+    expect(dentroDeVentanaRespuestaPrivada(haceDias(7), ahora)).toBe(false)
+    expect(dentroDeVentanaRespuestaPrivada(haceDias(30), ahora)).toBe(false)
+  })
+  it('sin fecha conocida se intenta (el webhook llega en vivo)', () => {
+    expect(dentroDeVentanaRespuestaPrivada(null, ahora)).toBe(true)
+    expect(dentroDeVentanaRespuestaPrivada(new Date('x'), ahora)).toBe(true)
   })
 })

@@ -3,13 +3,15 @@ import { Plus, X } from 'lucide-react'
 import {
   LIMITES_RESPUESTA_AUTOMATICA as LIM,
   RESPUESTAS_PUBLICAS_SUGERIDAS,
+  URL_ENLACES_CORTOS,
+  enlaceCortoCampana,
   referenciaDeCampana,
   textoDelDm,
 } from '@bakebrothers/domain'
 
-// Misma API que usa el resto del panel (lib/apiClient.js): de ahí sale el link corto que va en el DM.
-const URL_API = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://api.bake-brothers.com' : 'http://localhost:3001')
-export const enlaceCorto = (referencia) => `${URL_API.replace(/\/+$/, '')}/w/${referencia}`
+// El link corto del DM (bakebrothers.pe/w/…, que la web reenvía a la API). Mismo valor por defecto que la API.
+const BASE_ENLACES = import.meta.env.VITE_URL_ENLACES_CORTOS || URL_ENLACES_CORTOS
+export const enlaceCorto = (referencia) => enlaceCortoCampana(referencia, BASE_ENLACES)
 
 const separarPalabras = (texto) =>
   [...new Set(texto.split(/[,\n]/).map((p) => p.trim()).filter(Boolean))].slice(0, LIM.palabras)

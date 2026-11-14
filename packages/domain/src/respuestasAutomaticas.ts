@@ -83,5 +83,17 @@ export const RESPUESTAS_PUBLICAS_SUGERIDAS = [
   '¡Te mandamos la info por interno! 📩',
 ] as const
 
+/**
+ * Instagram solo permite la respuesta privada (el DM dirigido al comentario, `recipient.comment_id`) dentro de los 7 días
+ * siguientes al comentario, y una sola por comentario.
+ */
+export const VENTANA_RESPUESTA_PRIVADA_DIAS = 7
+
+/** ¿Todavía se puede mandar la respuesta privada a un comentario hecho en `comentadoEn`? Sin fecha conocida, sí (llega en vivo). */
+export function dentroDeVentanaRespuestaPrivada(comentadoEn: Date | null, ahora: Date = new Date()): boolean {
+  if (!comentadoEn || Number.isNaN(comentadoEn.getTime())) return true
+  return ahora.getTime() - comentadoEn.getTime() < VENTANA_RESPUESTA_PRIVADA_DIAS * 24 * 3600 * 1000
+}
+
 /** Horas durante las que la misma persona no vuelve a recibir el DM de la misma campaña (sí la respuesta pública). */
 export const HORAS_ENTRE_DMS_MISMA_CAMPANA = 24

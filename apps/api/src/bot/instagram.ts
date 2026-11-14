@@ -17,6 +17,8 @@ export interface ComentarioInstagram {
   autorId: string | null
   autorUsuario: string | null
   mediaId: string | null
+  /** Cuándo se comentó (entry[].time del webhook; Meta lo manda al momento). Null si no vino. */
+  comentadoEn: Date | null
 }
 
 const esObjeto = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
@@ -33,6 +35,9 @@ export function parsearComentariosInstagram(payload: unknown): ComentarioInstagr
     if (!esObjeto(entry) || !Array.isArray(entry.changes)) continue
     const igUserId = texto(entry.id)
     if (!igUserId) continue
+    // entry.time viene en segundos (a veces en milisegundos, según el producto de Meta).
+    const t = typeof entry.time === 'number' && entry.time > 0 ? entry.time : null
+    const comentadoEn = t ? new Date(t > 1e12 ? t : t * 1000) : null
     for (const change of entry.changes) {
       if (!esObjeto(change) || change.field !== 'comments' || !esObjeto(change.value)) continue
       const v = change.value
@@ -49,6 +54,7 @@ export function parsearComentariosInstagram(payload: unknown): ComentarioInstagr
         autorId,
         autorUsuario: texto(de.username),
         mediaId: esObjeto(v.media) ? texto(v.media.id) : null,
+        comentadoEn,
       })
     }
   }
@@ -103,8 +109,12 @@ export async function responderComentarioEnPublico(
 }
 
 /**
- * DM a quien comentó («private reply»): se dirige al comentario, no a la persona. Meta permite uno por comentario y
- * dentro de los 7 días siguientes. Con facebook_login sale por la página vinculada; con instagram_login, por la cuenta.
+ * DM a quien comentó: la «respuesta privada» de Instagram (Private Replies), NO un mensaje directo normal. Va dirigida
+ * al comentario (`recipient: { comment_id }`), no a la persona, y por eso Meta la acepta aunque la persona nunca haya
+ * escrito a la cuenta (le llega a la bandeja si sigue a la cuenta, o a solicitudes si no). Límites de Meta: una sola por
+ * comentario, dentro de los 7 días del comentario, solo texto; la conversación sigue solo si la persona contesta.
+ * Documentado por Meta para facebook_login: POST /{page_id}/messages con token de página. La variante instagram_login
+ * (POST /{ig_user_id}/messages en graph.instagram.com) no figura en esa página de Meta: verificarla antes de usarla.
  */
 export async function enviarRespuestaPrivada(
   conexion: ConexionInstagramParaEnviar,

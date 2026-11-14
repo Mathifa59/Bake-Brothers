@@ -1,6 +1,9 @@
 import type { FastifyBaseLogger } from 'fastify'
 import {
   HORAS_ENTRE_DMS_MISMA_CAMPANA,
+  VENTANA_RESPUESTA_PRIVADA_DIAS,
+  dentroDeVentanaRespuestaPrivada,
+  enlaceCortoCampana,
   elegirRespuestaPublica,
   reglaParaComentario,
   textoDelDm,
@@ -22,11 +25,6 @@ import {
   tomarComentario,
   yaRecibioDm,
 } from '../repositories/respuestasAutomaticasRepo.js'
-
-/** Link corto de una campaña: la API cuenta el clic y redirige a WhatsApp (routes/enlacesCampana.ts). */
-export function enlaceCortoCampana(referencia: string): string {
-  return `${env.URL_PUBLICA_API.replace(/\/+$/, '')}/w/${encodeURIComponent(referencia)}`
-}
 
 export type ResultadoComentario =
   | { estado: 'sin_conexion' | 'sin_regla' | 'repetido' }
@@ -89,13 +87,19 @@ export async function procesarComentarioInstagram(log: FastifyBaseLogger, c: Com
     }
   }
 
+  // El DM es la «respuesta privada» de Instagram (recipient.comment_id, ver bot/instagram.ts): una por comentario
+  // (tomarComentario) y solo dentro de los 7 días del comentario. Un webhook que llega tarde (reintentos de Meta) no la
+  // intenta: Meta la rechazaría.
   let dmOk: boolean | null = null
-  let omitido = false
-  if (c.autorId && (await yaRecibioDm(pool, regla.id, c.autorId, HORAS_ENTRE_DMS_MISMA_CAMPANA, envioId))) {
-    omitido = true
+  let omitido: string | null = null
+  if (!dentroDeVentanaRespuestaPrivada(c.comentadoEn)) {
+    omitido = `Pasaron más de ${VENTANA_RESPUESTA_PRIVADA_DIAS} días desde el comentario: Instagram ya no permite la respuesta privada`
+  } else if (c.autorId && (await yaRecibioDm(pool, regla.id, c.autorId, HORAS_ENTRE_DMS_MISMA_CAMPANA, envioId))) {
+    omitido = `Ya recibió el DM de esta campaña en las últimas ${HORAS_ENTRE_DMS_MISMA_CAMPANA} h`
   } else {
     try {
-      await enviarRespuestaPrivada(conexion, c.comentarioId, textoDelDm(regla.mensajeDm, enlaceCortoCampana(regla.referencia)))
+      const enlace = enlaceCortoCampana(regla.referencia, env.URL_ENLACES_CORTOS)
+      await enviarRespuestaPrivada(conexion, c.comentarioId, textoDelDm(regla.mensajeDm, enlace))
       dmOk = true
     } catch (e) {
       dmOk = false
@@ -111,9 +115,7 @@ export async function procesarComentarioInstagram(log: FastifyBaseLogger, c: Com
       : dmOk || publicaOk
         ? 'parcial'
         : 'error'
-  const motivo = omitido
-    ? `Ya recibió el DM de esta campaña en las últimas ${HORAS_ENTRE_DMS_MISMA_CAMPANA} h`
-    : errores.join(' | ') || null
+  const motivo = errores.length ? errores.join(' | ') : omitido
   await cerrarEnvio(pool, envioId, { respuestaPublica, respuestaPublicaOk: publicaOk, dmOk, estado, motivo })
   // El último error de Meta queda en la conexión (el panel lo muestra); un envío limpio lo borra.
   await marcarErrorConexionInstagram(pool, conexionGuardada.id, errores.length ? errores.join(' | ').slice(0, 400) : null)

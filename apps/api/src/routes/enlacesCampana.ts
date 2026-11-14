@@ -13,7 +13,10 @@ const REFERENCIA_VALIDA = /^[a-z0-9][a-z0-9_-]{1,31}$/
  * un error para el cliente, y la referencia no se inventa).
  */
 export function enlacesCampanaRoutes(app: FastifyInstance) {
-  app.get<{ Params: { referencia: string } }>('/w/:referencia', async (req, reply) => {
+  // Llega por el rewrite de Vercel (bakebrothers.pe/w/… → esta ruta): todos los clics comparten las IP de Vercel, así que
+  // el límite general (100/min por IP) frenaría un reel viral. Este link solo redirige y suma un clic.
+  const opciones = { config: { rateLimit: { max: 1000, timeWindow: '1 minute' } } }
+  app.get<{ Params: { referencia: string } }>('/w/:referencia', opciones, async (req, reply) => {
     const referencia = String(req.params.referencia ?? '').toLowerCase()
     const regla = REFERENCIA_VALIDA.test(referencia) ? await sumarClic(pool, referencia).catch(() => null) : null
     const destino = enlaceWhatsAppCampana({

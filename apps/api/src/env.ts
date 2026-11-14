@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { NUMERO_WHATSAPP_ATENCION } from '@bakebrothers/domain'
+import { NUMERO_WHATSAPP_ATENCION, URL_ENLACES_CORTOS } from '@bakebrothers/domain'
 import { parsearClaveCifrado } from './bot/cifrado.js'
 
 // Texto libre de una variable de entorno: recortado, y la secuencia literal «barra + n» (dos caracteres) se vuelve un
@@ -51,9 +51,9 @@ const schema = z
     // la otra. No llevan secretos, pero tampoco van en el código. Texto libre en una línea: la secuencia «barra n» se vuelve salto de línea.
     // WhatsApp de atención directa de mayoristas (solo dígitos, con código de país). El bot no les cotiza ni toma pedidos:
     // los deriva a este número con un link wa.me.
-    // Dirección pública de esta API: con ella se arma el link corto que va en los DMs de las respuestas automáticas
-    // de Instagram (/w/ig-alfajor). Cambia solo si la API se muda de dominio.
-    URL_PUBLICA_API: z.string().trim().url().default('https://api.bake-brothers.com'),
+    // Dominio de los links cortos que van en los DMs de las respuestas automáticas de Instagram (/w/ig-alfajor): la web
+    // pública, que los reenvía a esta API con un rewrite de Vercel. Cambia solo si la web se muda de dominio.
+    URL_ENLACES_CORTOS: z.string().trim().url().default(URL_ENLACES_CORTOS),
     // WhatsApp que atiende a los clientes (el del bot), solo dígitos con código de país: a donde lleva el link corto.
     WHATSAPP_ATENCION: z.string().trim().regex(/^[0-9]{8,15}$/, 'solo dígitos, con código de país').default(NUMERO_WHATSAPP_ATENCION),
     WHATSAPP_MAYORISTAS: z.string().trim().regex(/^[0-9]{8,15}$/, 'solo dígitos, con código de país').default('51986639228'),

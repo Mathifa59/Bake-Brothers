@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   agregarReferenciaAlMensaje,
   describirCampana,
+  enlaceCortoCampana,
   enlaceWhatsAppCampana,
   extraerReferencia,
   limpiarReferencia,
@@ -113,6 +114,11 @@ describe('campañas de redes (ManyChat → WhatsApp)', () => {
     expect(url.startsWith('https://wa.me/51999888777?text=')).toBe(true)
     const leido = extraerReferencia(new URL(url).searchParams.get('text')!)
     expect(leido).toEqual({ texto: 'Hola', referencia: 'fb-dia-de-la-madre' })
+  })
+
+  it('enlaceCortoCampana: en el dominio de la web (bakebrothers.pe), no en el de la API', () => {
+    expect(enlaceCortoCampana('ig-alfajor')).toBe('https://www.bakebrothers.pe/w/ig-alfajor')
+    expect(enlaceCortoCampana('ig-alfajor', 'https://bakebrothers.pe/')).toBe('https://bakebrothers.pe/w/ig-alfajor')
   })
 
   it('describirCampana: red conocida + nombre legible; si no, la referencia tal cual', () => {

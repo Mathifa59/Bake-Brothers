@@ -91,6 +91,18 @@ export function extraerReferencia(texto: string): { texto: string; referencia: s
 export const NUMERO_WHATSAPP_ATENCION = '51912944096'
 
 /**
+ * Dominio de los links cortos de campaña (`/w/ig-alfajor`): la web pública, que los reenvía a la API con un rewrite de
+ * Vercel (`vercel.json` de la raíz). Así el cliente ve bakebrothers.pe y no la dirección de la API. La API y el panel lo
+ * pueden pisar (URL_ENLACES_CORTOS / VITE_URL_ENLACES_CORTOS).
+ */
+export const URL_ENLACES_CORTOS = 'https://www.bakebrothers.pe'
+
+/** Link corto de una campaña: `https://www.bakebrothers.pe/w/ig-alfajor`. */
+export function enlaceCortoCampana(referencia: string, base: string = URL_ENLACES_CORTOS): string {
+  return `${base.replace(/\/+$/, '')}/w/${encodeURIComponent(referencia)}`
+}
+
+/**
  * Campañas de redes que terminan en WhatsApp (por ejemplo ManyChat: «comenta ALFAJOR y te mando el link»).
  * El prefijo es el mismo que arma `referenciaDeUtm` para esa fuente, así una campaña de Instagram se ve igual
  * venga por ManyChat o por un link de la web con utm_source=instagram.
