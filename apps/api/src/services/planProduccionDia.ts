@@ -1,13 +1,18 @@
 import type pg from 'pg'
 import {
   ESTADOS_EN_PLAN,
+  armarAgendados,
   armarEmpaqueMayorista,
   armarHojaProduccion,
+  armarHorasCriticas,
   armarPlanDelDia,
   minutosDelDia,
   type BloqueMayorista,
+  type PedidoAgendado,
   type AreaProduccion,
   type HojaProduccion,
+  type GrupoAgendado,
+  type LineaCritica,
   type LineaDemanda,
   type LineaPlan,
   type LineaVitrina,
@@ -30,6 +35,8 @@ export interface PlanDelDia {
   sedeId: string | null
   lineas: LineaPlan[]
   hoja: HojaProduccion
+  /** «Pedidos con hora crítica: producir primero» (prioridad ALTA; sin mayoristas, que salen por su hoja de empaque). */
+  criticos: LineaCritica[]
   /** Pedidos de ese día esperando pago: todavía no se producen. */
   pagoPendiente: number
   /** Pedidos de ese día sin sede (delivery que nadie tomó): no están en el plan de una sede concreta. */
@@ -41,6 +48,7 @@ export interface PlanDelDia {
 interface FilaDemanda {
   pedido: string
   hora: string | null
+  canal: string | null
   cliente: string | null
   product_id: string | null
   nombre_producto: string
@@ -67,7 +75,7 @@ export async function cargarPlanDelDia(
   if (sedeId) params.push(sedeId)
 
   const { rows } = await client.query<FilaDemanda>(
-    `select o.numero as pedido, o.horario_entrega as hora, cu.nombre as cliente,
+    `select o.numero as pedido, o.horario_entrega as hora, o.canal, cu.nombre as cliente,
             oi.product_id, oi.nombre_producto, oi.tamano, oi.cantidad, oi.catering_item_id, oi.sabor, oi.combo_id,
             p.area_produccion as area, p.modo_produccion as modo, (c.nombre = 'Empanadas') as es_empanada,
             ci.area_produccion as catering_area, ci.nombre as catering_nombre
@@ -93,6 +101,7 @@ export async function cargarPlanDelDia(
         sabor: r.sabor,
         cantidad: r.cantidad,
         hora: r.hora,
+        canal: r.canal,
         pedido: r.pedido,
         cliente: r.cliente,
         area: r.catering_area,
@@ -105,6 +114,7 @@ export async function cargarPlanDelDia(
         tamano: r.tamano,
         cantidad: r.cantidad,
         hora: r.hora,
+        canal: r.canal,
         pedido: r.pedido,
         cliente: r.cliente,
         area: r.area,
@@ -148,6 +158,7 @@ export async function cargarPlanDelDia(
           tamano: x.tamano,
           cantidad: Number(x.cantidad) * fila.cantidad,
           hora: fila.hora,
+          canal: fila.canal,
           pedido: fila.pedido,
           cliente: fila.cliente,
           area: x.area,
@@ -202,6 +213,7 @@ export async function cargarPlanDelDia(
     sedeId,
     lineas,
     hoja: armarHojaProduccion(lineas),
+    criticos: armarHorasCriticas(demanda),
     pagoPendiente: contadores[0]?.pago_pendiente ?? 0,
     // Con una sede concreta, los pedidos sin sede son «de nadie» todavía; viendo todas las sedes ya están incluidos.
     sinAsignar: sedeId ? (contadores[0]?.sin_asignar ?? 0) : 0,
@@ -343,4 +355,71 @@ export async function cargarEmpaqueMayorista(
     porOrden.set(r.id, o)
   }
   return armarEmpaqueMayorista([...porOrden.values()], minutosDelDia)
+}
+
+// ——————————————————————————————————————— pedidos agendados (venta digital) ————
+
+/** Estados que NO aparecen en la hoja de agendados: un borrador no existe y un pedido anulado no se produce. */
+const ESTADOS_FUERA_DE_AGENDADOS = ['draft', 'cancelled']
+/** Canales que NO son venta digital: mayoristas y Rappi tienen su propia hoja / plan. */
+const CANALES_FUERA_DE_AGENDADOS = ['mayorista', 'rappi']
+
+/**
+ * «Pedidos agendados – venta digital»: los pedidos con entrega ese día de WhatsApp, web, Instagram/Facebook y los
+ * encargos tomados en tienda — una fila por producto, agrupadas bajo el cliente. Incluye los que esperan pago (el
+ * equipo de venta digital tiene que verlos para cobrarlos); la hoja los muestra como «POR PAGAR».
+ */
+export async function cargarAgendados(
+  client: pg.PoolClient,
+  tenantId: string,
+  fechaISO: string,
+  sedeId: string | null
+): Promise<GrupoAgendado[]> {
+  const { rows } = await client.query(
+    `select o.id, o.numero, o.tipo_entrega, o.horario_entrega as hora, o.estado, o.metodo_pago, o.nota,
+            o.direccion, o.distrito, se.nombre as sede, cu.nombre as cliente,
+            oi.nombre_producto, oi.tamano, oi.sabor, oi.cantidad,
+            coalesce(p.area_produccion, ci.area_produccion) as area, (c.nombre = 'Empanadas') as es_empanada
+     from orders o
+     join customers cu on cu.id = o.customer_id
+     join order_items oi on oi.order_id = o.id
+     left join sedes se on se.id = o.sede_id
+     left join products p on p.id = oi.product_id
+     left join categories c on c.id = p.category_id
+     left join catering_items ci on ci.id = oi.catering_item_id
+     where o.tenant_id = $1 and o.fecha_entrega = $2
+       and o.estado <> all($3) and o.canal <> all($4)
+       ${sedeId ? 'and o.sede_id = $5' : ''}
+     order by o.horario_entrega, cu.nombre, o.numero, oi.id`,
+    sedeId
+      ? [tenantId, fechaISO, ESTADOS_FUERA_DE_AGENDADOS, CANALES_FUERA_DE_AGENDADOS, sedeId]
+      : [tenantId, fechaISO, ESTADOS_FUERA_DE_AGENDADOS, CANALES_FUERA_DE_AGENDADOS]
+  )
+  const porPedido = new Map<string, PedidoAgendado>()
+  for (const r of rows) {
+    let p = porPedido.get(r.id)
+    if (!p) {
+      const direccion = r.tipo_entrega === 'delivery' ? [r.direccion, r.distrito].filter(Boolean).join(' - ') : (r.sede ?? '')
+      p = {
+        pedido: r.numero,
+        cliente: r.cliente,
+        tipoEntrega: r.tipo_entrega,
+        hora: r.hora,
+        estado: r.estado,
+        metodoPago: r.metodo_pago,
+        direccion,
+        observacion: r.nota,
+        lineas: [],
+      }
+      porPedido.set(r.id, p)
+    }
+    const detalle = [r.tamano, r.sabor].filter(Boolean).join(' · ')
+    p.lineas.push({
+      cantidad: r.cantidad,
+      producto: detalle ? `${r.nombre_producto} (${detalle})` : r.nombre_producto,
+      area: r.area,
+      esEmpanada: r.es_empanada,
+    })
+  }
+  return armarAgendados([...porPedido.values()])
 }

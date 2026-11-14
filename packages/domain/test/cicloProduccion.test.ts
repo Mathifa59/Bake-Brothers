@@ -218,7 +218,7 @@ describe('hoja de producción', () => {
     expect(f['Carne']).toMatchObject({ mediana: 40, grande: 0, mini: 0, total: 40 })
     expect(f['Cabanozzi']).toMatchObject({ grande: 6, total: 6 })
     expect(f['3 Quesos']).toMatchObject({ mediana: 12, total: 12 })
-    expect(f['Sin sabor indicado']).toMatchObject({ mini: 20, total: 20 })
+    expect(f['VARIADA (CATERING)']).toMatchObject({ mini: 20, total: 20 }) // la mini sin sabor, como en la hoja del equipo
   })
 
   it('los sabores salen en el orden del equipo, y los totales cuadran con las filas', () => {
@@ -226,7 +226,7 @@ describe('hoja de producción', () => {
     expect(sabores.indexOf('Pollo')).toBeLessThan(sabores.indexOf('Carne'))
     expect(sabores.indexOf('Carne')).toBeLessThan(sabores.indexOf('Cabanozzi'))
     expect(sabores.indexOf('Cabanozzi')).toBeLessThan(sabores.indexOf('3 Quesos'))
-    expect(sabores.at(-1)).toBe('Sin sabor indicado') // lo que no está en la lista, al final
+    expect(sabores.at(-1)).toBe('VARIADA (CATERING)') // la fila de las mini variadas, siempre al final
     const t = hoja.empanadas.totales
     expect(t.total).toBe(hoja.empanadas.filas.reduce((n, x) => n + x.total, 0))
     expect(t.mediana + t.grande + t.mini).toBe(t.total)

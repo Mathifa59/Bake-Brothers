@@ -38,6 +38,8 @@ export interface LineaDemanda {
   cantidad: number
   /** `orders.horario_entrega` del pedido, para saber qué sale antes de las 8:00 a. m. */
   hora: string | null
+  /** `orders.canal` del pedido (mayorista, rappi, whatsapp…): las horas críticas del resumen no repiten a los mayoristas. */
+  canal?: string | null
   pedido: string
   cliente?: string | null
   area: AreaProduccion | null
@@ -190,6 +192,9 @@ export function posicionSabor(sabor: string): number {
 }
 const compararSabores = (a: string, b: string) => posicionSabor(a) - posicionSabor(b) || a.localeCompare(b, 'es')
 
+/** Fila de las mini empanadas de catering sin sabor indicado («variadas»). Siempre va al final de la tabla. */
+export const FILA_VARIADA = 'VARIADA (CATERING)'
+
 export interface FilaEmpanada {
   sabor: string
   mediana: number
@@ -246,12 +251,13 @@ export function armarHojaProduccion(plan: readonly LineaPlan[]): HojaProduccion 
       if (sinTildes(l.tamano ?? '') === 'mediana') f.mediana += l.total
       else f.grande += l.total
     } else if (esMini(l)) {
-      fila(l.sabor?.trim() || 'Sin sabor indicado').mini += l.total
+      // Mini empanada de catering sin sabor (variada): su propia fila, como «VARIADA (CATERING)» en la hoja del equipo.
+      fila(l.sabor?.trim() || FILA_VARIADA).mini += l.total
     }
   }
   const filas = [...porSabor.values()]
     .map((f) => ({ ...f, total: f.mediana + f.grande + f.mini }))
-    .sort((a, b) => compararSabores(a.sabor, b.sabor))
+    .sort((a, b) => Number(a.sabor === FILA_VARIADA) - Number(b.sabor === FILA_VARIADA) || compararSabores(a.sabor, b.sabor))
   const totales = filas.reduce(
     (t, f) => ({ mediana: t.mediana + f.mediana, grande: t.grande + f.grande, mini: t.mini + f.mini, total: t.total + f.total }),
     { mediana: 0, grande: 0, mini: 0, total: 0 }

@@ -86,8 +86,8 @@ describe.skipIf(!hayBaseDeDatosReal)('bot apagado: la atiende una persona', () =
   }
   const llamadasAMeta = () => mockFetch.mock.calls.filter(([url]) => String(url).includes('graph.facebook.com'))
 
-  // La bienvenida agrega «te escribimos a primera hora» fuera del horario de las personas (7:30 a. m.–10:00 p. m. de
-  // Lima): estos tests fijan la hora a mediodía para que no dependan de cuándo se corran.
+  // La bienvenida agrega «te escribimos a primera hora» fuera del horario de las personas (lun–sáb 8:00 a. m.–8:30 p. m., dom desde
+  // las 10:00 a. m., hora de Lima): estos tests fijan la hora a mediodía para que no dependan de cuándo se corran.
   beforeAll(() => {
     vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-13T12:00:00-05:00') })
   })
@@ -192,7 +192,7 @@ describe.skipIf(!hayBaseDeDatosReal)('bot apagado: la atiende una persona', () =
       const cuerpo = JSON.parse(salida[0][1].body).text.body as string
       expect(cuerpo.startsWith(BIENVENIDA)).toBe(true)
       expect(cuerpo).toContain('te escribimos a primera hora')
-      expect(cuerpo).toContain('7:30 a. m.')
+      expect(cuerpo).toContain('mañana desde las 8:00 a. m.') // viernes de noche → vuelven el sábado a las 8:00
     } finally {
       vi.setSystemTime(new Date('2026-11-13T12:00:00-05:00'))
     }

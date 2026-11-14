@@ -241,7 +241,7 @@ export default function PlanDelDia() {
         className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-tinta text-sm font-semibold text-white disabled:opacity-50"
       >
         <FileText size={16} aria-hidden="true" />
-        {imprimiendo ? 'Generando…' : 'Imprimir hoja de producción'}
+        {imprimiendo ? 'Generando…' : 'Imprimir resumen de producción'}
       </button>
 
       {errorAccion && (

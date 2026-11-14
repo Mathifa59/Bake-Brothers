@@ -8,8 +8,9 @@ import {
   ultimaOrdenMayorista,
   type ResultadoOrdenEquipo,
 } from '../services/ordenesEquipo.js'
-import { cargarEmpaqueMayorista, cargarPlanDelDia, marcarProducido } from '../services/planProduccionDia.js'
-import { hojaEmpaqueMayoristaPdf, hojaProduccionPdf } from '../services/hojasPdf.js'
+import { armarFilasMayoristas } from '@bakebrothers/domain'
+import { cargarAgendados, cargarEmpaqueMayorista, cargarPlanDelDia, marcarProducido } from '../services/planProduccionDia.js'
+import { hojaAgendadosPdf, hojaEmpaqueMayoristaPdf, hojaProduccionPdf } from '../services/hojasPdf.js'
 
 /**
  * Ciclo Órdenes → Producción → Stock (apps/admin): órdenes de mayoristas y de Rappi, el plan del día, «producido»
@@ -86,6 +87,8 @@ const rappiSchema = z.object({
 })
 
 const consultaDia = z.object({ fecha: fechaISO, sedeId: uuid.optional() })
+// Hojas para imprimir: los responsables se escriben al imprimir (texto corto; se limpia al dibujarlo).
+const consultaHoja = consultaDia.extend({ carga: z.string().max(80).optional(), empaque: z.string().max(80).optional() })
 
 async function nombreDeSede(client: import('pg').PoolClient, sedeId: string | null): Promise<string> {
   if (!sedeId) return 'Todas las sedes'
@@ -139,7 +142,7 @@ export function dashboardProduccionRoutes(app: FastifyInstance) {
     if (!sede.ok) return reply.code(sede.codigo).send({ error: sede.error })
     const pdf = await withTenantTx(req.tenantId, async (client) => {
       const plan = await cargarPlanDelDia(client, req.tenantId, q.fecha, sede.sedeId)
-      return hojaProduccionPdf(plan.hoja, {
+      return hojaProduccionPdf(plan.hoja, plan.criticos, {
         fecha: q.fecha,
         sede: await nombreDeSede(client, sede.sedeId),
         pagoPendiente: plan.pagoPendiente,
@@ -152,15 +155,34 @@ export function dashboardProduccionRoutes(app: FastifyInstance) {
   })
 
   app.get('/api/dashboard/ordenes/empaque-mayorista.pdf', pre, async (req, reply) => {
-    const q = consultaDia.parse(req.query)
+    const q = consultaHoja.parse(req.query)
     const sede = resolverSede(req.operador!, q.sedeId)
     if (!sede.ok) return reply.code(sede.codigo).send({ error: sede.error })
     const pdf = await withTenantTx(req.tenantId, async (client) => {
       const bloques = await cargarEmpaqueMayorista(client, req.tenantId, q.fecha, sede.sedeId)
-      return hojaEmpaqueMayoristaPdf(bloques, { fecha: q.fecha, sede: await nombreDeSede(client, sede.sedeId) })
+      return hojaEmpaqueMayoristaPdf(armarFilasMayoristas(bloques), {
+        fecha: q.fecha,
+        sede: await nombreDeSede(client, sede.sedeId),
+        cargaPor: q.carga,
+        empaquePor: q.empaque,
+      })
     })
     reply.header('Content-Type', 'application/pdf')
     reply.header('Content-Disposition', `inline; filename="empaque-mayorista-${q.fecha}.pdf"`)
+    return reply.send(pdf)
+  })
+
+  // Pedidos agendados (venta digital): la hoja que hoy se llena a mano en el Excel.
+  app.get('/api/dashboard/ordenes/agendados.pdf', pre, async (req, reply) => {
+    const q = consultaHoja.parse(req.query)
+    const sede = resolverSede(req.operador!, q.sedeId)
+    if (!sede.ok) return reply.code(sede.codigo).send({ error: sede.error })
+    const pdf = await withTenantTx(req.tenantId, async (client) => {
+      const grupos = await cargarAgendados(client, req.tenantId, q.fecha, sede.sedeId)
+      return hojaAgendadosPdf(grupos, { fecha: q.fecha, sede: await nombreDeSede(client, sede.sedeId), cargaPor: q.carga })
+    })
+    reply.header('Content-Type', 'application/pdf')
+    reply.header('Content-Disposition', `inline; filename="pedidos-agendados-${q.fecha}.pdf"`)
     return reply.send(pdf)
   })
 

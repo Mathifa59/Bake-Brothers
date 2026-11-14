@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, FileText, Plus } from 'lucide-react'
+import { AlertTriangle, Plus } from 'lucide-react'
 import { CORTE_HORA, CORTE_MINUTO, CORTE_TEXTO, estadoEquipo, evaluarCorteOrden, fechaLimaISO, sumarDiasISO } from '@bakebrothers/domain'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { actualizarEstadoPedido, traerTodo, useAhora, useDatosVivos } from '../lib/datos'
-import { abrirPdfAutenticado } from '../lib/apiClient'
 import { fechaCorta, formatoPrecio } from '../utils/formato'
 import { mensajeDeError, ordenarEmpanadas } from '../utils/ordenes'
 import { Cargando, ErrorCarga, Pill, Portada, Tarjeta } from '../components/bakeos/ui'
 import FormMayorista from '../components/ordenes/FormMayorista'
 import FormRappi from '../components/ordenes/FormRappi'
+import ImprimirHojas from '../components/ordenes/ImprimirHojas'
 
 const PESTANAS = [
   { id: 'lista', etiqueta: 'Del día' },
@@ -120,7 +120,6 @@ export default function Ordenes() {
   const [sedeId, setSedeId] = useState(esAdmin ? '' : (perfil?.sedeId ?? ''))
   const [errorAccion, setErrorAccion] = useState(null)
   const [anulando, setAnulando] = useState(null)
-  const [imprimiendo, setImprimiendo] = useState(false)
 
   // Mientras nadie elija otra fecha, la que se mira es «mañana»: el día en que se trabaja esta lista.
   const [fechaManual, setFechaManual] = useState(false)
@@ -162,24 +161,10 @@ export default function Ordenes() {
     recargar()
   }
 
-  const imprimirEmpaque = async () => {
-    setImprimiendo(true)
-    setErrorAccion(null)
-    try {
-      await abrirPdfAutenticado(`/api/dashboard/ordenes/empaque-mayorista.pdf?fecha=${fecha}${esAdmin && sedeId ? `&sedeId=${sedeId}` : ''}`, `empaque-mayorista-${fecha}.pdf`)
-    } catch (err) {
-      setErrorAccion(mensajeDeError(err))
-    } finally {
-      setImprimiendo(false)
-    }
-  }
-
   const alRegistrar = () => {
     recargar()
     recargarCatalogo()
   }
-
-  const hayMayoristas = (ordenes ?? []).some((o) => o.canal === 'mayorista' && o.estado !== 'cancelled')
 
   return (
     <>
@@ -289,17 +274,7 @@ export default function Ordenes() {
                     Nuevo encargo
                   </Link>
                 </div>
-                {hayMayoristas && (
-                  <button
-                    type="button"
-                    onClick={imprimirEmpaque}
-                    disabled={imprimiendo}
-                    className="mb-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-tinta text-sm font-semibold text-white disabled:opacity-50"
-                  >
-                    <FileText size={16} aria-hidden="true" />
-                    {imprimiendo ? 'Generando…' : 'Imprimir hoja de empaque mayorista'}
-                  </button>
-                )}
+                <ImprimirHojas fecha={fecha} sedeId={sedeId} esAdmin={esAdmin} />
                 {ordenes.length === 0 ? (
                   <Tarjeta className="text-center text-sm text-gris">No hay órdenes para esa fecha. Registra una en Mayorista o Rappi.</Tarjeta>
                 ) : (
