@@ -12,6 +12,7 @@
     "whatsapp:registrar": "tsx --env-file=.env scripts/registrar-conexion-whatsapp.ts",
     "mifact:emisor": "tsx --env-file=.env scripts/registrar-emisor-mifact.ts",
     "mifact:demo": "tsx --env-file=.env.mifact-demo scripts/mifact-demo.ts",
+    "mifact:correo": "tsx --env-file=.env.mifact-demo scripts/mifact-correo-demo.ts",
     "mayoristas:importar": "tsx --env-file=.env scripts/importar-mayoristas.ts",
     "whatsapp:alta": "tsx --env-file=.env scripts/alta-numero-meta.ts",
     "vapid:generar": "tsx scripts/generar-vapid.ts",
