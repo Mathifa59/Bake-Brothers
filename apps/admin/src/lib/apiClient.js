@@ -180,6 +180,8 @@ async function jsonOError(res) {
     err.codigo = data.error
     err.estado = res.status
     err.status = res.status
+    // Algunas rutas (comprobantes) mandan además una frase lista para mostrar.
+    err.mensaje = typeof data.mensaje === 'string' ? data.mensaje : undefined
     err.detalle = data.detalle ?? (data.detalles ? data.detalles.map((d) => `${d.campo}: ${d.mensaje}`).join('; ') : undefined)
     throw err
   }
@@ -229,6 +231,26 @@ export async function ultimaOrdenMayorista(clienteId) {
     throw err
   }
 }
+
+// ——— Comprobantes electrónicos (Mifact) de un pedido — solo administración ———
+const idc = encodeURIComponent
+
+/** Quién factura el pedido, a quién se emitiría, qué botones se habilitan y los comprobantes que ya tiene. */
+export const traerFacturacionDePedido = (numero) => llamar(`/api/dashboard/pedidos/${idc(numero)}/facturacion`)
+
+/** Emite la boleta o factura. El receptor sale del cliente del pedido (el servidor lo decide, aquí no se manda). */
+export const emitirComprobante = (pedido, tipo) => llamar('/api/dashboard/comprobantes', { method: 'POST', body: { pedido, tipo } })
+
+export const consultarEstadoComprobante = (id) => llamar(`/api/dashboard/comprobantes/${idc(id)}/estado`, { method: 'POST', body: {} })
+export const reintentarComprobante = (id) => llamar(`/api/dashboard/comprobantes/${idc(id)}/reintentar`, { method: 'POST', body: {} })
+export const anularComprobante = (id, motivo) => llamar(`/api/dashboard/comprobantes/${idc(id)}/anular`, { method: 'POST', body: { motivo } })
+
+/** Completa en el cliente lo que va en sus comprobantes. Solo se mandan los campos que cambian. */
+export const guardarFacturacionDeCliente = (clienteId, datos) =>
+  llamar(`/api/dashboard/clientes/${idc(clienteId)}/facturacion`, { method: 'PUT', body: datos })
+
+export const abrirPdfDeComprobante = (id, nombreArchivo = 'comprobante.pdf') =>
+  abrirPdfAutenticado(`/api/dashboard/comprobantes/${idc(id)}/pdf`, nombreArchivo)
 
 /**
  * Abre una hoja en PDF (el navegador no manda el header de Authorization en una navegación normal, así que se

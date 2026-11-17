@@ -1,5 +1,5 @@
 // Rutas /api/dashboard/comprobantes — SOLO ADMINISTRADOR. La verificación del JWT se mockea (necesita el JWKS real de
-// Supabase por red); lo demás corre real contra Postgres con 0052 y el simulador de Mifact (sin red).
+// Supabase por red); lo demás corre real contra Postgres con 0053 y el simulador de Mifact (sin red).
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import pg from 'pg'
 import { DATABASE_URL_PLACEHOLDER } from './testEnv.js'
@@ -44,9 +44,9 @@ describe.skipIf(!hayBaseDeDatosReal)('rutas de comprobantes (administrador)', ()
   let falso: FalsoMifact
   let n = 0
 
-  const pedido = () =>
-    crearPedidoDePrueba(pool, { tenantId, marca: MARCA, sede: 'Santa Marina', items: [{ slug: 'alfajor-mix', cantidad: 1 }], numero: `TEST-RUTA-${Date.now()}-${++n}` })
-  const llamar = (method: 'GET' | 'POST', url: string, rol: string | null = 'admin', payload?: unknown) =>
+  const pedido = (extra: Partial<Parameters<typeof crearPedidoDePrueba>[1]> = {}) =>
+    crearPedidoDePrueba(pool, { tenantId, marca: MARCA, sede: 'Santa Marina', items: [{ slug: 'alfajor-mix', cantidad: 1 }], numero: `TEST-RUTA-${Date.now()}-${++n}`, ...extra })
+  const llamar = (method: 'GET' | 'POST' | 'PUT', url: string, rol: string | null = 'admin', payload?: unknown) =>
     app.inject({ method, url, headers: rol ? { 'x-test-rol': rol } : {}, ...(payload !== undefined ? { payload: payload as Record<string, unknown> } : {}) })
   const limpiar = async () => {
     await limpiarPedidosDePrueba(pool, MARCA)
@@ -79,7 +79,7 @@ describe.skipIf(!hayBaseDeDatosReal)('rutas de comprobantes (administrador)', ()
 
   it('sin sesión → 401; un operador (no admin) → 403 SOLO_ADMIN en TODAS las rutas, y no se llama a Mifact ni se guarda nada', async () => {
     const id = '00000000-0000-0000-0000-000000000000'
-    const rutas: ['GET' | 'POST', string, unknown?][] = [
+    const rutas: ['GET' | 'POST' | 'PUT', string, unknown?][] = [
       ['POST', '/api/dashboard/comprobantes', { pedido: 'X', tipo: 'boleta' }],
       ['GET', '/api/dashboard/comprobantes?pedido=X'],
       ['GET', `/api/dashboard/comprobantes/${id}`],
@@ -88,6 +88,8 @@ describe.skipIf(!hayBaseDeDatosReal)('rutas de comprobantes (administrador)', ()
       ['GET', `/api/dashboard/comprobantes/${id}/pdf`],
       ['POST', `/api/dashboard/comprobantes/${id}/anular`, { motivo: 'ANULACION POR ERROR' }],
       ['POST', `/api/dashboard/comprobantes/${id}/correo`, { correo: 'a@b.pe' }],
+      ['GET', '/api/dashboard/pedidos/BB-1/facturacion'],
+      ['PUT', `/api/dashboard/clientes/${id}/facturacion`, { razonSocial: 'X SAC' }],
     ]
     for (const [metodo, url, cuerpo] of rutas) {
       expect((await llamar(metodo, url, null, cuerpo)).statusCode, `${metodo} ${url} sin sesión`).toBe(401)
@@ -108,11 +110,11 @@ describe.skipIf(!hayBaseDeDatosReal)('rutas de comprobantes (administrador)', ()
   })
 
   it('recorrido completo por HTTP: emitir → consultar el estado → PDF → correo → anular', async () => {
-    const p = await pedido()
-    const emitido = await llamar('POST', '/api/dashboard/comprobantes', 'admin', { pedido: p.numero, tipo: 'boleta', receptor: { numeroDoc: '40506089', nombre: 'MARIA GONZALES' } })
+    const p = await pedido({ dni: '12345678', razonSocial: 'ANA TORRES QUISPE' })
+    const emitido = await llamar('POST', '/api/dashboard/comprobantes', 'admin', { pedido: p.numero, tipo: 'boleta' })
     expect(emitido.statusCode).toBe(201)
     const c = emitido.json()
-    expect(c).toMatchObject({ numero: 'BR01-00000001', estado: 'aceptado', estadoCodigo: 102, pedido: p.numero, emisor: 'baker_brothers', entorno: 'demo' })
+    expect(c).toMatchObject({ numero: 'BR01-00000001', estado: 'aceptado', estadoCodigo: 102, pedido: p.numero, emisor: 'baker_brothers', entorno: 'demo', receptor: { documento: '12345678', nombre: 'ANA TORRES QUISPE' } })
     const base = `/api/dashboard/comprobantes/${c.id}`
 
     expect((await llamar('GET', `/api/dashboard/comprobantes?pedido=${p.numero}`)).json().map((x: { numero: string }) => x.numero)).toEqual(['BR01-00000001'])
@@ -142,9 +144,10 @@ describe.skipIf(!hayBaseDeDatosReal)('rutas de comprobantes (administrador)', ()
     const repetido = await llamar('POST', '/api/dashboard/comprobantes', 'admin', { pedido: p.numero, tipo: 'boleta' })
     expect([repetido.statusCode, repetido.json().error]).toEqual([409, 'COMPROBANTE_YA_EMITIDO'])
 
+    // Factura a un cliente SIN RUC: 422, y se explica que falta el RUC del cliente.
     const q = await pedido()
-    const receptor = await llamar('POST', '/api/dashboard/comprobantes', 'admin', { pedido: q.numero, tipo: 'factura', receptor: { numeroDoc: '20601847835', nombre: 'X' } })
-    expect([receptor.statusCode, receptor.json().error, receptor.json().detalle.error]).toEqual([422, 'RECEPTOR_INVALIDO', 'RUC_INVALIDO'])
+    const receptor = await llamar('POST', '/api/dashboard/comprobantes', 'admin', { pedido: q.numero, tipo: 'factura' })
+    expect([receptor.statusCode, receptor.json().error, receptor.json().detalle.error]).toEqual([422, 'RECEPTOR_INVALIDO', 'FACTURA_REQUIERE_RUC'])
 
     const sinResp = await pedido()
     falso.fallar('SendInvoice', { tipo: 'timeout' })
@@ -158,6 +161,10 @@ describe.skipIf(!hayBaseDeDatosReal)('rutas de comprobantes (administrador)', ()
   it('entradas mal formadas → 400 (campos de más, tipo desconocido, id que no es uuid, motivo/correo faltantes)', async () => {
     expect((await llamar('POST', '/api/dashboard/comprobantes', 'admin', { pedido: 'X', tipo: 'nota' })).statusCode).toBe(400)
     expect((await llamar('POST', '/api/dashboard/comprobantes', 'admin', { pedido: 'X', tipo: 'boleta', total: 1 })).statusCode).toBe(400)
+    // El receptor NO se recibe: sale del cliente del pedido (aunque alguien mande el de la documentación de Mifact).
+    expect((await llamar('POST', '/api/dashboard/comprobantes', 'admin', { pedido: 'X', tipo: 'factura', receptor: { numeroDoc: '20601847834', nombre: 'OSYS COMPANY SAC' } })).statusCode).toBe(400)
+    expect((await llamar('PUT', '/api/dashboard/clientes/no-es-uuid/facturacion', 'admin', { razonSocial: 'X SAC' })).statusCode).toBe(400)
+    expect((await llamar('PUT', '/api/dashboard/clientes/00000000-0000-0000-0000-000000000000/facturacion', 'admin', { campoInventado: 'x' })).statusCode).toBe(400)
     expect((await llamar('GET', '/api/dashboard/comprobantes/no-es-uuid')).statusCode).toBe(400)
     expect((await llamar('GET', '/api/dashboard/comprobantes')).statusCode).toBe(400)
     expect((await llamar('POST', '/api/dashboard/comprobantes/00000000-0000-0000-0000-000000000000/anular', 'admin', {})).statusCode).toBe(400)
@@ -178,5 +185,36 @@ describe.skipIf(!hayBaseDeDatosReal)('rutas de comprobantes (administrador)', ()
     delete process.env.MIFACT_BAKER_BROTHERS_URL
     salidas.push((await llamar('POST', '/api/dashboard/comprobantes', 'admin', { pedido: q.numero, tipo: 'boleta' })).body)
     for (const s of salidas) expect(s).not.toContain(TOKEN)
+  })
+
+  it('GET /pedidos/:numero/facturacion: quién factura, a quién se emitiría y qué botones se habilitan', async () => {
+    const empresa = await pedido({ ruc: '20123456786', razonSocial: 'PASTELERIA EJEMPLO SAC' })
+    const r = await llamar('GET', `/api/dashboard/pedidos/${empresa.numero}/facturacion`)
+    expect(r.statusCode).toBe(200)
+    const j = r.json()
+    expect(j.emisor).toMatchObject({ clave: 'baker_brothers', configurado: true })
+    expect(j.puede.factura).toMatchObject({ ok: true, receptor: { documento: '20123456786', nombre: 'PASTELERIA EJEMPLO SAC' } })
+    expect(j.cliente).toMatchObject({ ruc: '20123456786' })
+    expect(j.comprobantes).toEqual([])
+    expect((await llamar('GET', '/api/dashboard/pedidos/NO-EXISTE/facturacion')).statusCode).toBe(404)
+  })
+
+  it('PUT /clientes/:id/facturacion: completa los datos del cliente y la factura se habilita; rechaza datos inválidos y de ejemplo', async () => {
+    const p = await pedido()
+    const sinRuc = (await llamar('GET', `/api/dashboard/pedidos/${p.numero}/facturacion`)).json()
+    expect(sinRuc.puede.factura).toMatchObject({ ok: false, detalle: { error: 'FACTURA_REQUIERE_RUC' } })
+    const id = sinRuc.cliente.id
+
+    for (const [datos, campo] of [[{ ruc: '20123456785' }, 'ruc'], [{ ruc: '20601847834' }, 'ruc'], [{ correo: 'mifact@outlook.com' }, 'correo'], [{ dni: '123' }, 'dni']] as const) {
+      const mal = await llamar('PUT', `/api/dashboard/clientes/${id}/facturacion`, 'admin', datos)
+      expect([mal.statusCode, mal.json().error, mal.json().detalle.campo]).toEqual([422, 'DATOS_CLIENTE_INVALIDOS', campo])
+    }
+    const bien = await llamar('PUT', `/api/dashboard/clientes/${id}/facturacion`, 'admin', { ruc: '20123456786', razonSocial: 'PASTELERIA EJEMPLO SAC', direccionFiscal: 'Av. Prueba 123' })
+    expect([bien.statusCode, bien.json().ruc]).toEqual([200, '20123456786'])
+    const conRuc = (await llamar('GET', `/api/dashboard/pedidos/${p.numero}/facturacion`)).json()
+    expect(conRuc.puede.factura).toMatchObject({ ok: true, receptor: { documento: '20123456786' } })
+    const emitido = await llamar('POST', '/api/dashboard/comprobantes', 'admin', { pedido: p.numero, tipo: 'factura' })
+    expect([emitido.statusCode, emitido.json().receptor]).toEqual([201, expect.objectContaining({ documento: '20123456786', direccion: 'Av. Prueba 123' })])
+    expect((await llamar('PUT', '/api/dashboard/clientes/00000000-0000-0000-0000-000000000000/facturacion', 'admin', { razonSocial: 'X SAC' })).statusCode).toBe(404)
   })
 })

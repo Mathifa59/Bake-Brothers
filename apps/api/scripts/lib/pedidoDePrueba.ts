@@ -28,8 +28,13 @@ export interface OpcionesPedidoDePrueba {
   /** Si se omite se toma el siguiente número real de la secuencia (BB-…); los tests pasan uno propio (TEST-…). */
   numero?: string
   dni?: string | null
+  ruc?: string | null
+  razonSocial?: string | null
+  direccionFiscal?: string | null
   correoCliente?: string | null
   nombreCliente?: string
+  /** Por defecto true: el nombre del cliente es un nombre real confirmado (puede ir en un comprobante). */
+  nombreConfirmado?: boolean
 }
 
 export async function crearPedidoDePrueba(pool: pg.Pool, o: OpcionesPedidoDePrueba): Promise<PedidoDePrueba> {
@@ -59,9 +64,12 @@ export async function crearPedidoDePrueba(pool: pg.Pool, o: OpcionesPedidoDePrue
     const total = Math.round((subtotal + delivery) * 100) / 100
 
     const cliente = await client.query(
-      `insert into customers (tenant_id, nombre, telefono, correo, dni)
-       values ($1, $2, $3, $4, $5) returning id`,
-      [o.tenantId, `${o.marca} ${o.nombreCliente ?? 'Cliente'}`, `+519${randomInt(10_000_000, 99_999_999)}`, o.correoCliente ?? null, o.dni ?? null]
+      `insert into customers (tenant_id, nombre, telefono, correo, dni, ruc, razon_social, direccion_fiscal, nombre_confirmado)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning id`,
+      [
+        o.tenantId, `${o.marca} ${o.nombreCliente ?? 'Cliente'}`, `+519${randomInt(10_000_000, 99_999_999)}`,
+        o.correoCliente ?? null, o.dni ?? null, o.ruc ?? null, o.razonSocial ?? null, o.direccionFiscal ?? null, o.nombreConfirmado ?? true,
+      ]
     )
     const numero = o.numero ?? (await siguienteNumeroDePedido(client, o.tenantId, 'BB'))
     const id = await insertarPedido(

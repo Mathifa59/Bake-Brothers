@@ -7,6 +7,7 @@
  * El armado del JSON de Mifact vive en apps/api; aquí solo lo que es regla de negocio (como el resto de la lógica de
  * precios del proyecto, que vive únicamente en `packages/domain`).
  */
+import { esCorreoDeEjemploMifact, esDocumentoDeEjemploMifact, esEmpresaDeEjemploMifact } from './datosEjemploMifact.js'
 
 export type TipoComprobante = 'boleta' | 'factura'
 /** Catálogo 01 de SUNAT: tipo de comprobante. */
@@ -123,6 +124,7 @@ export type ErrorReceptor =
   | 'NOMBRE_REQUERIDO'
   | 'BOLETA_SOBRE_LIMITE_REQUIERE_DOCUMENTO'
   | 'CORREO_INVALIDO'
+  | 'DATOS_DE_EJEMPLO'
 
 export type ResultadoReceptor = { ok: true; receptor: Receptor } | { ok: false; error: ErrorReceptor; detalle: string }
 
@@ -142,6 +144,9 @@ export function resolverReceptor(tipo: TipoComprobante, entrada: ReceptorEntrada
   const direccion = limpiar(entrada.direccion, 100)
   const correo = limpiar(entrada.correo, 100)
   if (correo && !CORREO.test(correo)) return { ok: false, error: 'CORREO_INVALIDO', detalle: 'El correo del receptor no es válido' }
+  // Red de seguridad: jamás un dato de la documentación de ejemplo de Mifact (ver datosEjemploMifact.ts).
+  if ((numero && esDocumentoDeEjemploMifact(numero)) || (correo && esCorreoDeEjemploMifact(correo)) || (nombre && esEmpresaDeEjemploMifact(nombre)))
+    return { ok: false, error: 'DATOS_DE_EJEMPLO', detalle: 'Los datos del cliente son de un ejemplo de la documentación de Mifact, no de un cliente real' }
 
   const tipoDoc: TipoDocReceptor | null =
     entrada.tipoDoc ?? (numero.length === 8 ? '1' : numero.length === 11 ? '6' : numero ? null : '0')
@@ -213,7 +218,7 @@ export const estadoComprobanteLegible = (e: EstadoComprobante): string => LEGIBL
 
 /** Estados en los que el comprobante todavía vale y se puede pedir su anulación. */
 export const ESTADOS_ANULABLES: readonly EstadoComprobante[] = ['en_proceso', 'aceptado', 'aceptado_con_observaciones']
-/** «Vigente» = el pedido ya tiene su comprobante: no se emite otro (debe coincidir con el índice único de la 0052). */
+/** «Vigente» = el pedido ya tiene su comprobante: no se emite otro (debe coincidir con el índice único de la 0053). */
 export const ESTADOS_VIGENTES: readonly EstadoComprobante[] = ['pendiente_envio', 'en_proceso', 'aceptado', 'aceptado_con_observaciones']
 
 /** Un pedido se factura cuando ya es una venta firme: no en borrador, ni esperando el pago, ni anulado. */

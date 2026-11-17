@@ -274,3 +274,11 @@ export {
   type ResultadoReceptor,
   type EstadoComprobante,
 } from './comprobante.js'
+export {
+  DATOS_EJEMPLO_MIFACT,
+  normalizarParaComparar,
+  esDocumentoDeEjemploMifact,
+  esCorreoDeEjemploMifact,
+  esEmpresaDeEjemploMifact,
+  todosLosDatosDeEjemploMifact,
+} from './datosEjemploMifact.js'

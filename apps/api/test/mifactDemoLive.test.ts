@@ -38,10 +38,13 @@ describe.skipIf(!habilitado)('Mifact DEMO real: emitir, consultar, PDF y anular 
   })
 
   it('boleta (Baker Brothers) y factura (Hermanos Loarte): aceptadas por SUNAT, con hash y PDF real', async () => {
-    const a = await crearPedidoDePrueba(pool, { tenantId, marca: MARCA, sede: 'Santa Marina', items: [{ slug: 'alfajor-mix', cantidad: 2 }] })
-    const b = await crearPedidoDePrueba(pool, { tenantId, marca: MARCA, sede: 'Cedros', items: [{ slug: 'cuchareable', cantidad: 3 }] })
-    const boleta = await emitirComprobante(pool, tenantId, { pedido: a.numero, tipo: 'boleta', receptor: { numeroDoc: '40506089', nombre: 'MARIA GONZALES' } })
-    const factura = await emitirComprobante(pool, tenantId, { pedido: b.numero, tipo: 'factura', receptor: { numeroDoc: '20601847834', nombre: 'OSYS COMPANY SAC' } })
+    // El receptor sale del cliente de cada pedido (datos ficticios propios; nunca los ejemplos de la documentación de Mifact).
+    const a = await crearPedidoDePrueba(pool, { tenantId, marca: MARCA, sede: 'Santa Marina', items: [{ slug: 'alfajor-mix', cantidad: 2 }], dni: '12345678', razonSocial: 'CLIENTE DE PRUEBA UNO' })
+    const b = await crearPedidoDePrueba(pool, { tenantId, marca: MARCA, sede: 'Cedros', items: [{ slug: 'cuchareable', cantidad: 3 }], ruc: '20123456786', razonSocial: 'EMPRESA DE PRUEBA S.A.C.' })
+    const boleta = await emitirComprobante(pool, tenantId, { pedido: a.numero, tipo: 'boleta' })
+    const factura = await emitirComprobante(pool, tenantId, { pedido: b.numero, tipo: 'factura' })
+    expect(boleta.receptor).toMatchObject({ documento: '12345678', nombre: 'CLIENTE DE PRUEBA UNO' })
+    expect(factura.receptor).toMatchObject({ documento: '20123456786', nombre: 'EMPRESA DE PRUEBA S.A.C.' })
 
     expect(boleta).toMatchObject({ tipo: 'boleta', emisor: 'baker_brothers', entorno: 'demo', estado: 'aceptado', estadoCodigo: 102, total: a.total })
     expect(factura).toMatchObject({ tipo: 'factura', emisor: 'hermanos_loarte', entorno: 'demo', estado: 'aceptado', estadoCodigo: 102, total: b.total })

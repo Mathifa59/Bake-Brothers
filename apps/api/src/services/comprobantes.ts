@@ -1,6 +1,11 @@
 import type pg from 'pg'
 import {
   ESTADOS_ANULABLES,
+  NOMBRE_ENTIDAD_COBRO,
+  esCorreoDeEjemploMifact,
+  esDocumentoDeEjemploMifact,
+  esEmpresaDeEjemploMifact,
+  validarRuc,
   desglosarLineas,
   entidadDeCobro,
   estadoComprobanteLegible,
@@ -15,7 +20,7 @@ import {
   type EstadoComprobante,
   type LineaVenta,
   type Receptor,
-  type ReceptorEntrada,
+  type ResultadoReceptor,
   type TipoComprobante,
 } from '@bakebrothers/domain'
 import { leerConfigEmisor, type ConfigEmisorMifact } from '../mifact/config.js'
@@ -51,6 +56,8 @@ export type CodigoErrorComprobante =
   | 'TOTAL_NO_COINCIDE'
   | 'COMPROBANTE_YA_EMITIDO'
   | 'RECEPTOR_INVALIDO'
+  | 'CLIENTE_NO_ENCONTRADO'
+  | 'DATOS_CLIENTE_INVALIDOS'
   | 'COMPROBANTE_NO_ENCONTRADO'
   | 'ESTADO_NO_PERMITE'
   | 'ENTORNO_NO_COINCIDE'
@@ -194,12 +201,22 @@ export interface EmitirEntrada {
   /** Número del pedido, p. ej. «BB-2500». */
   pedido: string
   tipo: TipoComprobante
-  receptor?: ReceptorEntrada
-  /** Usuario del panel que emite (queda en el comprobante). */
+  /** Usuario del panel que emite (queda en el comprobante). El receptor NO se pasa: sale del cliente del pedido. */
   usuarioId?: string | null
 }
 
 const MAX_COLISIONES = 5
+
+export interface ClienteParaComprobante {
+  id: string
+  nombre: string
+  nombreConfirmado: boolean
+  dni: string | null
+  ruc: string | null
+  razonSocial: string | null
+  direccionFiscal: string | null
+  correo: string | null
+}
 
 interface PedidoParaComprobante {
   id: string
@@ -210,7 +227,7 @@ interface PedidoParaComprobante {
   total: number
   totalPendiente: boolean
   sedeNombre: string | null
-  cliente: { nombre: string; dni: string | null; correo: string | null }
+  cliente: ClienteParaComprobante
   lineas: LineaVenta[]
   codigos: string[]
 }
@@ -218,7 +235,9 @@ interface PedidoParaComprobante {
 async function cargarPedido(pool: pg.Pool, tenantId: string, numero: string): Promise<PedidoParaComprobante> {
   const { rows } = await pool.query(
     `select o.id, o.numero, o.estado, o.tipo_entrega, o.delivery::float8 as delivery, o.total::float8 as total, o.total_pendiente,
-            s.nombre as sede_nombre, c.nombre as cliente_nombre, c.dni as cliente_dni, c.correo as cliente_correo
+            s.nombre as sede_nombre, c.id as cliente_id, c.nombre as cliente_nombre, c.nombre_confirmado as cliente_nombre_confirmado,
+            c.dni as cliente_dni, c.ruc as cliente_ruc, c.razon_social as cliente_razon_social,
+            c.direccion_fiscal as cliente_direccion_fiscal, c.correo as cliente_correo
        from orders o
        join customers c on c.id = o.customer_id
        left join sedes s on s.id = o.sede_id
@@ -258,7 +277,16 @@ async function cargarPedido(pool: pg.Pool, tenantId: string, numero: string): Pr
     total: o.total,
     totalPendiente: o.total_pendiente === true,
     sedeNombre: o.sede_nombre,
-    cliente: { nombre: o.cliente_nombre, dni: o.cliente_dni, correo: o.cliente_correo },
+    cliente: {
+      id: o.cliente_id,
+      nombre: o.cliente_nombre,
+      nombreConfirmado: o.cliente_nombre_confirmado === true,
+      dni: o.cliente_dni,
+      ruc: o.cliente_ruc,
+      razonSocial: o.cliente_razon_social,
+      direccionFiscal: o.cliente_direccion_fiscal,
+      correo: o.cliente_correo,
+    },
     lineas,
     codigos,
   }
@@ -353,9 +381,36 @@ const marcarError = (pool: pg.Pool, id: string, mensaje: string) =>
 const anotarError = (pool: pg.Pool, id: string, mensaje: string) =>
   pool.query(`update comprobantes set ultimo_error = $2, actualizado_en = now() where id = $1`, [id, mensaje.slice(0, 1000)])
 
-export async function emitirComprobante(pool: pg.Pool, tenantId: string, entrada: EmitirEntrada): Promise<Comprobante> {
-  const pedido = await cargarPedido(pool, tenantId, entrada.pedido)
+/**
+ * El receptor del comprobante SALE ÚNICAMENTE DEL CLIENTE DEL PEDIDO (nombre o razón social, DNI/RUC, dirección fiscal
+ * y correo): nunca de lo que se escriba a mano al emitir ni de datos de ejemplo. Si al cliente le falta algo, se
+ * le completa en sus datos (`guardarDatosFacturacion`) y se vuelve a emitir.
+ *   · Factura: exige el RUC del cliente.
+ *   · Boleta: con su DNI; si no tiene DNI pero sí RUC, a su RUC; sin ningún documento, «CLIENTE SIN NOMBRE» (hasta S/ 700).
+ * Un nombre solo se usa si es la razón social cargada o el nombre confirmado: el nombre del perfil de WhatsApp o el de una
+ * agenda de contactos no va en un documento tributario.
+ */
+export function receptorDelCliente(tipo: TipoComprobante, c: ClienteParaComprobante, totalSoles: number): ResultadoReceptor {
+  const nombreLegal = c.razonSocial?.trim() || (c.nombreConfirmado ? c.nombre : '')
+  const comunes = { direccion: c.direccionFiscal, correo: c.correo }
+  if (tipo === 'factura') {
+    if (!c.ruc) return { ok: false, error: 'FACTURA_REQUIERE_RUC', detalle: 'El cliente no tiene RUC: agrégalo en sus datos para emitir una factura' }
+    return resolverReceptor('factura', { tipoDoc: '6', numeroDoc: c.ruc, nombre: nombreLegal, ...comunes }, totalSoles)
+  }
+  if (c.dni) return resolverReceptor('boleta', { tipoDoc: '1', numeroDoc: c.dni, nombre: nombreLegal, ...comunes }, totalSoles)
+  if (c.ruc) return resolverReceptor('boleta', { tipoDoc: '6', numeroDoc: c.ruc, nombre: nombreLegal, ...comunes }, totalSoles)
+  return resolverReceptor('boleta', { tipoDoc: '0', numeroDoc: '', nombre: '', ...comunes }, totalSoles)
+}
 
+interface EmisionPreparada {
+  emisor: EntidadCobro
+  config: ConfigEmisorMifact
+  desglose: DesgloseComprobante
+  receptor: Receptor
+}
+
+/** Todas las validaciones previas a gastar un correlativo. Lanza ComprobanteError si algo no cuadra. */
+async function prepararEmision(pool: pg.Pool, pedido: PedidoParaComprobante, tipo: TipoComprobante): Promise<EmisionPreparada> {
   // 1. Qué razón social factura este pedido y si hay Mifact configurado para ella.
   const emisor = entidadDeCobro({ tipoEntrega: pedido.tipoEntrega, sedeNombre: pedido.sedeNombre })
   const config = configDe(emisor)
@@ -377,19 +432,16 @@ export async function emitirComprobante(pool: pg.Pool, tenantId: string, entrada
   )
   if (vigentes[0]) throw new ComprobanteError('COMPROBANTE_YA_EMITIDO', `El pedido ya tiene el comprobante ${vigentes[0].serie}-${String(vigentes[0].correlativo).padStart(8, '0')} (${vigentes[0].estado})`)
 
-  // 3. Receptor. Boleta: si la petición no trae documento se usa el DNI del cliente registrado, si lo tiene.
-  const pedida = entrada.receptor ?? {}
-  const usarCliente = entrada.tipo === 'boleta' && !pedida.numeroDoc && !!pedido.cliente.dni && validarDni(pedido.cliente.dni)
-  const r = resolverReceptor(
-    entrada.tipo,
-    {
-      ...pedida,
-      ...(usarCliente ? { numeroDoc: pedido.cliente.dni, tipoDoc: '1' as const, nombre: pedida.nombre ?? pedido.cliente.nombre } : {}),
-      correo: pedida.correo ?? pedido.cliente.correo,
-    },
-    desglose.total
-  )
+  // 3. Receptor: del cliente del pedido, siempre.
+  const r = receptorDelCliente(tipo, pedido.cliente, desglose.total)
   if (!r.ok) throw new ComprobanteError('RECEPTOR_INVALIDO', r.detalle, { error: r.error })
+  return { emisor, config, desglose, receptor: r.receptor }
+}
+
+export async function emitirComprobante(pool: pg.Pool, tenantId: string, entrada: EmitirEntrada): Promise<Comprobante> {
+  const pedido = await cargarPedido(pool, tenantId, entrada.pedido)
+  const { config, desglose, receptor } = await prepararEmision(pool, pedido, entrada.tipo)
+  const r = { receptor }
 
   // 4. Número + fila guardada, y recién entonces Mifact. Si el número ya existe allá (alguien lo usó), se pasa al siguiente.
   const fechaEmision = fechaLimaISO(new Date())
@@ -560,4 +612,98 @@ export async function enviarCorreoComprobante(pool: pg.Pool, tenantId: string, i
   }
   await pool.query(`update comprobantes set correo_enviado_a = $2, correo_enviado_en = now(), actualizado_en = now() where id = $1`, [id, destino])
   return obtenerComprobante(pool, tenantId, id)
+}
+
+// ———————————————————————————————————————— lo que muestra el panel en un pedido ————
+
+export type OpcionDeEmision =
+  | { ok: true; receptor: { tipoDoc: string; documento: string; nombre: string; correo: string | null } }
+  | { ok: false; codigo: CodigoErrorComprobante; motivo: string; detalle?: unknown }
+
+export interface ResumenFacturacion {
+  pedido: { numero: string; estado: string; total: number; tipoEntrega: string; sede: string | null }
+  /** La razón social que facturaría este pedido (se elige sola por local; el delivery siempre Baker Brothers). */
+  emisor: { clave: EntidadCobro; razonSocial: string; configurado: boolean; entorno: 'demo' | 'produccion' | null }
+  cliente: { id: string; nombre: string; dni: string | null; ruc: string | null; razonSocial: string | null; direccionFiscal: string | null; correo: string | null }
+  puede: { boleta: OpcionDeEmision; factura: OpcionDeEmision }
+  comprobantes: Comprobante[]
+}
+
+/** Todo lo que el panel necesita para mostrar y habilitar los botones de comprobante de UN pedido. */
+export async function resumenFacturacionDelPedido(pool: pg.Pool, tenantId: string, numeroPedido: string): Promise<ResumenFacturacion> {
+  const pedido = await cargarPedido(pool, tenantId, numeroPedido)
+  const emisor = entidadDeCobro({ tipoEntrega: pedido.tipoEntrega, sedeNombre: pedido.sedeNombre })
+  const cfg = leerConfigEmisor(emisor)
+  const evaluar = async (tipo: TipoComprobante): Promise<OpcionDeEmision> => {
+    try {
+      const p = await prepararEmision(pool, pedido, tipo)
+      return { ok: true, receptor: { tipoDoc: p.receptor.tipoDoc, documento: p.receptor.numeroDoc, nombre: p.receptor.nombre, correo: p.receptor.correo } }
+    } catch (err) {
+      if (err instanceof ComprobanteError) return { ok: false, codigo: err.codigo, motivo: err.message, ...(err.detalle !== undefined ? { detalle: err.detalle } : {}) }
+      throw err
+    }
+  }
+  const c = pedido.cliente
+  return {
+    pedido: { numero: pedido.numero, estado: pedido.estado, total: pedido.total, tipoEntrega: pedido.tipoEntrega, sede: pedido.sedeNombre },
+    emisor: { clave: emisor, razonSocial: NOMBRE_ENTIDAD_COBRO[emisor], configurado: cfg.ok, entorno: cfg.ok ? cfg.config.entorno : null },
+    cliente: { id: c.id, nombre: c.nombre, dni: c.dni, ruc: c.ruc, razonSocial: c.razonSocial, direccionFiscal: c.direccionFiscal, correo: c.correo },
+    puede: { boleta: await evaluar('boleta'), factura: await evaluar('factura') },
+    comprobantes: await comprobantesDePedido(pool, tenantId, numeroPedido),
+  }
+}
+
+// ——————————————————————————————— datos del cliente para sus comprobantes ————
+
+export interface DatosFacturacionEntrada {
+  /** `undefined` = no tocar; `null` o texto vacío = borrar. */
+  dni?: string | null
+  ruc?: string | null
+  razonSocial?: string | null
+  direccionFiscal?: string | null
+  correo?: string | null
+}
+
+const limpiarTexto = (s: string, max: number): string => s.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max)
+const CORREO_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/**
+ * Guarda en el CLIENTE los datos que van en sus comprobantes (DNI, RUC, razón social o nombre legal, dirección fiscal y
+ * correo). Es la única vía para que un comprobante lleve el RUC de un cliente. Valida todo y rechaza datos de ejemplo.
+ */
+export async function guardarDatosFacturacion(
+  pool: pg.Pool,
+  tenantId: string,
+  clienteId: string,
+  datos: DatosFacturacionEntrada
+): Promise<ResumenFacturacion['cliente']> {
+  const invalido = (campo: string, mensaje: string): never => {
+    throw new ComprobanteError('DATOS_CLIENTE_INVALIDOS', mensaje, { campo })
+  }
+  const cambios: [string, string | null][] = []
+  const texto = (campo: keyof DatosFacturacionEntrada, columna: string, max: number, validar?: (v: string) => string | null) => {
+    const crudo = datos[campo]
+    if (crudo === undefined) return
+    const v = crudo === null ? '' : limpiarTexto(String(crudo), max)
+    if (v === '') return void cambios.push([columna, null])
+    const problema = validar?.(v)
+    if (problema) invalido(campo, problema)
+    cambios.push([columna, v])
+  }
+  texto('dni', 'dni', 8, (v) => (!/^[0-9]{8}$/.test(v) ? 'El DNI debe tener 8 dígitos' : esDocumentoDeEjemploMifact(v) ? 'Ese DNI es un dato de ejemplo de Mifact, no de un cliente' : null))
+  texto('ruc', 'ruc', 11, (v) => (!validarRuc(v) ? 'El RUC no es válido (11 dígitos y dígito verificador)' : esDocumentoDeEjemploMifact(v) ? 'Ese RUC es un dato de ejemplo de Mifact, no de un cliente' : null))
+  texto('razonSocial', 'razon_social', 100, (v) => (esEmpresaDeEjemploMifact(v) ? 'Esa razón social es un dato de ejemplo de Mifact, no de un cliente' : null))
+  texto('direccionFiscal', 'direccion_fiscal', 100)
+  texto('correo', 'correo', 100, (v) => (!CORREO_VALIDO.test(v) ? 'El correo no es válido' : esCorreoDeEjemploMifact(v) ? 'Ese correo es un dato de ejemplo de Mifact, no de un cliente' : null))
+  if (cambios.length === 0) invalido('', 'No hay ningún dato para guardar')
+
+  const sets = cambios.map(([columna], i) => `${columna} = $${i + 3}`).join(', ')
+  const { rows } = await pool.query(
+    `update customers set ${sets} where id = $1 and tenant_id = $2
+     returning id, nombre, dni, ruc, razon_social, direccion_fiscal, correo`,
+    [clienteId, tenantId, ...cambios.map(([, v]) => v)]
+  )
+  if (!rows[0]) throw new ComprobanteError('CLIENTE_NO_ENCONTRADO', 'No existe ese cliente')
+  const c = rows[0]
+  return { id: c.id, nombre: c.nombre, dni: c.dni, ruc: c.ruc, razonSocial: c.razon_social, direccionFiscal: c.direccion_fiscal, correo: c.correo }
 }

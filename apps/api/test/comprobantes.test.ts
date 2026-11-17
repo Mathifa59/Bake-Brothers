@@ -1,5 +1,5 @@
 // Comprobantes electrónicos (Mifact) desde un pedido de Bake OS — servicio completo contra Postgres real (con la
-// migración 0052) y el simulador de Mifact de test/helpers/falsoMifact.ts (sin red). Se prueba lo que protege el
+// migración 0053) y el simulador de Mifact de test/helpers/falsoMifact.ts (sin red). Se prueba lo que protege el
 // dinero y la numeración fiscal: validar antes de gastar un correlativo, un número nunca se reutiliza si pudo llegar
 // a Mifact, una respuesta perdida se recupera, y el token jamás queda en la base.
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -14,8 +14,10 @@ import {
   descargarPdf,
   emitirComprobante,
   enviarCorreoComprobante,
+  guardarDatosFacturacion,
   obtenerComprobante,
   reintentarEnvio,
+  resumenFacturacionDelPedido,
 } from '../src/services/comprobantes.js'
 import { FalsoMifact } from './helpers/falsoMifact.js'
 
@@ -24,6 +26,8 @@ const hayBaseDeDatosReal = !!process.env.DATABASE_URL && process.env.DATABASE_UR
 const TOKEN = 'TOKEN-SECRETO-DEL-TEST=='
 const MARCA = '[PRUEBA-TEST-MIFACT]'
 const SERIES = ['BT01', 'FT01', 'BT02', 'FT02']
+// Un cliente EMPRESA de prueba (inventado; el RUC es ficticio pero con dígito verificador correcto).
+const EMPRESA = { ruc: '20123456786', razonSocial: 'PASTELERIA EJEMPLO SAC', direccionFiscal: 'Av. Prueba 123, Lima', correoCliente: 'compras@pasteleria-ejemplo.pe' }
 
 const ENV_MIFACT: Record<string, string> = {
   MIFACT_BAKER_BROTHERS_URL: 'https://demo.mifact.test/api/invoiceService.svc',
@@ -134,10 +138,10 @@ describe.skipIf(!hayBaseDeDatosReal)('comprobantes electrónicos desde un pedido
     it('correlativos consecutivos por serie; la factura lleva su propia serie y empieza en 1', async () => {
       const a = await emitirComprobante(pool, tenantId, { pedido: (await pedido()).numero, tipo: 'boleta' })
       const b = await emitirComprobante(pool, tenantId, { pedido: (await pedido()).numero, tipo: 'boleta' })
-      const f = await emitirComprobante(pool, tenantId, { pedido: (await pedido()).numero, tipo: 'factura', receptor: { numeroDoc: '20601847834', nombre: 'OSYS COMPANY SAC', direccion: 'Av. Siempre Viva 123', correo: 'compras@osys.pe' } })
+      const f = await emitirComprobante(pool, tenantId, { pedido: (await pedido(EMPRESA)).numero, tipo: 'factura' })
       expect([a.numero, b.numero, f.numero]).toEqual(['BT01-00000001', 'BT01-00000002', 'FT01-00000001'])
-      expect(f.receptor).toMatchObject({ tipoDoc: '6', documento: '20601847834', nombre: 'OSYS COMPANY SAC', correo: 'compras@osys.pe' })
-      expect(falso.llamadasA('SendInvoice')[2].cuerpo).toMatchObject({ COD_TIP_CPE: '01', COD_TIP_NIF_RECP: '6', TXT_CORREO_ENVIO: 'compras@osys.pe' })
+      expect(f.receptor).toMatchObject({ tipoDoc: '6', documento: EMPRESA.ruc, nombre: EMPRESA.razonSocial, correo: EMPRESA.correoCliente })
+      expect(falso.llamadasA('SendInvoice')[2].cuerpo).toMatchObject({ COD_TIP_CPE: '01', COD_TIP_NIF_RECP: '6', NUM_NIF_RECP: EMPRESA.ruc, NOM_RZN_SOC_RECP: EMPRESA.razonSocial, TXT_CORREO_ENVIO: EMPRESA.correoCliente })
     })
 
     it('«CORRELATIVO_INICIAL» fija el primer número de una serie (para continuar una numeración existente)', async () => {
@@ -151,11 +155,26 @@ describe.skipIf(!hayBaseDeDatosReal)('comprobantes electrónicos desde un pedido
       }
     })
 
-    it('boleta con DNI del cliente registrado: si la petición no trae documento se usa el del cliente', async () => {
-      const p = await pedido({ dni: '40506089', nombreCliente: 'MARIA GONZALES', correoCliente: 'maria@ejemplo.pe' })
+    it('el receptor de la BOLETA sale del cliente: DNI, nombre legal y correo (la razón social gana sobre el nombre del cliente)', async () => {
+      const p = await pedido({ dni: '12345678', nombreCliente: 'ANA', razonSocial: 'ANA TORRES QUISPE', correoCliente: 'ana@ejemplo.pe' })
       const c = await emitirComprobante(pool, tenantId, { pedido: p.numero, tipo: 'boleta' })
-      expect(c.receptor).toMatchObject({ tipoDoc: '1', documento: '40506089', correo: 'maria@ejemplo.pe' })
-      expect(c.receptor.nombre).toContain('MARIA GONZALES')
+      expect(c.receptor).toMatchObject({ tipoDoc: '1', documento: '12345678', nombre: 'ANA TORRES QUISPE', correo: 'ana@ejemplo.pe' })
+    })
+
+    it('boleta sin razón social: se usa el nombre del cliente SOLO si está confirmado (no el del perfil de WhatsApp ni el de una agenda)', async () => {
+      const confirmado = await emitirComprobante(pool, tenantId, { pedido: (await pedido({ dni: '12345678', nombreCliente: 'ANA TORRES', nombreConfirmado: true })).numero, tipo: 'boleta' })
+      expect(confirmado.receptor.nombre).toContain('ANA TORRES')
+      const sinConfirmar = await error(emitirComprobante(pool, tenantId, { pedido: (await pedido({ dni: '12345679', nombreCliente: '🍰 Ana WhatsApp', nombreConfirmado: false })).numero, tipo: 'boleta' }))
+      expect(sinConfirmar?.codigo).toBe('RECEPTOR_INVALIDO')
+      expect((sinConfirmar?.detalle as { error: string }).error).toBe('NOMBRE_REQUERIDO')
+      // Sin ningún documento, el nombre sin confirmar tampoco va en el comprobante.
+      const anonimo = await emitirComprobante(pool, tenantId, { pedido: (await pedido({ nombreCliente: '🍰 Ana WhatsApp', nombreConfirmado: false })).numero, tipo: 'boleta' })
+      expect(anonimo.receptor).toMatchObject({ tipoDoc: '0', nombre: 'CLIENTE SIN NOMBRE' })
+    })
+
+    it('boleta de un cliente que solo tiene RUC: va a su RUC y razón social', async () => {
+      const c = await emitirComprobante(pool, tenantId, { pedido: (await pedido(EMPRESA)).numero, tipo: 'boleta' })
+      expect(c.receptor).toMatchObject({ tipoDoc: '6', documento: EMPRESA.ruc, nombre: EMPRESA.razonSocial })
     })
 
     it('ENTRE VARIOS pedidos: dos emisiones a la vez nunca comparten número', async () => {
@@ -208,20 +227,40 @@ describe.skipIf(!hayBaseDeDatosReal)('comprobantes electrónicos desde un pedido
       await sinHuellas()
     })
 
-    it('factura: exige RUC válido y razón social; boleta de más de S/ 700 exige documento; correo mal escrito', async () => {
+    it('factura: exige el RUC del CLIENTE (válido y con razón social); correo mal escrito; boleta de más de S/ 700 exige su documento', async () => {
       const p = await pedido()
-      const codigo = async (o: Parameters<typeof emitirComprobante>[2]) => (await error(emitirComprobante(pool, tenantId, o)))
-      const sinRuc = await codigo({ pedido: p.numero, tipo: 'factura', receptor: { numeroDoc: '40506089', nombre: 'Maria' } })
-      expect([sinRuc?.codigo, (sinRuc?.detalle as { error: string }).error]).toEqual(['RECEPTOR_INVALIDO', 'FACTURA_REQUIERE_RUC'])
-      expect(((await codigo({ pedido: p.numero, tipo: 'factura', receptor: { numeroDoc: '20601847835', nombre: 'X SAC' } }))?.detalle as { error: string }).error).toBe('RUC_INVALIDO')
-      expect(((await codigo({ pedido: p.numero, tipo: 'boleta', receptor: { numeroDoc: '40506089', nombre: 'M', correo: 'mal-correo' } }))?.detalle as { error: string }).error).toBe('CORREO_INVALIDO')
+      const detalle = (e: ComprobanteError | null) => (e?.detalle as { error: string } | undefined)?.error
+      // Cliente sin RUC.
+      const sinRuc = await error(emitirComprobante(pool, tenantId, { pedido: p.numero, tipo: 'factura' }))
+      expect([sinRuc?.codigo, detalle(sinRuc)]).toEqual(['RECEPTOR_INVALIDO', 'FACTURA_REQUIERE_RUC'])
+      // RUC con 11 dígitos pero dígito verificador incorrecto.
+      const cliente = (await pool.query(`select customer_id from orders where id = $1`, [p.id])).rows[0].customer_id
+      await pool.query(`update customers set ruc = '20123456785', razon_social = 'EMPRESA SAC' where id = $1`, [cliente])
+      expect(detalle(await error(emitirComprobante(pool, tenantId, { pedido: p.numero, tipo: 'factura' })))).toBe('RUC_INVALIDO')
+      // RUC válido pero sin razón social ni nombre confirmado.
+      await pool.query(`update customers set ruc = '20123456786', razon_social = null, nombre_confirmado = false where id = $1`, [cliente])
+      expect(detalle(await error(emitirComprobante(pool, tenantId, { pedido: p.numero, tipo: 'factura' })))).toBe('NOMBRE_REQUERIDO')
+      // Correo del cliente mal escrito.
+      await pool.query(`update customers set correo = 'mal-correo' where id = $1`, [cliente])
+      expect(detalle(await error(emitirComprobante(pool, tenantId, { pedido: p.numero, tipo: 'boleta' })))).toBe('CORREO_INVALIDO')
 
       const grande = await pedido({ items: [{ slug: 'alfajor-mix', cantidad: 60 }] })
       expect(grande.total).toBeGreaterThan(700)
-      expect(((await codigo({ pedido: grande.numero, tipo: 'boleta' }))?.detalle as { error: string }).error).toBe('BOLETA_SOBRE_LIMITE_REQUIERE_DOCUMENTO')
+      expect(detalle(await error(emitirComprobante(pool, tenantId, { pedido: grande.numero, tipo: 'boleta' })))).toBe('BOLETA_SOBRE_LIMITE_REQUIERE_DOCUMENTO')
       await sinHuellas()
-      const ok = await emitirComprobante(pool, tenantId, { pedido: grande.numero, tipo: 'boleta', receptor: { numeroDoc: '40506089', nombre: 'MARIA GONZALES' } })
-      expect(ok.estado).toBe('aceptado')
+      // Con el DNI cargado en el cliente, se puede.
+      await pool.query(`update customers set dni = '12345678', razon_social = 'ANA TORRES QUISPE' where id = (select customer_id from orders where id = $1)`, [grande.id])
+      expect((await emitirComprobante(pool, tenantId, { pedido: grande.numero, tipo: 'boleta' })).estado).toBe('aceptado')
+    })
+
+    it('un cliente con datos de EJEMPLO de Mifact (RUC, DNI o correo de su documentación) no sale en ningún comprobante', async () => {
+      const ruc = await error(emitirComprobante(pool, tenantId, { pedido: (await pedido({ ruc: '20601847834', razonSocial: 'PASTELERIA EJEMPLO SAC' })).numero, tipo: 'factura' }))
+      expect([ruc?.codigo, (ruc?.detalle as { error: string }).error]).toEqual(['RECEPTOR_INVALIDO', 'DATOS_DE_EJEMPLO'])
+      const dni = await error(emitirComprobante(pool, tenantId, { pedido: (await pedido({ dni: '40506089', razonSocial: 'ANA TORRES' })).numero, tipo: 'boleta' }))
+      expect((dni?.detalle as { error: string }).error).toBe('DATOS_DE_EJEMPLO')
+      const correo = await error(emitirComprobante(pool, tenantId, { pedido: (await pedido({ correoCliente: 'mifact@outlook.com' })).numero, tipo: 'boleta' }))
+      expect((correo?.detalle as { error: string }).error).toBe('DATOS_DE_EJEMPLO')
+      await sinHuellas()
     })
 
     it('sin las variables de entorno del emisor: MIFACT_NO_CONFIGURADO, con el NOMBRE de lo que falta (nunca un valor)', async () => {
@@ -235,15 +274,15 @@ describe.skipIf(!hayBaseDeDatosReal)('comprobantes electrónicos desde un pedido
     })
 
     it('un pedido tiene a lo sumo un comprobante vigente; tras pedir su anulación se puede emitir otro', async () => {
-      const p = await pedido()
+      const p = await pedido(EMPRESA)
       const a = await emitirComprobante(pool, tenantId, { pedido: p.numero, tipo: 'boleta' })
-      const repetido = await error(emitirComprobante(pool, tenantId, { pedido: p.numero, tipo: 'factura', receptor: { numeroDoc: '20601847834', nombre: 'OSYS' } }))
+      const repetido = await error(emitirComprobante(pool, tenantId, { pedido: p.numero, tipo: 'factura' }))
       expect(repetido?.codigo).toBe('COMPROBANTE_YA_EMITIDO')
       expect(repetido?.message).toContain('BT01-00000001')
       expect(falso.llamadasA('SendInvoice')).toHaveLength(1)
 
       await anularComprobante(pool, tenantId, a.id, { motivo: 'ERROR EN EL TIPO DE COMPROBANTE' })
-      const f = await emitirComprobante(pool, tenantId, { pedido: p.numero, tipo: 'factura', receptor: { numeroDoc: '20601847834', nombre: 'OSYS COMPANY SAC' } })
+      const f = await emitirComprobante(pool, tenantId, { pedido: p.numero, tipo: 'factura' })
       expect(f.numero).toBe('FT01-00000001')
       expect((await comprobantesDePedido(pool, tenantId, p.numero)).map((x) => [x.numero, x.estado])).toEqual([
         ['BT01-00000001', 'anulacion_solicitada'],
@@ -507,6 +546,99 @@ describe.skipIf(!hayBaseDeDatosReal)('comprobantes electrónicos desde un pedido
       await pool.query(`update comprobantes set estado = 'anulado' where id = $1`, [c.id])
       expect((await error(enviarCorreoComprobante(pool, tenantId, c.id, 'a@b.pe')))?.codigo).toBe('ESTADO_NO_PERMITE')
       expect((await obtenerComprobante(pool, tenantId, c.id)).correoEnviadoA).toBeNull()
+    })
+  })
+
+  // ——————————————————————————————————————— lo que muestra el panel en el pedido ————
+  describe('resumen de facturación del pedido (lo que usa el botón del panel)', () => {
+    it('dice QUÉ razón social factura (por local), a quién se emitiría (del cliente) y qué botones se habilitan', async () => {
+      const sm = await resumenFacturacionDelPedido(pool, tenantId, (await pedido({ sede: 'Santa Marina', ...EMPRESA })).numero)
+      expect(sm.emisor).toMatchObject({ clave: 'baker_brothers', razonSocial: 'Baker Brothers E.I.R.L.', configurado: true, entorno: 'demo' })
+      expect(sm.puede.factura).toMatchObject({ ok: true, receptor: { tipoDoc: '6', documento: EMPRESA.ruc, nombre: EMPRESA.razonSocial } })
+      expect(sm.puede.boleta).toMatchObject({ ok: true, receptor: { tipoDoc: '6', nombre: EMPRESA.razonSocial } })
+      expect(sm.cliente).toMatchObject({ ruc: EMPRESA.ruc, razonSocial: EMPRESA.razonSocial })
+
+      const cedros = await resumenFacturacionDelPedido(pool, tenantId, (await pedido({ sede: 'Cedros' })).numero)
+      expect(cedros.emisor.razonSocial).toBe('Corporación Hermanos Loarte S.A.C.')
+      const delivery = await resumenFacturacionDelPedido(pool, tenantId, (await pedido({ sede: 'Cedros', tipoEntrega: 'delivery', delivery: 7 })).numero)
+      expect(delivery.emisor.razonSocial).toBe('Baker Brothers E.I.R.L.')
+    })
+
+    it('la FACTURA solo se habilita si el cliente tiene RUC; la boleta sin documento sale «CLIENTE SIN NOMBRE»', async () => {
+      const r = await resumenFacturacionDelPedido(pool, tenantId, (await pedido()).numero)
+      expect(r.puede.factura).toMatchObject({ ok: false, codigo: 'RECEPTOR_INVALIDO', detalle: { error: 'FACTURA_REQUIERE_RUC' } })
+      expect(r.puede.boleta).toMatchObject({ ok: true, receptor: { tipoDoc: '0', documento: '00000000', nombre: 'CLIENTE SIN NOMBRE' } })
+    })
+
+    it('un pedido que no se factura, o con Mifact sin configurar, explica por qué (y no habilita nada)', async () => {
+      const pendiente = await resumenFacturacionDelPedido(pool, tenantId, (await pedido({ estado: 'payment_pending' })).numero)
+      expect(pendiente.puede.boleta).toMatchObject({ ok: false, codigo: 'PEDIDO_NO_FACTURABLE' })
+      expect(pendiente.puede.factura.ok).toBe(false)
+
+      delete process.env.MIFACT_BAKER_BROTHERS_TOKEN
+      const sinConfig = await resumenFacturacionDelPedido(pool, tenantId, (await pedido()).numero)
+      expect(sinConfig.emisor).toMatchObject({ configurado: false, entorno: null })
+      expect(sinConfig.puede.boleta).toMatchObject({ ok: false, codigo: 'MIFACT_NO_CONFIGURADO' })
+      expect(falso.llamadas).toHaveLength(0)
+    })
+
+    it('incluye los comprobantes del pedido con su estado, y ya no deja emitir otro mientras haya uno vigente', async () => {
+      const p = await pedido(EMPRESA)
+      const c = await emitirComprobante(pool, tenantId, { pedido: p.numero, tipo: 'factura' })
+      const r = await resumenFacturacionDelPedido(pool, tenantId, p.numero)
+      expect(r.comprobantes.map((x) => [x.id, x.numero, x.estado])).toEqual([[c.id, 'FT01-00000001', 'aceptado']])
+      expect(r.puede.boleta).toMatchObject({ ok: false, codigo: 'COMPROBANTE_YA_EMITIDO' })
+      expect(r.puede.factura).toMatchObject({ ok: false, codigo: 'COMPROBANTE_YA_EMITIDO' })
+    })
+  })
+
+  // ————————————————————————————————————— datos del cliente para sus comprobantes ————
+  describe('datos del cliente para sus comprobantes', () => {
+    const clienteDe = async (p: { id: string }) => (await pool.query(`select customer_id from orders where id = $1`, [p.id])).rows[0].customer_id as string
+
+    it('se guardan en el CLIENTE (RUC, razón social, dirección fiscal, DNI, correo) y el siguiente comprobante los usa', async () => {
+      const p = await pedido()
+      const id = await clienteDe(p)
+      const guardado = await guardarDatosFacturacion(pool, tenantId, id, { ruc: '  20123456786 ', razonSocial: ' Pastelería   Ejemplo SAC ', direccionFiscal: 'Av. Prueba 123', correo: 'compras@pasteleria-ejemplo.pe' })
+      expect(guardado).toMatchObject({ ruc: '20123456786', razonSocial: 'Pastelería Ejemplo SAC', direccionFiscal: 'Av. Prueba 123', correo: 'compras@pasteleria-ejemplo.pe' })
+      const c = await emitirComprobante(pool, tenantId, { pedido: p.numero, tipo: 'factura' })
+      expect(c.receptor).toMatchObject({ documento: '20123456786', nombre: 'Pastelería Ejemplo SAC', direccion: 'Av. Prueba 123' })
+    })
+
+    it('un campo omitido no se toca; null o vacío lo borra', async () => {
+      const id = await clienteDe(await pedido({ ...EMPRESA, dni: '12345678' }))
+      await guardarDatosFacturacion(pool, tenantId, id, { razonSocial: 'OTRA SAC' })
+      let c = (await pool.query(`select ruc, razon_social, dni from customers where id = $1`, [id])).rows[0]
+      expect(c).toEqual({ ruc: EMPRESA.ruc, razon_social: 'OTRA SAC', dni: '12345678' })
+      await guardarDatosFacturacion(pool, tenantId, id, { ruc: null, dni: '' })
+      c = (await pool.query(`select ruc, razon_social, dni from customers where id = $1`, [id])).rows[0]
+      expect(c).toEqual({ ruc: null, razon_social: 'OTRA SAC', dni: null })
+    })
+
+    it('valida todo: RUC con dígito verificador, DNI de 8 dígitos, correo; rechaza datos de ejemplo de Mifact; nada se guarda a medias', async () => {
+      const id = await clienteDe(await pedido())
+      const malo = async (datos: Parameters<typeof guardarDatosFacturacion>[3]) => {
+        const e = await error(guardarDatosFacturacion(pool, tenantId, id, datos))
+        expect(e?.codigo).toBe('DATOS_CLIENTE_INVALIDOS')
+        return (e?.detalle as { campo: string }).campo
+      }
+      expect(await malo({ ruc: '20123456785' })).toBe('ruc')
+      expect(await malo({ ruc: '2012345' })).toBe('ruc')
+      expect(await malo({ dni: '1234567' })).toBe('dni')
+      expect(await malo({ correo: 'sin-arroba' })).toBe('correo')
+      expect(await malo({ ruc: '20601847834' })).toBe('ruc') // el RUC de ejemplo de Mifact
+      expect(await malo({ dni: '40506089' })).toBe('dni')
+      expect(await malo({ razonSocial: 'osys company sac' })).toBe('razonSocial')
+      expect(await malo({ correo: 'mifact@outlook.com' })).toBe('correo')
+      expect(await malo({})).toBe('')
+      // Un campo bueno junto a uno malo: no se guarda ninguno.
+      expect(await malo({ razonSocial: 'BUENA SAC', ruc: '20123456785' })).toBe('ruc')
+      expect((await pool.query(`select razon_social, ruc from customers where id = $1`, [id])).rows[0]).toEqual({ razon_social: null, ruc: null })
+    })
+
+    it('un cliente que no existe', async () => {
+      const e = await error(guardarDatosFacturacion(pool, tenantId, '00000000-0000-0000-0000-000000000000', { razonSocial: 'X SAC' }))
+      expect(e?.codigo).toBe('CLIENTE_NO_ENCONTRADO')
     })
   })
 })

@@ -186,7 +186,7 @@ describe('JSON del comprobante (SendInvoice)', () => {
     { descripcion: 'Servicio de delivery', cantidad: 1, precioUnitarioConIgv: 7 },
   ])
   const receptor = (() => {
-    const r = resolverReceptor('boleta', { numeroDoc: '40506089', nombre: 'MARIA GONZALES', correo: 'maria@ejemplo.pe' }, desglose.total)
+    const r = resolverReceptor('boleta', { numeroDoc: '12345678', nombre: 'ANA TORRES QUISPE', correo: 'ana@ejemplo.pe' }, desglose.total)
     if (!r.ok) throw new Error('receptor')
     return r.receptor
   })()
@@ -197,8 +197,8 @@ describe('JSON del comprobante (SendInvoice)', () => {
     expect(JSON.stringify(d)).not.toContain(TOKEN)
     expect(d).toMatchObject({
       COD_TIP_CPE: '03', NUM_SERIE_CPE: 'BT01', NUM_CORRE_CPE: '00000007', FEC_EMIS: '2026-11-17', COD_MND: 'PEN',
-      NUM_NIF_EMIS: '20100100100', COD_UBI_EMIS: '103040', COD_TIP_NIF_RECP: '1', NUM_NIF_RECP: '40506089', NOM_RZN_SOC_RECP: 'MARIA GONZALES',
-      TXT_CORREO_ENVIO: 'maria@ejemplo.pe', ENVIAR_A_SUNAT: 'true', RETORNA_PDF: 'false', COD_PRCD_CARGA: '001', COD_TIP_OPE_SUNAT: '0101',
+      NUM_NIF_EMIS: '20100100100', COD_UBI_EMIS: '103040', COD_TIP_NIF_RECP: '1', NUM_NIF_RECP: '12345678', NOM_RZN_SOC_RECP: 'ANA TORRES QUISPE',
+      TXT_CORREO_ENVIO: 'ana@ejemplo.pe', ENVIAR_A_SUNAT: 'true', RETORNA_PDF: 'false', COD_PRCD_CARGA: '001', COD_TIP_OPE_SUNAT: '0101',
       MNT_TOT_GRAVADO: '44.74', MNT_TOT_TRIB_IGV: '8.06', MNT_TOT: '52.80',
     })
     expect(d.items).toHaveLength(2)
@@ -215,10 +215,10 @@ describe('JSON del comprobante (SendInvoice)', () => {
   })
 
   it('factura: tipo 01, RUC del receptor, y el nombre comercial / correo solo si existen', () => {
-    const r = resolverReceptor('factura', { numeroDoc: '20601847834', nombre: 'OSYS COMPANY SAC' }, desglose.total)
+    const r = resolverReceptor('factura', { numeroDoc: '20123456786', nombre: 'PASTELERIA EJEMPLO SAC' }, desglose.total)
     if (!r.ok) throw new Error('receptor')
     const d = construirDocumento({ config: { ...config, nombreComercial: 'Bake Brothers' }, tipo: 'factura', serie: 'FT01', correlativo: 12, fechaEmision: '2026-11-17', receptor: r.receptor, desglose, codigosItem: [], usuario: 'bakeos' }) as Record<string, any>
-    expect(d).toMatchObject({ COD_TIP_CPE: '01', NUM_SERIE_CPE: 'FT01', NUM_CORRE_CPE: '00000012', COD_TIP_NIF_RECP: '6', NUM_NIF_RECP: '20601847834', NOM_COMER_EMIS: 'Bake Brothers' })
+    expect(d).toMatchObject({ COD_TIP_CPE: '01', NUM_SERIE_CPE: 'FT01', NUM_CORRE_CPE: '00000012', COD_TIP_NIF_RECP: '6', NUM_NIF_RECP: '20123456786', NOM_COMER_EMIS: 'Bake Brothers' })
     expect(d).not.toHaveProperty('TXT_CORREO_ENVIO')
     expect(d).not.toHaveProperty('datos_adicionales')
     expect(d.items[0].COD_ITEM).toBe('ITEM')

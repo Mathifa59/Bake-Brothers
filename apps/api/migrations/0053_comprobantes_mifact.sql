@@ -1,5 +1,5 @@
 -- ============================================================================
--- 0052_comprobantes_mifact — boletas y facturas electrónicas emitidas desde un pedido (Mifact)
+-- 0053_comprobantes_mifact — boletas y facturas electrónicas emitidas desde un pedido (Mifact)
 --
 -- Una fila por comprobante emitido (o intentado) a partir de un pedido de Bake OS. Guarda lo que hay que poder
 -- revisar y reconstruir: quién lo emitió (razón social), en qué entorno (demo / producción), serie y correlativo,
@@ -14,8 +14,23 @@
 -- SEGURIDAD (0013): las tablas nuevas nacen cerradas. NADA para anon ni authenticated: tienen datos de receptores
 -- (DNI/RUC) y el PDF; solo la API (app_api) las lee y escribe, y solo la usan rutas de administrador.
 --
+-- NUMERACIÓN DE MIGRACIONES: la rama feature/respuestas-automaticas-instagram también creó una 0052
+-- (0052_respuestas_automaticas_instagram.sql). Esta es la 0053 y NO depende de aquella ni al revés: pueden aplicarse en
+-- cualquier orden, pero por número va DESPUÉS de la 0052. Ver CLAUDE.md, «Mifact».
+--
+-- DATOS PARA EL COMPROBANTE EN `customers`: el receptor de una boleta o factura sale SIEMPRE del cliente del pedido
+-- (nunca de datos escritos a mano ni de ejemplo). Hasta hoy `customers` solo tenía nombre, DNI y correo; para facturar
+-- hace falta el RUC. `razon_social` es el nombre que va en el comprobante (razón social de una empresa o nombre legal
+-- de una persona); si falta, solo se usa `nombre` cuando está confirmado (`nombre_confirmado`).
+--
 -- Idempotente: se puede correr dos veces sin duplicar ni pisar nada.
 -- ============================================================================
+
+alter table customers add column if not exists ruc text;
+alter table customers add column if not exists razon_social text;
+alter table customers add column if not exists direccion_fiscal text;
+alter table customers drop constraint if exists customers_ruc_formato;
+alter table customers add constraint customers_ruc_formato check (ruc is null or ruc ~ '^[0-9]{11}$');
 
 create table if not exists comprobantes_numeradores (
   tenant_id uuid not null references tenants(id) on delete cascade,

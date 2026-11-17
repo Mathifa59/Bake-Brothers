@@ -11,8 +11,10 @@ import {
   descargarPdf,
   emitirComprobante,
   enviarCorreoComprobante,
+  guardarDatosFacturacion,
   obtenerComprobante,
   reintentarEnvio,
+  resumenFacturacionDelPedido,
   type CodigoErrorComprobante,
 } from '../services/comprobantes.js'
 
@@ -29,6 +31,7 @@ const CODIGO_HTTP: Record<CodigoErrorComprobante, number> = {
   MIFACT_NO_CONFIGURADO: 503,
   PEDIDO_NO_ENCONTRADO: 404,
   COMPROBANTE_NO_ENCONTRADO: 404,
+  CLIENTE_NO_ENCONTRADO: 404,
   PEDIDO_NO_FACTURABLE: 409,
   PEDIDO_TOTAL_PENDIENTE: 409,
   COMPROBANTE_YA_EMITIDO: 409,
@@ -38,6 +41,7 @@ const CODIGO_HTTP: Record<CodigoErrorComprobante, number> = {
   SIN_LINEAS_FACTURABLES: 422,
   TOTAL_NO_COINCIDE: 422,
   RECEPTOR_INVALIDO: 422,
+  DATOS_CLIENTE_INVALIDOS: 422,
   CORREO_INVALIDO: 422,
   MOTIVO_INVALIDO: 422,
   MIFACT_RECHAZO: 422,
@@ -58,13 +62,14 @@ function responderError(reply: FastifyReply, err: unknown) {
 }
 
 const uuid = z.string().uuid()
-const receptorSchema = z
+// Datos del cliente para sus comprobantes: `undefined` = no tocar; `null` o vacío = borrar.
+const datosFacturacionSchema = z
   .object({
-    tipoDoc: z.enum(['0', '1', '4', '6', '7']).nullish(),
-    numeroDoc: z.string().trim().max(15).nullish(),
-    nombre: z.string().trim().max(200).nullish(),
-    direccion: z.string().trim().max(200).nullish(),
-    correo: z.string().trim().max(100).nullish(),
+    dni: z.string().trim().max(20).nullish(),
+    ruc: z.string().trim().max(20).nullish(),
+    razonSocial: z.string().trim().max(200).nullish(),
+    direccionFiscal: z.string().trim().max(200).nullish(),
+    correo: z.string().trim().max(200).nullish(),
   })
   .strict()
 
@@ -73,12 +78,34 @@ export function dashboardComprobantesRoutes(app: FastifyInstance) {
 
   app.post('/api/dashboard/comprobantes', pre, async (req, reply) => {
     const body = z
-      .object({ pedido: z.string().trim().min(1).max(30), tipo: z.enum(['boleta', 'factura']), receptor: receptorSchema.optional() })
+      // Sin receptor: el comprobante se emite a nombre del cliente del pedido, nunca de datos que lleguen aquí.
+      .object({ pedido: z.string().trim().min(1).max(30), tipo: z.enum(['boleta', 'factura']) })
       .strict()
       .parse(req.body)
     try {
       const c = await emitirComprobante(pool, req.tenantId, { ...body, usuarioId: req.operador?.id ?? null })
       return reply.code(201).send(c)
+    } catch (err) {
+      return responderError(reply, err)
+    }
+  })
+
+  // Lo que el panel muestra en un pedido: quién factura, a quién se emitiría, qué botones se habilitan y sus comprobantes.
+  app.get('/api/dashboard/pedidos/:numero/facturacion', pre, async (req, reply) => {
+    const { numero } = z.object({ numero: z.string().trim().min(1).max(30) }).parse(req.params)
+    try {
+      return reply.send(await resumenFacturacionDelPedido(pool, req.tenantId, numero))
+    } catch (err) {
+      return responderError(reply, err)
+    }
+  })
+
+  // Completar en el cliente lo que falta para su comprobante (RUC, razón social, dirección fiscal, DNI, correo).
+  app.put('/api/dashboard/clientes/:id/facturacion', pre, async (req, reply) => {
+    const { id } = z.object({ id: uuid }).parse(req.params)
+    const datos = datosFacturacionSchema.parse(req.body)
+    try {
+      return reply.send(await guardarDatosFacturacion(pool, req.tenantId, id, datos))
     } catch (err) {
       return responderError(reply, err)
     }

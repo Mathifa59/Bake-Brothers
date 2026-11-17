@@ -1,5 +1,7 @@
 /**
- * Recorrido REAL contra el DEMO de Mifact (demo.mifact.net.pe), desde pedidos de Bake OS:
+ * Recorrido REAL contra el DEMO de Mifact (demo.mifact.net.pe), desde pedidos de Bake OS. El receptor de cada comprobante
+ * sale SIEMPRE del cliente del pedido (aquí, clientes ficticios propios creados con el pedido); nunca se le pasa un receptor
+ * a mano ni se usan los clientes de ejemplo de la documentación de Mifact (lo vigila un test):
  *   1. emite una boleta y una factura (cada una con la razón social que le toca) y una boleta más para anular,
  *   2. consulta el estado de cada una y lo guarda en el pedido,
  *   3. descarga el PDF y lo guarda en el pedido (y una copia en la carpeta de salida),
@@ -10,7 +12,7 @@
  *   pnpm mifact:demo            (usa .env.mifact-demo, que NO está en git)
  *
  * SALVAGUARDAS: este recorrido crea pedidos de prueba, así que SOLO corre contra una base de datos local, y se niega a
- * correr si algún emisor apunta a producción. Los datos son ficticios (los ejemplos públicos de Mifact).
+ * correr si algún emisor apunta a producción. Los datos son ficticios y propios (no los ejemplos de Mifact).
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -56,15 +58,16 @@ const resultados: Record<string, unknown>[] = []
 
 try {
   paso('1. Pedidos de prueba en Bake OS (base local)')
-  const pa = await crearPedidoDePrueba(pool, { tenantId, marca: MARCA, sede: 'Santa Marina', items: [{ slug: 'alfajor-mix', cantidad: 2 }, { slug: 'cuchareable', cantidad: 1 }], nombreCliente: 'MARIA GONZALES' })
-  const pb = await crearPedidoDePrueba(pool, { tenantId, marca: MARCA, sede: 'Cedros', items: [{ slug: 'alfajor-mix', cantidad: 4 }, { slug: 'cuchareable', cantidad: 2 }], nombreCliente: 'OSYS COMPANY SAC' })
-  const pc = await crearPedidoDePrueba(pool, { tenantId, marca: MARCA, sede: null, tipoEntrega: 'delivery', delivery: 7, items: [{ slug: 'alfajor-mix', cantidad: 1 }], nombreCliente: 'CLIENTE PARA ANULAR' })
+  // Cada pedido trae SU cliente, con los datos que irán en el comprobante (todo ficticio; el RUC lleva dígito verificador válido).
+  const pa = await crearPedidoDePrueba(pool, { tenantId, marca: MARCA, sede: 'Santa Marina', items: [{ slug: 'alfajor-mix', cantidad: 2 }, { slug: 'cuchareable', cantidad: 1 }], nombreCliente: 'Cliente de prueba uno', dni: '12345678', razonSocial: 'CLIENTE DE PRUEBA UNO', direccionFiscal: 'Calle de Prueba 100, Chorrillos' })
+  const pb = await crearPedidoDePrueba(pool, { tenantId, marca: MARCA, sede: 'Cedros', items: [{ slug: 'alfajor-mix', cantidad: 4 }, { slug: 'cuchareable', cantidad: 2 }], nombreCliente: 'Empresa de prueba', ruc: '20123456786', razonSocial: 'EMPRESA DE PRUEBA S.A.C.', direccionFiscal: 'Av. de Prueba 500, Lima' })
+  const pc = await crearPedidoDePrueba(pool, { tenantId, marca: MARCA, sede: null, tipoEntrega: 'delivery', delivery: 7, items: [{ slug: 'alfajor-mix', cantidad: 1 }], nombreCliente: 'Cliente para anular' })
   for (const [etiqueta, p] of [['A (Santa Marina, recojo)', pa], ['B (Cedros, recojo)', pb], ['C (delivery)', pc]] as const) console.log(`   ${etiqueta}: ${p.numero}  total S/ ${p.total.toFixed(2)}`)
 
   paso('2. Emitir (SendInvoice) — a cada pedido le factura su razón social')
-  const boleta = await emitirComprobante(pool, tenantId, { pedido: pa.numero, tipo: 'boleta', receptor: { numeroDoc: '40506089', nombre: 'MARIA GONZALES', direccion: 'direccion del cliente' } })
+  const boleta = await emitirComprobante(pool, tenantId, { pedido: pa.numero, tipo: 'boleta' })
   console.log('   ' + linea(boleta))
-  const factura = await emitirComprobante(pool, tenantId, { pedido: pb.numero, tipo: 'factura', receptor: { numeroDoc: '20601847834', nombre: 'OSYS COMPANY SAC', direccion: 'direccion del cliente' } })
+  const factura = await emitirComprobante(pool, tenantId, { pedido: pb.numero, tipo: 'factura' })
   console.log('   ' + linea(factura))
   const paraAnular = await emitirComprobante(pool, tenantId, { pedido: pc.numero, tipo: 'boleta' })
   console.log('   ' + linea(paraAnular))
@@ -101,7 +104,7 @@ try {
     paso('6. Correo: OMITIDO (define MIFACT_DEMO_CORREO con la dirección a la que quieres que Mifact envíe la factura de prueba)')
   }
 
-  paso('RESUMEN para revisar en el portal demo de Mifact (RUC de pruebas 20100100100)')
+  paso('RESUMEN para revisar en el portal demo de Mifact')
   const finales = await Promise.all([boleta, factura, paraAnular].map((c) => obtenerComprobante(pool, tenantId, c.id)))
   for (const c of finales) {
     console.log(`   ${c.numero.padEnd(14)} ${c.tipo.padEnd(8)} fecha ${c.fechaEmision}  total S/ ${c.total.toFixed(2).padStart(7)}  ${c.estadoLegible.padEnd(22)} pedido ${c.pedido}`)

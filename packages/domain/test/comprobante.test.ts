@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   CODIGO_TIPO_CPE,
+  DATOS_EJEMPLO_MIFACT,
+  esDocumentoDeEjemploMifact,
+  todosLosDatosDeEjemploMifact,
   ESTADOS_ANULABLES,
   ESTADOS_VIGENTES,
   desglosarLineas,
@@ -88,17 +91,17 @@ describe('documentos', () => {
 
 describe('receptor del comprobante', () => {
   it('factura: exige RUC válido y razón social', () => {
-    expect(resolverReceptor('factura', { numeroDoc: '40506089', nombre: 'Maria' }, 50)).toMatchObject({ ok: false, error: 'FACTURA_REQUIERE_RUC' })
+    expect(resolverReceptor('factura', { numeroDoc: '12345678', nombre: 'Maria' }, 50)).toMatchObject({ ok: false, error: 'FACTURA_REQUIERE_RUC' })
     expect(resolverReceptor('factura', { numeroDoc: '', nombre: 'Maria' }, 50)).toMatchObject({ ok: false, error: 'FACTURA_REQUIERE_RUC' })
     expect(resolverReceptor('factura', { numeroDoc: '20601847835', nombre: 'X SAC' }, 50)).toMatchObject({ ok: false, error: 'RUC_INVALIDO' })
-    expect(resolverReceptor('factura', { numeroDoc: '20601847834', nombre: '  ' }, 50)).toMatchObject({ ok: false, error: 'NOMBRE_REQUERIDO' })
-    const r = resolverReceptor('factura', { numeroDoc: '20601847834', nombre: '  OSYS   COMPANY SAC ' }, 50)
-    expect(r).toMatchObject({ ok: true, receptor: { tipoDoc: '6', numeroDoc: '20601847834', nombre: 'OSYS COMPANY SAC', direccion: '-' } })
+    expect(resolverReceptor('factura', { numeroDoc: '20123456786', nombre: '  ' }, 50)).toMatchObject({ ok: false, error: 'NOMBRE_REQUERIDO' })
+    const r = resolverReceptor('factura', { numeroDoc: '20123456786', nombre: '  PASTELERIA   EJEMPLO SAC ' }, 50)
+    expect(r).toMatchObject({ ok: true, receptor: { tipoDoc: '6', numeroDoc: '20123456786', nombre: 'PASTELERIA EJEMPLO SAC', direccion: '-' } })
   })
 
   it('boleta con DNI: se deduce por el largo y se valida', () => {
-    const r = resolverReceptor('boleta', { numeroDoc: '40506089', nombre: 'MARIA GONZALES', correo: 'maria@ejemplo.pe' }, 80)
-    expect(r).toMatchObject({ ok: true, receptor: { tipoDoc: '1', numeroDoc: '40506089', correo: 'maria@ejemplo.pe', direccion: 'SIN DIRECCION' } })
+    const r = resolverReceptor('boleta', { numeroDoc: '12345678', nombre: 'ANA TORRES', correo: 'ana@ejemplo.pe' }, 80)
+    expect(r).toMatchObject({ ok: true, receptor: { tipoDoc: '1', numeroDoc: '12345678', correo: 'ana@ejemplo.pe', direccion: 'SIN DIRECCION' } })
     expect(resolverReceptor('boleta', { tipoDoc: '1', numeroDoc: '4050608', nombre: 'M' }, 80)).toMatchObject({ ok: false, error: 'DNI_INVALIDO' })
     expect(resolverReceptor('boleta', { numeroDoc: '4050608', nombre: 'M' }, 80)).toMatchObject({ ok: false, error: 'DOCUMENTO_NO_RECONOCIDO' })
   })
@@ -110,13 +113,22 @@ describe('receptor del comprobante', () => {
   })
 
   it('boleta a un RUC también es válida (hay que escribir el RUC bien)', () => {
-    expect(resolverReceptor('boleta', { numeroDoc: '20601847834', nombre: 'OSYS COMPANY SAC' }, 40)).toMatchObject({ ok: true, receptor: { tipoDoc: '6' } })
+    expect(resolverReceptor('boleta', { numeroDoc: '20123456786', nombre: 'PASTELERIA EJEMPLO SAC' }, 40)).toMatchObject({ ok: true, receptor: { tipoDoc: '6' } })
     expect(resolverReceptor('boleta', { numeroDoc: '20601847835', nombre: 'OSYS' }, 40)).toMatchObject({ ok: false, error: 'RUC_INVALIDO' })
   })
 
+  it('NUNCA un dato de ejemplo de la documentación de Mifact: RUC, DNI, correo o empresa de sus ejemplos se rechazan', () => {
+    expect(resolverReceptor('factura', { numeroDoc: '20601847834', nombre: 'PASTELERIA EJEMPLO SAC' }, 50)).toMatchObject({ ok: false, error: 'DATOS_DE_EJEMPLO' })
+    expect(resolverReceptor('boleta', { numeroDoc: '40506089', nombre: 'ANA TORRES' }, 50)).toMatchObject({ ok: false, error: 'DATOS_DE_EJEMPLO' })
+    expect(resolverReceptor('boleta', { numeroDoc: '12345678', nombre: 'ANA TORRES', correo: 'mifact@outlook.com' }, 50)).toMatchObject({ ok: false, error: 'DATOS_DE_EJEMPLO' })
+    expect(resolverReceptor('factura', { numeroDoc: '20123456786', nombre: 'osys   company sac' }, 50)).toMatchObject({ ok: false, error: 'DATOS_DE_EJEMPLO' })
+    // Un nombre de persona común no se bloquea (podría ser un cliente real): lo vigila el test del JSON enviado.
+    expect(resolverReceptor('boleta', { numeroDoc: '12345678', nombre: 'MARIA GONZALES' }, 50).ok).toBe(true)
+  })
+
   it('un correo mal escrito se rechaza antes de gastar un correlativo; los textos se limpian y se acotan', () => {
-    expect(resolverReceptor('boleta', { numeroDoc: '40506089', nombre: 'M', correo: 'no-es-correo' }, 10)).toMatchObject({ ok: false, error: 'CORREO_INVALIDO' })
-    const r = resolverReceptor('boleta', { numeroDoc: '40506089', nombre: `A\nB\u0000${'x'.repeat(200)}` }, 10)
+    expect(resolverReceptor('boleta', { numeroDoc: '12345678', nombre: 'M', correo: 'no-es-correo' }, 10)).toMatchObject({ ok: false, error: 'CORREO_INVALIDO' })
+    const r = resolverReceptor('boleta', { numeroDoc: '12345678', nombre: `A\nB\u0000${'x'.repeat(200)}` }, 10)
     expect(r.ok && r.receptor.nombre.length).toBe(100)
     expect(r.ok && /[\u0000-\u001f]/.test(r.receptor.nombre)).toBe(false)
   })
@@ -141,5 +153,16 @@ describe('estados de Mifact', () => {
     expect(ESTADOS_VIGENTES).not.toContain('anulacion_solicitada')
     for (const ok of ['confirmed', 'paid', 'in_production', 'out_for_delivery', 'delivered']) expect(pedidoEsFacturable(ok)).toBe(true)
     for (const no of ['draft', 'payment_pending', 'cancelled', 'otro']) expect(pedidoEsFacturable(no)).toBe(false)
+  })
+})
+
+describe('lista de datos de ejemplo de Mifact', () => {
+  it('se compara sin importar mayúsculas, tildes ni espacios, y no marca datos reales', () => {
+    expect(esDocumentoDeEjemploMifact('20601847834')).toBe(true)
+    expect(esDocumentoDeEjemploMifact(' 40506089 ')).toBe(true)
+    expect(esDocumentoDeEjemploMifact('20123456786')).toBe(false)
+    expect(esDocumentoDeEjemploMifact('20612010880')).toBe(false) // Baker Brothers E.I.R.L., real
+    expect(esDocumentoDeEjemploMifact('20605451005')).toBe(false) // Hermanos Loarte, real
+    expect(todosLosDatosDeEjemploMifact().length).toBe(Object.values(DATOS_EJEMPLO_MIFACT).flat().length)
   })
 })
