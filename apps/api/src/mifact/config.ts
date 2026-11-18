@@ -17,7 +17,9 @@ import { validarRuc, type EntidadCobro } from '@bakebrothers/domain'
  *   DIRECCION      dirección fiscal
  *   SERIE_BOLETA   B + 3 caracteres (p. ej. B001)
  *   SERIE_FACTURA  F + 3 caracteres (p. ej. F001)
- *   CODIGO_ANEXO   opcional, código de anexo SUNAT (por defecto 0000 = principal)
+ *   CODIGO_ANEXO   opcional, código de anexo SUNAT del emisor (por defecto 0000 = principal)
+ *   CODIGO_ANEXO_<LOCAL>  opcional, código de establecimiento de UN local (p. ej. CODIGO_ANEXO_SANTA_MARINA); gana sobre
+ *                  CODIGO_ANEXO cuando el pedido es de ese local. Un delivery sin local usa CODIGO_ANEXO.
  *   CORRELATIVO_INICIAL  opcional: número con el que empieza cada serie la PRIMERA vez (por defecto 1)
  *   FORMATO_PDF    opcional: 001 = A4 (por defecto), 002 = A5, 004 = ticket 80 mm
  *
@@ -52,7 +54,25 @@ export type ResultadoConfigEmisor =
   | { ok: true; config: ConfigEmisorMifact }
   | { ok: false; faltan: string[]; invalidas: { variable: string; motivo: string }[] }
 
-export function leerConfigEmisor(emisor: EntidadCobro, fuente: Record<string, string | undefined> = process.env): ResultadoConfigEmisor {
+/** «Santa Marina» → «SANTA_MARINA» (sin tildes, mayúsculas, no alfanuméricos → «_»): el sufijo de CODIGO_ANEXO_<LOCAL>. */
+export function sufijoDeLocal(nombre: string): string {
+  return nombre
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+}
+
+/**
+ * `local` = nombre de la sede que vende (p. ej. «Santa Marina»); null/omitido = sin local (delivery sin asignar):
+ * se usa el anexo del emisor.
+ */
+export function leerConfigEmisor(
+  emisor: EntidadCobro,
+  fuente: Record<string, string | undefined> = process.env,
+  local: string | null = null
+): ResultadoConfigEmisor {
   const prefijo = PREFIJO_ENV[emisor]
   const v = (sufijo: string): string => (fuente[`${prefijo}_${sufijo}`] ?? '').trim()
   const faltan: string[] = []
@@ -97,8 +117,12 @@ export function leerConfigEmisor(emisor: EntidadCobro, fuente: Record<string, st
   if (serieBoleta && !/^B[A-Z0-9]{3}$/.test(serieBoleta)) invalida('SERIE_BOLETA', 'debe ser B + 3 caracteres (B001)')
   if (serieFactura && !/^F[A-Z0-9]{3}$/.test(serieFactura)) invalida('SERIE_FACTURA', 'debe ser F + 3 caracteres (F001)')
 
-  const codigoAnexo = v('CODIGO_ANEXO') || '0000'
-  if (!/^[0-9]{4}$/.test(codigoAnexo)) invalida('CODIGO_ANEXO', 'debe tener 4 dígitos')
+  // Código de establecimiento (anexo) de SUNAT: uno por local si está configurado (CODIGO_ANEXO_<LOCAL>), si no el del
+  // emisor (CODIGO_ANEXO) y, si tampoco, 0000. Un delivery sin local usa el del emisor.
+  const sufijoLocal = local ? sufijoDeLocal(local) : ''
+  const anexoLocal = sufijoLocal ? v(`CODIGO_ANEXO_${sufijoLocal}`) : ''
+  const codigoAnexo = anexoLocal || v('CODIGO_ANEXO') || '0000'
+  if (!/^[0-9]{4}$/.test(codigoAnexo)) invalida(anexoLocal ? `CODIGO_ANEXO_${sufijoLocal}` : 'CODIGO_ANEXO', 'debe tener 4 dígitos')
   const inicialCrudo = v('CORRELATIVO_INICIAL') || '1'
   const correlativoInicial = Number(inicialCrudo)
   if (!Number.isInteger(correlativoInicial) || correlativoInicial < 1 || correlativoInicial > 99999999) invalida('CORRELATIVO_INICIAL', 'debe ser un entero entre 1 y 99999999')

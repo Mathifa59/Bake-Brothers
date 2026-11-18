@@ -2,7 +2,7 @@
 // el «Mifact» es el simulador de test/helpers/falsoMifact.ts (reproduce lo observado en el demo real).
 import { describe, expect, it } from 'vitest'
 import { desglosarLineas, resolverReceptor } from '@bakebrothers/domain'
-import { leerConfigEmisor, type ConfigEmisorMifact } from '../src/mifact/config.js'
+import { leerConfigEmisor, sufijoDeLocal, type ConfigEmisorMifact } from '../src/mifact/config.js'
 import {
   MifactApiError,
   MifactRedError,
@@ -93,6 +93,43 @@ describe('configuración de Mifact por emisor (variables de entorno)', () => {
       MIFACT_BAKER_BROTHERS_CORRELATIVO_INICIAL: '1235', MIFACT_BAKER_BROTHERS_FORMATO_PDF: '004',
     }))
     expect(r.ok && r.config).toMatchObject({ nombreComercial: 'Bake Brothers', codigoAnexo: '0001', correlativoInicial: 1235, formatoPdf: '004' })
+  })
+
+  it('código de establecimiento POR LOCAL: gana el del local; sin local o sin variable del local, el del emisor; sin nada, 0000', () => {
+    const env = completo({ MIFACT_BAKER_BROTHERS_CODIGO_ANEXO: '0002', MIFACT_BAKER_BROTHERS_CODIGO_ANEXO_SANTA_MARINA: '0007' })
+    const anexo = (local: string | null) => {
+      const r = leerConfigEmisor('baker_brothers', env, local)
+      return r.ok ? r.config.codigoAnexo : r
+    }
+    expect(anexo('Santa Marina')).toBe('0007')
+    expect(anexo('santa  marina')).toBe('0007') // mayúsculas y espacios no importan
+    expect(anexo('Cedros')).toBe('0002') // otro local sin variable propia → el del emisor
+    expect(anexo(null)).toBe('0002') // delivery sin local → el del emisor
+    const sinNada = leerConfigEmisor('baker_brothers', completo(), 'Santa Marina')
+    expect(sinNada.ok && sinNada.config.codigoAnexo).toBe('0000')
+  })
+
+  it('el código de un local mal formado se reporta con SU nombre de variable (solo si ese local es el que se usa)', () => {
+    const env = completo({ MIFACT_BAKER_BROTHERS_CODIGO_ANEXO_SANTA_MARINA: '7' })
+    const r = leerConfigEmisor('baker_brothers', env, 'Santa Marina')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.invalidas).toEqual([{ variable: 'MIFACT_BAKER_BROTHERS_CODIGO_ANEXO_SANTA_MARINA', motivo: expect.any(String) }])
+    expect(leerConfigEmisor('baker_brothers', env, 'Cedros').ok).toBe(true)
+  })
+
+  it('sufijoDeLocal: sin tildes, mayúsculas y guion bajo', () => {
+    expect(sufijoDeLocal('Santa Marina')).toBe('SANTA_MARINA')
+    expect(sufijoDeLocal(' Cédros ')).toBe('CEDROS')
+  })
+
+  it('el código de establecimiento del local llega al JSON que se envía (COD_ANEXO_EMIS)', () => {
+    const r = leerConfigEmisor('baker_brothers', completo({ MIFACT_BAKER_BROTHERS_CODIGO_ANEXO_SANTA_MARINA: '0007' }), 'Santa Marina')
+    if (!r.ok) throw new Error('config')
+    const desglose = desglosarLineas([{ descripcion: 'x', cantidad: 1, precioUnitarioConIgv: 10 }])
+    const rec = resolverReceptor('boleta', {}, desglose.total)
+    if (!rec.ok) throw new Error('receptor')
+    const doc = construirDocumento({ config: r.config, tipo: 'boleta', serie: 'BT01', correlativo: 1, fechaEmision: '2026-11-17', receptor: rec.receptor, desglose, codigosItem: ['X'], usuario: 'u' })
+    expect(doc.COD_ANEXO_EMIS).toBe('0007')
   })
 })
 

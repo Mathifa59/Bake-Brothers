@@ -165,8 +165,9 @@ export async function comprobantesDePedido(pool: pg.Pool, tenantId: string, nume
 
 // ———————————————————————————————————————————————————————————— configuración ————
 
-function configDe(emisor: EntidadCobro): ConfigEmisorMifact {
-  const r = leerConfigEmisor(emisor)
+/** `local` = sede del pedido: decide el código de establecimiento (anexo) de SUNAT que va en el documento. */
+function configDe(emisor: EntidadCobro, local: string | null = null): ConfigEmisorMifact {
+  const r = leerConfigEmisor(emisor, process.env, local)
   if (!r.ok) {
     throw new ComprobanteError('MIFACT_NO_CONFIGURADO', `Mifact no está configurado para ${emisor}`, {
       faltan: r.faltan,
@@ -413,7 +414,7 @@ interface EmisionPreparada {
 async function prepararEmision(pool: pg.Pool, pedido: PedidoParaComprobante, tipo: TipoComprobante): Promise<EmisionPreparada> {
   // 1. Qué razón social factura este pedido y si hay Mifact configurado para ella.
   const emisor = entidadDeCobro({ tipoEntrega: pedido.tipoEntrega, sedeNombre: pedido.sedeNombre })
-  const config = configDe(emisor)
+  const config = configDe(emisor, pedido.sedeNombre)
 
   // 2. Reglas del pedido.
   if (!pedidoEsFacturable(pedido.estado))
@@ -633,7 +634,7 @@ export interface ResumenFacturacion {
 export async function resumenFacturacionDelPedido(pool: pg.Pool, tenantId: string, numeroPedido: string): Promise<ResumenFacturacion> {
   const pedido = await cargarPedido(pool, tenantId, numeroPedido)
   const emisor = entidadDeCobro({ tipoEntrega: pedido.tipoEntrega, sedeNombre: pedido.sedeNombre })
-  const cfg = leerConfigEmisor(emisor)
+  const cfg = leerConfigEmisor(emisor, process.env, pedido.sedeNombre)
   const evaluar = async (tipo: TipoComprobante): Promise<OpcionDeEmision> => {
     try {
       const p = await prepararEmision(pool, pedido, tipo)
