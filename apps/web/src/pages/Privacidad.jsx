@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { whatsappNumeroFormateado, whatsappUrl } from '../utils/whatsapp'
 
 const ACTUALIZADO = '5 de noviembre de 2026'
@@ -14,10 +13,7 @@ function Seccion({ titulo, children }) {
 
 /** Política de privacidad (www.bakebrothers.pe/privacidad). Meta la exige para poner la app de WhatsApp en modo Live. */
 export default function Privacidad() {
-  useEffect(() => {
-    document.title = 'Política de privacidad · Bake Brothers'
-  }, [])
-
+  // El título y la descripción de la página salen de config/seo.js (useSeo, en Layout).
   return (
     <article className="page-container max-w-3xl py-16 sm:py-20">
       <h1 className="font-display text-4xl font-semibold text-tinta sm:text-5xl">Política de privacidad</h1>

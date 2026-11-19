@@ -4,6 +4,7 @@ import Inicio from './pages/Inicio'
 import Menu from './pages/Menu'
 import Locales from './pages/Locales'
 import Privacidad from './pages/Privacidad'
+import NoEncontrada from './pages/NoEncontrada'
 // Landing de una sola página (2026-09-25) reemplaza el sitio de tienda
 // anterior — estas páginas/rutas quedan comentadas, no borradas, por si se
 // retoman más adelante (catálogo con carrito, catering, etc. no son parte
@@ -113,7 +114,7 @@ export default function App() {
           <Route path="/menu" element={<Menu />} />
           <Route path="/locales" element={<Locales />} />
           <Route path="/privacidad" element={<Privacidad />} />
-          <Route path="*" element={<Inicio />} />
+          <Route path="*" element={<NoEncontrada />} />
         </Route>
       </Routes>
     </BrowserRouter>

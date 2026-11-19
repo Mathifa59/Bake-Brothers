@@ -5,6 +5,7 @@ import ClosingFooter from '../components/landing/ClosingFooter'
 import WhatsAppFloatButton from '../components/landing/WhatsAppFloatButton'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useLenisScroll, resetScrollInstant } from '../hooks/useLenisScroll'
+import { useSeo } from '../hooks/useSeo'
 
 // Chrome compartido por las 3 páginas (Inicio/Menú/Locales) — header, footer
 // y botón flotante se montan una sola vez acá, no por página, así Lenis no
@@ -17,6 +18,7 @@ export default function Layout() {
   const reducido = usePrefersReducedMotion()
   useLenisScroll(!reducido)
   const location = useLocation()
+  useSeo(location.pathname)
   const [heroEnPantalla, setHeroEnPantalla] = useState(false)
   const [footerEnPantalla, setFooterEnPantalla] = useState(false)
 
