@@ -29,7 +29,7 @@ export default function ListaConversaciones({
   const cuenta = (f) => todas.filter(f.cumple).length
   return (
     <div className="flex flex-col gap-3">
-      <div role="tablist" aria-label="Filtro de conversaciones" className="flex gap-1.5 overflow-x-auto sin-barra-scroll">
+      <div role="tablist" aria-label="Filtro de conversaciones" className="flex flex-wrap gap-1.5">
         {FILTROS_BANDEJA.map((f) => (
           <button
             key={f.clave}

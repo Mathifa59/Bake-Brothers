@@ -37,7 +37,11 @@ function ItemMenu({ seccion, contador }) {
   )
 }
 
-/** Menú de secciones horizontal, desplazable en celular; la sección activa se centra sola. */
+/**
+ * Menú de secciones. En celular: una fila que se desliza (la sección activa se centra sola). Desde tablet hacia arriba
+ * NO se desliza —sin barra visible, quien usa mouse no sabe que hay más—: usa el ancho de la pantalla y, si aun así no
+ * caben todas, baja a una segunda fila centrada. Así ninguna sección (p. ej. «Ajustes») queda cortada.
+ */
 function MenuSecciones() {
   const { alertas } = useAlertas()
   const { perfil } = useAuth()
@@ -52,7 +56,10 @@ function MenuSecciones() {
 
   return (
     <nav aria-label="Secciones" className="sticky top-0 z-30 border-b border-borde bg-crema/95 backdrop-blur">
-      <div ref={contenedor} className="sin-barra-scroll mx-auto flex max-w-5xl gap-1 overflow-x-auto px-3 py-2">
+      <div
+        ref={contenedor}
+        className="sin-barra-scroll mx-auto flex max-w-5xl gap-1 overflow-x-auto px-3 py-2 md:max-w-7xl md:flex-wrap md:justify-center md:overflow-visible"
+      >
         {seccionesVisibles.map((s) => (
           <ItemMenu key={s.ruta} seccion={s} contador={s.conAlertas ? alertas?.total : 0} />
         ))}
