@@ -16,15 +16,19 @@ import { pool } from '../db.js'
  * push y `GET /api/dashboard/push/clave` responde 503.
  */
 
-export type TipoAviso = 'mensaje_nuevo' | 'esperando_persona' | 'pedido_nuevo'
+export type TipoAviso = 'mensaje_nuevo' | 'esperando_persona' | 'pedido_nuevo' | 'orden_nueva' | 'pago_reportado'
 
 export interface NuevoAviso {
   tipo: TipoAviso
   titulo: string
   cuerpo: string
   conversacionId: string | null
-  /** Local de la conversación; null = sin local todavía (lo ve todo el personal). */
+  /** Local de la conversación/orden; null = sin local todavía. */
   sedeId: string | null
+  /** Pantalla que abre al tocar la notificación; si no se da, sale del tipo y de la conversación. */
+  url?: string
+  /** Quien lo provocó (no se le manda el push de lo que acaba de hacer él mismo; la campana sí lo muestra). */
+  excluirUsuarioId?: string
 }
 
 export interface ConfigVapid {
@@ -65,16 +69,22 @@ export interface SuscripcionPush {
 }
 
 /**
- * Los dispositivos que deben enterarse: dirección siempre, y un empleado solo si el aviso es de su local o no tiene
- * local (misma regla que la RLS de `avisos`).
+ * Los dispositivos que deben enterarse: la misma regla que la campana (`usuario_recibe_aviso`, migración 0054):
+ * mensajes → Administración y Venta digital; pedido/orden nueva → quien tiene «aviso de órdenes»; pago reportado →
+ * quien tiene «aviso de pagos». Una sola definición en la base para las dos cosas.
  */
-export async function destinatariosPush(db: pg.Pool | pg.PoolClient, sedeId: string | null): Promise<SuscripcionPush[]> {
+export async function destinatariosPush(
+  db: pg.Pool | pg.PoolClient,
+  tipo: TipoAviso,
+  sedeId: string | null,
+  excluirUsuarioId?: string
+): Promise<SuscripcionPush[]> {
   const { rows } = await db.query(
     `select s.id, s.usuario_id, s.endpoint, s.p256dh, s.auth
        from push_suscripciones s
-       join usuarios_dashboard u on u.id = s.usuario_id
-      where u.rol = 'admin' or $1::uuid is null or u.sede_id = $1::uuid`,
-    [sedeId]
+      where usuario_recibe_aviso(s.usuario_id, $1, $2::uuid)
+        and ($3::uuid is null or s.usuario_id <> $3::uuid)`,
+    [tipo, sedeId, excluirUsuarioId && /^[0-9a-f-]{36}$/i.test(excluirUsuarioId) ? excluirUsuarioId : null]
   )
   return rows.map((r) => ({ id: r.id, usuarioId: r.usuario_id, endpoint: r.endpoint, p256dh: r.p256dh, auth: r.auth }))
 }
@@ -90,11 +100,17 @@ export interface PayloadPush {
 }
 
 export function payloadDeAviso(aviso: NuevoAviso): PayloadPush {
+  const porDefecto =
+    aviso.tipo === 'orden_nueva' ? '/#/ordenes' : aviso.tipo === 'pago_reportado' ? '/#/pedidos' : null
   return {
     titulo: aviso.titulo,
     cuerpo: recortar(aviso.cuerpo),
-    url: aviso.conversacionId ? `/#/conversaciones?c=${aviso.conversacionId}` : '/#/conversaciones',
-    tag: aviso.conversacionId ? `conv-${aviso.conversacionId}` : 'conversaciones',
+    url: aviso.url ?? porDefecto ?? (aviso.conversacionId ? `/#/conversaciones?c=${aviso.conversacionId}` : '/#/conversaciones'),
+    tag: aviso.conversacionId
+      ? `conv-${aviso.conversacionId}`
+      : aviso.tipo === 'orden_nueva' || aviso.tipo === 'pago_reportado'
+        ? `${aviso.tipo}-${Date.now()}`
+        : 'conversaciones',
     tipo: aviso.tipo,
   }
 }
@@ -162,7 +178,7 @@ export async function avisarAlEquipo(
     return
   }
   try {
-    const destinatarios = await destinatariosPush(db, aviso.sedeId)
+    const destinatarios = await destinatariosPush(db, aviso.tipo, aviso.sedeId, aviso.excluirUsuarioId)
     await enviarPush(db, logger, destinatarios, payloadDeAviso(aviso))
   } catch (err) {
     logger.warn({ err, tipo: aviso.tipo }, 'No se pudo mandar el push de un aviso (el aviso sí quedó guardado)')

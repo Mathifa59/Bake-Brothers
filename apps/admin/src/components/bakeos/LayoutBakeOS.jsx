@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { AlertasProvider, useAlertas } from '../../context/AlertasContext'
 import { AvisosProvider, useAvisos } from '../../context/AvisosContext'
 import { SECCIONES_ACTIVAS } from '../../config/secciones'
-import { nombreDeRol, puedeVerRuta, rutaInicial } from '@bakebrothers/domain'
+import { nombreDePerfiles, puedeVerRuta, rutaInicial } from '@bakebrothers/domain'
 
 /** Contador naranja (el naranja oscuro, para que el número blanco se lea: contraste AA). */
 function Contador({ n, className = '' }) {
@@ -47,7 +47,7 @@ function MenuSecciones() {
   const { perfil } = useAuth()
   const { pathname } = useLocation()
   const contenedor = useRef(null)
-  const seccionesVisibles = SECCIONES_ACTIVAS.filter((s) => puedeVerRuta(perfil?.rol, s.ruta))
+  const seccionesVisibles = SECCIONES_ACTIVAS.filter((s) => puedeVerRuta(perfil?.perfiles, s.ruta))
 
   useEffect(() => {
     const activo = contenedor.current?.querySelector('[aria-current="page"]')
@@ -73,11 +73,11 @@ function Encabezado() {
   const { sinVer } = useAvisos()
   return (
     <header className="mx-auto flex max-w-5xl items-center justify-between px-4 pt-3">
-      <Link to={rutaInicial(perfil?.rol)} className="flex items-center gap-2.5" aria-label="Bake OS — inicio">
+      <Link to={rutaInicial(perfil?.perfiles)} className="flex items-center gap-2.5" aria-label="Bake OS — inicio">
         <span className="grid h-7 w-7 place-items-center rounded-lg bg-tinta text-[13px] font-bold text-white">B</span>
         <span className="text-sm font-semibold">Bake OS</span>
         <span className="hidden text-xs capitalize text-gris sm:inline">
-          · {perfil?.rol === 'admin' ? nombreDeRol('admin') : `${nombreDeRol('operador')} · ${perfil?.sedeNombre ?? 'Sede'}`}
+          · {perfil?.rol === 'admin' ? nombreDePerfiles(perfil?.perfiles) : `${nombreDePerfiles(perfil?.perfiles)}${perfil?.sedeNombre ? ` · ${perfil.sedeNombre}` : ''}`}
         </span>
       </Link>
       <div className="flex items-center gap-2">

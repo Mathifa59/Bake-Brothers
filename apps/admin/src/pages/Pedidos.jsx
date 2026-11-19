@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Search } from 'lucide-react'
+import { puedeVerRuta, tienePerfil } from '@bakebrothers/domain'
+import { useAuth } from '../context/AuthContext'
 import { usePedidos } from '../hooks/usePedidos'
 import TablaPedidos from '../components/TablaPedidos'
 import { Cargando, ErrorCarga, Portada, Tarjeta } from '../components/bakeos/ui'
@@ -9,7 +11,12 @@ const POR_PREPARAR = ['confirmed', 'payment_pending', 'paid', 'in_production']
 const LISTOS = ['out_for_delivery']
 
 export default function Pedidos() {
-  const { pedidos, error, guardando, cambiarEstado, tomarPedido, confirmarPago, rechazarPago, perfil } = usePedidos()
+  const { perfil: cuenta } = useAuth()
+  // Caja trabaja solo con los pedidos del día; Venta digital, Administración (y el transitorio) ven el seguimiento completo.
+  const soloDelDia =
+    tienePerfil(cuenta?.perfiles, 'caja') && !tienePerfil(cuenta?.perfiles, 'venta_digital', 'empleado_temporal') && cuenta?.rol !== 'admin'
+  const puedeCrear = puedeVerRuta(cuenta?.perfiles, 'nuevo-pedido')
+  const { pedidos, error, guardando, cambiarEstado, tomarPedido, confirmarPago, rechazarPago, perfil } = usePedidos({ soloDelDia })
   const [filtro, setFiltro] = useState('todos')
   const [busqueda, setBusqueda] = useState('')
 
@@ -38,7 +45,7 @@ export default function Pedidos() {
 
   return (
     <>
-      <Portada titulo="Pedidos" subtitulo="Seguimiento multicanal" />
+      <Portada titulo={soloDelDia ? 'Pedidos del día' : 'Pedidos'} subtitulo={soloDelDia ? 'Los que se entregan hoy' : 'Seguimiento multicanal'} />
 
       <label className="mt-4 flex items-center gap-2 rounded-xl border border-borde bg-hueso px-3 py-2.5">
         <Search size={16} className="text-gris" aria-hidden="true" />
@@ -71,15 +78,17 @@ export default function Pedidos() {
       <Tarjeta className="mt-4 p-4">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
-            <p className="text-[10.5px] font-bold uppercase tracking-wide text-gris">Pedidos recientes</p>
-            <h2 className="mt-1 text-base font-semibold">Seguimiento multicanal</h2>
+            <p className="text-[10.5px] font-bold uppercase tracking-wide text-gris">{soloDelDia ? 'Entrega hoy' : 'Pedidos recientes'}</p>
+            <h2 className="mt-1 text-base font-semibold">{soloDelDia ? 'Pedidos de hoy' : 'Seguimiento multicanal'}</h2>
           </div>
-          <Link
-            to="/nuevo-pedido"
-            className="flex shrink-0 items-center gap-1.5 rounded-xl bg-tinta px-3.5 py-2.5 text-xs font-semibold text-white"
-          >
-            <Plus size={14} aria-hidden="true" /> Nuevo pedido
-          </Link>
+          {puedeCrear && (
+            <Link
+              to="/nuevo-pedido"
+              className="flex shrink-0 items-center gap-1.5 rounded-xl bg-tinta px-3.5 py-2.5 text-xs font-semibold text-white"
+            >
+              <Plus size={14} aria-hidden="true" /> Nuevo pedido
+            </Link>
+          )}
         </div>
 
         {error && <ErrorCarga mensaje={error} />}

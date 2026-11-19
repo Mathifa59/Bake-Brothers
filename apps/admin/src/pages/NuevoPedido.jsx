@@ -1,4 +1,5 @@
 import FotoProducto from '../components/bakeos/FotoProducto'
+import { veTodosLosLocales } from '@bakebrothers/domain'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { mismoTelefono, normalizarTelefono, telefonoLegible, ultimos9 } from '@bakebrothers/domain'
@@ -13,7 +14,8 @@ const METODOS_PAGO = ['yape', 'plin', 'transferencia', 'tarjeta', 'contraentrega
 
 export default function NuevoPedido() {
   const { perfil } = useAuth()
-  const esAdmin = perfil?.rol === 'admin'
+  // Administración y los perfiles sin filtro de local (nuevo_pedido) eligen el local; el resto trabaja en el suyo.
+  const eligeLocal = veTodosLosLocales(perfil?.perfiles, 'nuevo_pedido')
 
   // ————————————————————————————————————————— catálogo (una sola carga) ————
   const [productos, setProductos] = useState(null)
@@ -197,7 +199,7 @@ export default function NuevoPedido() {
   const [metodoPago, setMetodoPago] = useState('yape')
   const [yaPago, setYaPago] = useState(false)
   const [nota, setNota] = useState('')
-  const [sedeId, setSedeId] = useState(esAdmin ? '' : perfil?.sedeId ?? '')
+  const [sedeId, setSedeId] = useState(eligeLocal ? '' : perfil?.sedeId ?? '')
 
   // ————————————————————————————————————————————————————————— envío ————
   const [enviando, setEnviando] = useState(false)
@@ -239,7 +241,7 @@ export default function NuevoPedido() {
         metodoPago,
         yaPago,
         nota: nota || null,
-        ...(esAdmin ? { sedeId: sedeId || null } : {}),
+        ...(eligeLocal ? { sedeId: sedeId || null } : {}),
       }
 
       const data = await crearPedidoDashboard(payload)
@@ -447,7 +449,7 @@ export default function NuevoPedido() {
             />
           </div>
 
-          {esAdmin && (
+          {eligeLocal && (
             <div className="mt-3">
               <label className="mb-1 block text-xs font-bold text-gris">Sede</label>
               <select

@@ -1,6 +1,6 @@
 import type pg from 'pg'
 import { puedeTransicionarConversacion, type EstadoConversacion } from '@bakebrothers/domain'
-import type { OperadorAutenticado } from '../auth/verificarJwtOperador.js'
+import { veTodosLosLocalesEn, type OperadorAutenticado } from '../auth/verificarJwtOperador.js'
 import {
   asignarSedeAConversacion,
   cambiarEstadoConversacion,
@@ -39,7 +39,7 @@ export async function gestionarConversacion(
   const conversacion = await conversacionPorId(client, tenantId, conversacionId)
   if (!conversacion) return { ok: false, error: 'CONVERSACION_NO_ENCONTRADA' }
 
-  if (operador.rol !== 'admin' && conversacion.sedeId !== null && conversacion.sedeId !== operador.sedeId) {
+  if (!veTodosLosLocalesEn(operador, 'conversaciones') && conversacion.sedeId !== null && conversacion.sedeId !== operador.sedeId) {
     return { ok: false, error: 'SIN_ACCESO_A_LA_CONVERSACION' }
   }
 
@@ -51,7 +51,7 @@ export async function gestionarConversacion(
 
   let sedeAAsignar: string | null = null
   if (accion === 'tomar' && conversacion.sedeId === null) {
-    if (operador.rol === 'admin') {
+    if (veTodosLosLocalesEn(operador, 'conversaciones')) {
       if (opciones.sedeId) {
         const { rows } = await client.query(`select id from sedes where id = $1 and activo`, [opciones.sedeId])
         if (!rows[0]) return { ok: false, error: 'SEDE_NO_VALIDA' }

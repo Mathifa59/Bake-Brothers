@@ -4,6 +4,7 @@ import { pool, withTenantTx } from '../db.js'
 import { descargarMediaWhatsApp, enviarMensajeMeta } from './meta.js'
 import { leerComprobanteDePago } from './capturaPago.js'
 import { registrarPagoReportado } from '../services/pagoReportado.js'
+import { avisarAlEquipo } from '../services/avisos.js'
 import type { MensajeWhatsAppEntrante } from './parsearMensajesWhatsApp.js'
 
 /**
@@ -70,7 +71,7 @@ export async function procesarCapturaWhatsApp(
     const media = await descargarMediaWhatsApp(mensaje.phoneNumberId, mensaje.imagen.mediaId)
     const extraccion = await leerComprobanteDePago(media)
 
-    const { respuesta } = await withTenantTx(tenantId, async (client) => {
+    const { respuesta, avisoPago } = await withTenantTx(tenantId, async (client) => {
       // 1) No es un comprobante (una foto de referencia de una torta, un meme…): lo ve una persona.
       if (!extraccion.esComprobante) {
         const antes = await estadoDe(client, conversacionId)
@@ -79,7 +80,7 @@ export async function procesarCapturaWhatsApp(
         ]
         if (antes === 'activa') entradas.push({ rol: 'bot', texto: RESPUESTA_IMAGEN_A_UNA_PERSONA })
         await anotarEnHistorial(client, conversacionId, entradas, 'El cliente mandó una imagen que no es un comprobante de pago (¿referencia de diseño?).')
-        return { respuesta: antes === 'activa' ? RESPUESTA_IMAGEN_A_UNA_PERSONA : null }
+        return { respuesta: antes === 'activa' ? RESPUESTA_IMAGEN_A_UNA_PERSONA : null, avisoPago: null }
       }
 
       // 2) Es un comprobante: se deja como pago reportado en su pedido pendiente.
@@ -98,7 +99,7 @@ export async function procesarCapturaWhatsApp(
         ]
         if (antes === 'activa') entradas.push({ rol: 'bot', texto: RESPUESTA_CAPTURA_RECIBIDA })
         await anotarEnHistorial(client, conversacionId, entradas, 'Llegó una captura de pago pero no hay un pedido pendiente de pago en la conversación.')
-        return { respuesta: antes === 'activa' ? RESPUESTA_CAPTURA_RECIBIDA : null }
+        return { respuesta: antes === 'activa' ? RESPUESTA_CAPTURA_RECIBIDA : null, avisoPago: null }
       }
 
       const revision = resultado.evaluacion.requiereRevision ? ` · REVISAR: ${resultado.evaluacion.motivos.join(' ')}` : ''
@@ -107,8 +108,28 @@ export async function procesarCapturaWhatsApp(
       ]
       if (antes === 'activa') entradas.push({ rol: 'bot', texto: RESPUESTA_CAPTURA_RECIBIDA })
       await anotarEnHistorial(client, conversacionId, entradas)
-      return { respuesta: antes === 'activa' ? RESPUESTA_CAPTURA_RECIBIDA : null }
+      const sede = await client.query(`select sede_id from orders where numero = $1`, [resultado.numeroPedido])
+      return {
+        respuesta: antes === 'activa' ? RESPUESTA_CAPTURA_RECIBIDA : null,
+        avisoPago: {
+          numero: resultado.numeroPedido,
+          sedeId: (sede.rows[0]?.sede_id as string | null | undefined) ?? null,
+          resumen: `${datos}${resultado.evaluacion.requiereRevision ? ' · REVISAR' : ''}`,
+        },
+      }
     })
+
+    // Una persona tiene que confirmar este pago: se avisa a quien tiene activo el «aviso de pagos» (campana y push).
+    if (avisoPago) {
+      await avisarAlEquipo(logger, {
+        tipo: 'pago_reportado',
+        titulo: `Pago por confirmar · ${avisoPago.numero}`,
+        cuerpo: avisoPago.resumen,
+        conversacionId,
+        sedeId: avisoPago.sedeId,
+        url: '/#/pedidos',
+      })
+    }
 
     if (respuesta) await enviarMensajeMeta('whatsapp', mensaje.phoneNumberId, mensaje.telefono, respuesta)
   } catch (err) {

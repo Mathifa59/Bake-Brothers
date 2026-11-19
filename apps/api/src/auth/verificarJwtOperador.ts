@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { createRemoteJWKSet, jwtVerify } from 'jose'
+import { esAdministracion, perfilesEfectivos, tienePerfil, veTodosLosLocales, type AreaDeLocal, type Perfil } from '@bakebrothers/domain'
 import { pool } from '../db.js'
 
 /**
@@ -17,8 +18,11 @@ const JWKS = createRemoteJWKSet(new URL(`${SUPABASE_URL}/auth/v1/.well-known/jwk
 
 export interface OperadorAutenticado {
   id: string
+  /** Derivado de los perfiles: 'admin' si y solo si tiene Administración. */
   rol: 'admin' | 'operador'
   sedeId: string | null
+  /** Perfiles de la cuenta (0054). Sin la migración, se derivan del rol. */
+  perfiles: Perfil[]
 }
 
 declare module 'fastify' {
@@ -50,16 +54,27 @@ export async function verificarJwtOperador(req: FastifyRequest, reply: FastifyRe
     return reply.code(401).send({ error: 'TOKEN_INVALIDO' })
   }
 
-  const { rows } = await pool.query<{ rol: string; sede_id: string | null }>(
-    `select rol, sede_id from usuarios_dashboard where id = $1`,
-    [sub]
-  )
-  const fila = rows[0]
+  const fila = await leerCuenta(sub)
   if (!fila || (fila.rol !== 'admin' && fila.rol !== 'operador')) {
     return reply.code(403).send({ error: 'SIN_ACCESO_AL_PANEL' })
   }
 
-  req.operador = { id: sub, rol: fila.rol, sedeId: fila.sede_id }
+  req.operador = { id: sub, rol: fila.rol, sedeId: fila.sede_id, perfiles: perfilesEfectivos(fila.rol, fila.perfiles) }
+}
+
+/**
+ * Rol, local y perfiles de la cuenta. Si la API se despliega antes que la migración 0054 (la columna `perfiles` aún
+ * no existe, 42703), se lee sin ella y los perfiles se derivan del rol: nadie queda sin acceso por el orden del deploy.
+ */
+async function leerCuenta(id: string): Promise<{ rol: string; sede_id: string | null; perfiles: string[] | null } | undefined> {
+  try {
+    const { rows } = await pool.query(`select rol, sede_id, perfiles from usuarios_dashboard where id = $1`, [id])
+    return rows[0]
+  } catch (err) {
+    if ((err as { code?: string }).code !== '42703') throw err
+    const { rows } = await pool.query(`select rol, sede_id from usuarios_dashboard where id = $1`, [id])
+    return rows[0] ? { ...rows[0], perfiles: null } : undefined
+  }
 }
 
 /** preHandler adicional, SIEMPRE después de verificarJwtOperador: solo admin (ej. conectar números de WhatsApp). El rol sale de usuarios_dashboard, nunca del cliente. */
@@ -68,3 +83,20 @@ export async function exigirAdmin(req: FastifyRequest, reply: FastifyReply) {
     return reply.code(403).send({ error: 'SOLO_ADMIN' })
   }
 }
+
+/**
+ * preHandler: la cuenta tiene que tener alguno de estos perfiles (Administración cuenta siempre). SIEMPRE después de
+ * verificarJwtOperador. Es la barrera de la API; la de los datos es la RLS (0054).
+ */
+export function exigirPerfil(...perfiles: Perfil[]) {
+  return async function exigirPerfilDe(req: FastifyRequest, reply: FastifyReply) {
+    if (!tienePerfil(req.operador?.perfiles, ...perfiles)) {
+      return reply.code(403).send({ error: 'SIN_PERFIL_PARA_ESTA_ACCION' })
+    }
+  }
+}
+
+/** ¿Esta cuenta trabaja sin filtro de local en esta área? (Administración, Venta digital en conversaciones, Órdenes en órdenes…) */
+export const veTodosLosLocalesEn = (operador: OperadorAutenticado, area: AreaDeLocal): boolean => veTodosLosLocales(operador.perfiles, area)
+
+export { esAdministracion }

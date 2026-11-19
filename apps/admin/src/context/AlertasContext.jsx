@@ -1,5 +1,6 @@
 import { createContext, useContext, useMemo } from 'react'
-import { construirAlertas, fechaLimaISO } from '@bakebrothers/domain'
+import { construirAlertas, esAdministracion, fechaLimaISO } from '@bakebrothers/domain'
+import { useAuth } from './AuthContext'
 import { supabase } from '../lib/supabase'
 import { traerTodo, useAhora, useDatosVivos } from '../lib/datos'
 
@@ -66,9 +67,13 @@ async function cargarAlertas() {
  */
 export function AlertasProvider({ children }) {
   const ahora = useAhora(60_000)
-  const { datos, error, cargando, recargar } = useDatosVivos(cargarAlertas, {
-    tablas: ['orders', 'conversaciones'],
-    refrescarCadaMs: 60_000,
+  // Las alertas (Control Tower, Resumen) son de Administración: las demás cuentas no las ven, así que ni se consultan
+  // (además la base ya no les deja leer conversaciones ni stock).
+  const { perfil } = useAuth()
+  const esAdmin = esAdministracion(perfil?.perfiles)
+  const { datos, error, cargando, recargar } = useDatosVivos(() => (esAdmin ? cargarAlertas() : Promise.resolve(null)), {
+    tablas: esAdmin ? ['orders', 'conversaciones'] : [],
+    refrescarCadaMs: esAdmin ? 60_000 : 0,
   })
 
   const alertas = useMemo(

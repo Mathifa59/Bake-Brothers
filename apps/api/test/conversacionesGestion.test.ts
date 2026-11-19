@@ -71,9 +71,9 @@ describe.skipIf(!hayBaseDeDatosReal)('bandeja de Conversaciones — gestión y r
     return conv
   }
 
-  const empleadoDeA = () => ({ id: USUARIO_LUIS, rol: 'operador' as const, sedeId: sedeA })
-  const empleadoDeB = () => ({ id: '44444444-0000-0000-0000-000000000002', rol: 'operador' as const, sedeId: sedeB })
-  const admin = () => ({ id: '44444444-0000-0000-0000-000000000003', rol: 'admin' as const, sedeId: null })
+  const empleadoDeA = () => ({ id: USUARIO_LUIS, rol: 'operador' as const, sedeId: sedeA, perfiles: ['empleado_temporal' as const] })
+  const empleadoDeB = () => ({ id: '44444444-0000-0000-0000-000000000002', rol: 'operador' as const, sedeId: sedeB, perfiles: ['empleado_temporal' as const] })
+  const admin = () => ({ id: '44444444-0000-0000-0000-000000000003', rol: 'admin' as const, sedeId: null, perfiles: ['administracion' as const] })
 
   const enTransaccion = async (fn: () => Promise<void>) => {
     await client.query('begin')

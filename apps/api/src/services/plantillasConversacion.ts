@@ -6,7 +6,7 @@ import {
   type EstadoConversacion,
   type PlantillaWhatsApp,
 } from '@bakebrothers/domain'
-import type { OperadorAutenticado } from '../auth/verificarJwtOperador.js'
+import { veTodosLosLocalesEn, type OperadorAutenticado } from '../auth/verificarJwtOperador.js'
 import {
   agregarMensajeOperador,
   conversacionPorId,
@@ -32,7 +32,7 @@ type Preparado = { ok: true; conversacion: ConversacionParaResponder; phoneNumbe
 async function prepararEnvio(client: pg.PoolClient, tenantId: string, operador: OperadorAutenticado, conversacionId: string): Promise<Preparado> {
   const conversacion = await conversacionPorId(client, tenantId, conversacionId)
   if (!conversacion) return { ok: false, error: 'CONVERSACION_NO_ENCONTRADA' }
-  if (operador.rol !== 'admin' && conversacion.sedeId !== null && conversacion.sedeId !== operador.sedeId) {
+  if (!veTodosLosLocalesEn(operador, 'conversaciones') && conversacion.sedeId !== null && conversacion.sedeId !== operador.sedeId) {
     return { ok: false, error: 'SIN_ACCESO_A_LA_CONVERSACION' }
   }
   if (conversacion.canal !== 'whatsapp') return { ok: false, error: 'PLANTILLAS_SOLO_WHATSAPP' }

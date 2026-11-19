@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ChevronRight, Users } from 'lucide-react'
-import { COMPRAS_FRECUENTE, DIAS_SIN_COMPRAR, segmentarClientes, telefonoLegible } from '@bakebrothers/domain'
+import { COMPRAS_FRECUENTE, DIAS_SIN_COMPRAR, segmentarClientes, telefonoLegible, veClientesCompleto } from '@bakebrothers/domain'
+import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { traerTodo, useDatosVivos } from '../lib/datos'
 import { usePedidos } from '../hooks/usePedidos'
@@ -43,6 +44,11 @@ const VISTAS = [
 ]
 
 export default function Clientes() {
+  // Clientes completo (segmentos, base de contactos, «solo en la lista») es de Administración. Venta digital ve la
+  // versión reducida: buscar a un cliente y ver sus pedidos, de todos los locales. Lo que puede LEER ya lo limita la
+  // base (solo clientes con pedidos o conversaciones; no los contactos de la agenda).
+  const { perfil: cuenta } = useAuth()
+  const completo = veClientesCompleto(cuenta?.perfiles)
   const { datos, error } = useDatosVivos(cargarClientes, { tablas: ['orders'] })
   const [seleccionado, setSeleccionado] = useState(null) // { id, nombre }
   const [segmentoId, setSegmentoId] = useState(null)
@@ -102,65 +108,78 @@ export default function Clientes() {
 
   return (
     <>
-      <Portada titulo="Clientes" subtitulo="CRM y recompra" />
+      <Portada titulo="Clientes" subtitulo={completo ? 'CRM y recompra' : 'Busca un cliente y mira sus pedidos'} />
 
       {error && <ErrorCarga mensaje={error} />}
       {!datos && !error && <Cargando texto="Cargando clientes…" />}
 
       {datos && (
         <>
-          <Hero className="mt-5">
-            <span className="grid h-12 w-12 place-items-center rounded-full border border-white/20 text-acento">
-              <Users size={22} aria-hidden="true" />
-            </span>
-            <p className="mt-4 text-[11px] font-bold uppercase tracking-widest text-acento">Base de clientes</p>
-            <h2 className="mt-1 text-2xl font-semibold leading-snug">
-              {totales.total.toLocaleString('es-PE')} contacto{totales.total === 1 ? '' : 's'}
-            </h2>
-            <p className="mt-2 text-sm leading-relaxed text-white/70">
-              {totales.conPedidos.toLocaleString('es-PE')} con pedidos · {totales.contactos.toLocaleString('es-PE')} solo en la lista.
-              Los segmentos se calculan con los pedidos reales de tu alcance.
-            </p>
-          </Hero>
+          {completo ? (
+            <Hero className="mt-5">
+              <span className="grid h-12 w-12 place-items-center rounded-full border border-white/20 text-acento">
+                <Users size={22} aria-hidden="true" />
+              </span>
+              <p className="mt-4 text-[11px] font-bold uppercase tracking-widest text-acento">Base de clientes</p>
+              <h2 className="mt-1 text-2xl font-semibold leading-snug">
+                {totales.total.toLocaleString('es-PE')} contacto{totales.total === 1 ? '' : 's'}
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-white/70">
+                {totales.conPedidos.toLocaleString('es-PE')} con pedidos · {totales.contactos.toLocaleString('es-PE')} solo en la lista.
+                Los segmentos se calculan con los pedidos reales de tu alcance.
+              </p>
+            </Hero>
+          ) : (
+            <Tarjeta className="mt-5 flex items-center gap-3 p-4">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-acento-suave text-acento-oscuro">
+                <Users size={18} aria-hidden="true" />
+              </span>
+              <p className="text-sm">
+                <span className="font-semibold">{totales.total.toLocaleString('es-PE')}</span> cliente{totales.total === 1 ? '' : 's'} con pedidos o conversaciones
+              </p>
+            </Tarjeta>
+          )}
 
-          <Tarjeta className="mt-4 p-4">
-            <EncabezadoBloque etiqueta="Segmentos útiles" titulo="Audiencias para esta semana" />
-            <ul className="divide-y divide-borde">
-              {SEGMENTOS.map((s) => {
-                const activo = segmentoId === s.id
-                return (
-                  <li key={s.id}>
-                    <button
-                      type="button"
-                      onClick={() => setSegmentoId(activo ? null : s.id)}
-                      aria-pressed={activo}
-                      className={`flex w-full items-center gap-3 rounded-lg py-3 text-left ${activo ? 'bg-acento-suave/60' : ''}`}
-                    >
-                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-acento-suave text-sm font-bold text-acento-oscuro">
-                        {s.letra}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-semibold leading-snug">{s.titulo}</span>
-                        <span className="block text-xs text-gris">{s.detalle}</span>
-                      </span>
-                      <span className="text-sm font-bold">{segmentos[s.clave].size}</span>
-                      <ChevronRight size={16} className="shrink-0 text-gris" aria-hidden="true" />
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-            {segmentoId && (
-              <button type="button" onClick={() => setSegmentoId(null)} className="mt-2 text-xs font-semibold text-acento-oscuro">
-                Quitar filtro
-              </button>
-            )}
-          </Tarjeta>
+          {completo && (
+            <Tarjeta className="mt-4 p-4">
+              <EncabezadoBloque etiqueta="Segmentos útiles" titulo="Audiencias para esta semana" />
+              <ul className="divide-y divide-borde">
+                {SEGMENTOS.map((s) => {
+                  const activo = segmentoId === s.id
+                  return (
+                    <li key={s.id}>
+                      <button
+                        type="button"
+                        onClick={() => setSegmentoId(activo ? null : s.id)}
+                        aria-pressed={activo}
+                        className={`flex w-full items-center gap-3 rounded-lg py-3 text-left ${activo ? 'bg-acento-suave/60' : ''}`}
+                      >
+                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-acento-suave text-sm font-bold text-acento-oscuro">
+                          {s.letra}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-semibold leading-snug">{s.titulo}</span>
+                          <span className="block text-xs text-gris">{s.detalle}</span>
+                        </span>
+                        <span className="text-sm font-bold">{segmentos[s.clave].size}</span>
+                        <ChevronRight size={16} className="shrink-0 text-gris" aria-hidden="true" />
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+              {segmentoId && (
+                <button type="button" onClick={() => setSegmentoId(null)} className="mt-2 text-xs font-semibold text-acento-oscuro">
+                  Quitar filtro
+                </button>
+              )}
+            </Tarjeta>
+          )}
 
           <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
             <Tarjeta className="p-0">
               <p className="px-4 pt-4 text-[10.5px] font-bold uppercase tracking-wide text-gris">
-                {segmentoId ? SEGMENTOS.find((s) => s.id === segmentoId).titulo : 'Todos los clientes'} · {filtrados.length.toLocaleString('es-PE')}
+                {segmentoId ? SEGMENTOS.find((s) => s.id === segmentoId).titulo : completo ? 'Todos los clientes' : 'Clientes'} · {filtrados.length.toLocaleString('es-PE')}
               </p>
               <div className="px-4 pt-2">
                 <input
@@ -171,21 +190,23 @@ export default function Clientes() {
                   aria-label="Buscar cliente por nombre o teléfono"
                   className="w-full rounded-lg border border-borde bg-hueso px-3 py-2 text-sm"
                 />
-                <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Qué clientes ver">
-                  {VISTAS.map((v) => (
-                    <button
-                      key={v.id}
-                      type="button"
-                      onClick={() => setVista(v.id)}
-                      aria-pressed={vista === v.id}
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                        vista === v.id ? 'bg-tinta text-white' : 'bg-hueso text-gris hover:text-tinta'
-                      }`}
-                    >
-                      {v.etiqueta}
-                    </button>
-                  ))}
-                </div>
+                {completo && (
+                  <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Qué clientes ver">
+                    {VISTAS.map((v) => (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => setVista(v.id)}
+                        aria-pressed={vista === v.id}
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          vista === v.id ? 'bg-tinta text-white' : 'bg-hueso text-gris hover:text-tinta'
+                        }`}
+                      >
+                        {v.etiqueta}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               {visibles.length === 0 ? (
                 <p className="p-4 text-sm text-gris">No hay clientes en este grupo todavía.</p>

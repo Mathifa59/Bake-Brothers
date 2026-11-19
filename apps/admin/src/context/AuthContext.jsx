@@ -1,10 +1,11 @@
 import { createContext, useContext, useEffect, useState } from 'react'
+import { perfilesEfectivos } from '@bakebrothers/domain'
 import { supabase, CLAVE_DEFINIR_CONTRASENA } from '../lib/supabase'
 
 const AuthContext = createContext(null)
 
 // session: la sesión de Supabase Auth (null = no logueado).
-// perfil: { rol, sedeId, sedeNombre, nombre } leído de usuarios_dashboard tras el login — null
+// perfil: { rol, perfiles, sedeId, sedeNombre, nombre, avisaOrdenes, avisaPagos } leído de usuarios_dashboard tras el login — null
 // mientras carga, o si el usuario se autenticó pero no tiene fila ahí (no
 // tiene acceso al panel, aunque su login en Supabase Auth sea válido).
 export function AuthProvider({ children }) {
@@ -59,16 +60,23 @@ export function AuthProvider({ children }) {
       setPerfilDe(null)
       return
     }
-    // `nombre` (migración 0031) es opcional. Si el panel llega a producción
-    // antes que esa migración, la consulta con la columna falla — en vez de
-    // dejar a todo el equipo sin acceso, se reintenta sin ella (saludo
-    // genérico) hasta que la migración esté aplicada.
+    // `nombre` (migración 0031) y `perfiles`/avisos (migración 0054) son opcionales. Si el panel llega a producción
+    // antes que esas migraciones, la consulta con las columnas nuevas falla — en vez de dejar a todo el equipo sin
+    // acceso, se reintenta con menos columnas (saludo genérico, y los perfiles se derivan del rol) hasta que la
+    // migración esté aplicada.
     const leerPerfil = async () => {
       const consulta = (columnas) =>
         supabase.from('usuarios_dashboard').select(columnas).eq('id', userId).maybeSingle()
-      let { data, error } = await consulta('rol, sede_id, nombre, sedes(nombre)')
-      if (error && /nombre/i.test(error.message) && /column|columna/i.test(error.message)) {
-        ;({ data, error } = await consulta('rol, sede_id, sedes(nombre)'))
+      const intentos = [
+        'rol, perfiles, sede_id, nombre, avisa_ordenes, avisa_pagos, sedes(nombre)',
+        'rol, sede_id, nombre, sedes(nombre)',
+        'rol, sede_id, sedes(nombre)',
+      ]
+      let data = null
+      let error = null
+      for (const columnas of intentos) {
+        ;({ data, error } = await consulta(columnas))
+        if (!(error && /column|columna/i.test(error.message))) break
       }
       if (error) {
         console.error('No se pudo leer usuarios_dashboard', error)
@@ -76,7 +84,15 @@ export function AuthProvider({ children }) {
       } else {
         setPerfil(
           data
-            ? { rol: data.rol, sedeId: data.sede_id, sedeNombre: data.sedes?.nombre ?? null, nombre: data.nombre ?? null }
+            ? {
+                rol: data.rol,
+                perfiles: perfilesEfectivos(data.rol, data.perfiles),
+                sedeId: data.sede_id,
+                sedeNombre: data.sedes?.nombre ?? null,
+                nombre: data.nombre ?? null,
+                avisaOrdenes: Boolean(data.avisa_ordenes),
+                avisaPagos: Boolean(data.avisa_pagos),
+              }
             : null
         )
       }

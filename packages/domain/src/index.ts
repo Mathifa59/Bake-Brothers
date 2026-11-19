@@ -144,7 +144,27 @@ export {
   type ComparacionMifact,
 } from './mifact.js'
 
-export { RUTAS_DE_EMPLEADO, puedeVerRuta, rutaInicial, nombreDeRol, type RolPanel } from "./permisosPanel.js"
+export {
+  PERFILES,
+  NOMBRE_DE_PERFIL,
+  RUTAS_COMUNES,
+  RUTAS_POR_PERFIL,
+  RUTAS_DE_EMPLEADO,
+  PERFILES_SIN_FILTRO_DE_LOCAL,
+  esPerfil,
+  perfilesEfectivos,
+  esAdministracion,
+  tienePerfil,
+  puedeVerRuta,
+  rutaInicial,
+  veTodosLosLocales,
+  veClientesCompleto,
+  nombreDePerfiles,
+  nombreDeRol,
+  type RolPanel,
+  type Perfil,
+  type AreaDeLocal,
+} from "./permisosPanel.js"
 export { HORAS_VENTANA_WHATSAPP, estadoVentana24h, ultimoMensajeDelCliente, type EstadoVentana, type MensajeConHora } from "./ventanaWhatsApp.js"
 export {
   normalizarPlantillaMeta,

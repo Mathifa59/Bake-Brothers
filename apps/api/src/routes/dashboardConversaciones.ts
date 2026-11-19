@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { withTenantTx } from '../db.js'
-import { exigirAdmin, verificarJwtOperador } from '../auth/verificarJwtOperador.js'
+import { exigirAdmin, exigirPerfil, verificarJwtOperador } from '../auth/verificarJwtOperador.js'
 import { responderConversacion } from '../services/responderConversacion.js'
 import { enviarPlantillaConversacion, plantillasDeConversacion } from '../services/plantillasConversacion.js'
 import { asignarSedeDeConversacion, gestionarConversacion, type AccionConversacion } from '../services/gestionarConversacion.js'
@@ -42,9 +42,12 @@ const idSchema = z.object({ id: z.string().uuid() })
 
 /** Rutas del puente apps/admin → apps/api para la bandeja de Conversaciones. Exigen JWT real — ver auth/verificarJwtOperador.ts. */
 export function dashboardConversacionesRoutes(app: FastifyInstance) {
+  // Venta digital y Administración (y el empleado transitorio de las cuentas anteriores, en su local).
+  const atiendeConversaciones = [verificarJwtOperador, exigirPerfil('venta_digital', 'empleado_temporal')]
+
   app.post(
     '/api/dashboard/conversaciones/:id/responder',
-    { preHandler: verificarJwtOperador },
+    { preHandler: atiendeConversaciones },
     async (req, reply) => {
       const { id } = idSchema.parse(req.params)
       const { texto } = responderConversacionSchema.parse(req.body)
@@ -64,7 +67,7 @@ export function dashboardConversacionesRoutes(app: FastifyInstance) {
 
   // Plantillas aprobadas de Meta: se leen de Meta (no se escriben a mano) y sirven para escribirle a un cliente cuya
   // ventana de 24 horas ya cerró. El envío valida contra la lista real de Meta.
-  app.get('/api/dashboard/conversaciones/:id/plantillas', { preHandler: verificarJwtOperador }, async (req, reply) => {
+  app.get('/api/dashboard/conversaciones/:id/plantillas', { preHandler: atiendeConversaciones }, async (req, reply) => {
     const { id } = idSchema.parse(req.params)
     const operador = req.operador!
     const resultado = await withTenantTx(req.tenantId, (client) => plantillasDeConversacion(client, req.tenantId, operador, id))
@@ -72,7 +75,7 @@ export function dashboardConversacionesRoutes(app: FastifyInstance) {
     return reply.code(200).send(resultado)
   })
 
-  app.post('/api/dashboard/conversaciones/:id/plantilla', { preHandler: verificarJwtOperador }, async (req, reply) => {
+  app.post('/api/dashboard/conversaciones/:id/plantilla', { preHandler: atiendeConversaciones }, async (req, reply) => {
     const { id } = idSchema.parse(req.params)
     const entrada = plantillaSchema.parse(req.body)
     const operador = req.operador!
@@ -84,7 +87,7 @@ export function dashboardConversacionesRoutes(app: FastifyInstance) {
   // Tomar / devolver al bot / cerrar. Solo cambian el estado de la conversación (y, al tomar una sin local, le
   // ponen el local de quien la toma); no mandan ningún mensaje.
   for (const accion of ['tomar', 'devolver', 'cerrar'] as AccionConversacion[]) {
-    app.post(`/api/dashboard/conversaciones/:id/${accion}`, { preHandler: verificarJwtOperador }, async (req, reply) => {
+    app.post(`/api/dashboard/conversaciones/:id/${accion}`, { preHandler: atiendeConversaciones }, async (req, reply) => {
       const { id } = idSchema.parse(req.params)
       const { sedeId } = z.object({ sedeId: z.string().uuid().nullish() }).parse(req.body ?? {})
       const operador = req.operador!

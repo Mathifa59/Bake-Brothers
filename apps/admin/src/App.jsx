@@ -43,9 +43,9 @@ function ConGuardia({ children }) {
       </div>
     )
   }
-  // Un empleado solo abre Pedidos, Órdenes, Conversaciones y Stock; cualquier otra ruta lo devuelve a su inicio.
+  // Cada perfil abre solo lo suyo (ver packages/domain/permisosPanel.ts); cualquier otra ruta lo devuelve a su inicio.
   // (El bloqueo real de los datos está en la base y en la API; esto evita pantallas vacías o con errores.)
-  if (!puedeVerRuta(perfil.rol, pathname)) return <Navigate to={rutaInicial(perfil.rol)} replace />
+  if (!puedeVerRuta(perfil.perfiles, pathname)) return <Navigate to={rutaInicial(perfil.perfiles)} replace />
   return <LayoutBakeOS>{children}</LayoutBakeOS>
 }
 
@@ -56,12 +56,12 @@ function RutaLogin() {
   return <Login />
 }
 
-// Pantalla de entrada según el rol: dirección al Resumen, un empleado a Pedidos.
+// Pantalla de entrada según el perfil: Administración al Resumen, Venta digital a Conversaciones, etc.
 function Inicio() {
   const { session, perfil, cargando } = useAuth()
   if (cargando) return null
   if (!session) return <Navigate to="/login" replace />
-  return <Navigate to={rutaInicial(perfil?.rol)} replace />
+  return <Navigate to={rutaInicial(perfil?.perfiles)} replace />
 }
 
 const protegida = (elemento) => <ConGuardia>{elemento}</ConGuardia>

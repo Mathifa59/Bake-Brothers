@@ -340,6 +340,10 @@ describe.skipIf(!hayBaseDeDatosReal)('captura de pago (Postgres real)', () => {
       const { rows } = await client.query(`select historial, estado from conversaciones where id = $1`, [conv])
       expect(rows[0].estado).toBe('activa')
       expect(rows[0].historial[0].texto).toMatch(/Captura de pago: S\/ 25\.90.*Op\. 123456789.*pedido CAP-7/)
+
+      // Una persona tiene que confirmar este pago: queda un aviso «pago reportado» (a quien tiene activo el aviso de pagos).
+      const avisos = (await client.query(`select tipo, titulo from avisos where conversacion_id = $1`, [conv])).rows
+      expect(avisos).toEqual([{ tipo: 'pago_reportado', titulo: 'Pago por confirmar · CAP-7' }])
     })
 
     it('conversación escalada (una persona la tiene): lee y reporta igual, pero el bot NO responde nada', async () => {

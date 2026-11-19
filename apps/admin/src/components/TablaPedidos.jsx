@@ -1,4 +1,5 @@
 import { Fragment } from 'react'
+import { tienePerfil } from '@bakebrothers/domain'
 import { ESTADOS_PEDIDO, puedeTransicionar } from '@bakebrothers/domain'
 import { palabraDeEstado } from '../utils/estadosPedido'
 import { formatoPrecio } from '../utils/formato'
@@ -111,7 +112,9 @@ function PagoReportado({ pedido, guardando, bloqueado, onConfirmar, onRechazar }
 }
 
 // Un operador no puede cambiar el estado de un pedido sin sede hasta tomarlo (lo exige la RLS, 0035).
-const estadoBloqueado = (pedido, perfil) => !pedido.sede_id && perfil?.rol !== 'admin'
+// Un pedido sin local (delivery) lo mueve Administración o Venta digital (que atiende los dos locales); el resto de
+// las cuentas primero lo toma («Me lo quedo») y recién entonces es de su local.
+const estadoBloqueado = (pedido, perfil) => !pedido.sede_id && !tienePerfil(perfil?.perfiles, 'venta_digital')
 
 function EtiquetaCombo({ pedido }) {
   if (!pedido.requiere_confirmar_combo) return null

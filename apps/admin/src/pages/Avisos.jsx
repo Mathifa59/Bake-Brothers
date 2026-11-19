@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { BellRing, MessageCircle, ShoppingBag, UserRound } from 'lucide-react'
+import { Banknote, BellRing, ClipboardList, MessageCircle, ShoppingBag, UserRound } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useAlertas } from '../context/AlertasContext'
 import { useAvisos } from '../context/AvisosContext'
@@ -8,6 +8,23 @@ import { useAhora } from '../lib/datos'
 import { haceCuanto } from '../utils/conversaciones'
 import { Cargando, ErrorCarga, Pill, Portada, Tarjeta } from '../components/bakeos/ui'
 import AvisosCelular from '../components/bakeos/AvisosCelular'
+
+const ICONO_DE_AVISO = {
+  esperando_persona: UserRound,
+  pedido_nuevo: ShoppingBag,
+  orden_nueva: ClipboardList,
+  pago_reportado: Banknote,
+  mensaje_nuevo: MessageCircle,
+}
+// Los que piden que una persona haga algo ya (se resaltan con el color de la marca).
+const TIPOS_DE_ATENCION = ['esperando_persona', 'pedido_nuevo', 'orden_nueva', 'pago_reportado']
+
+/** A dónde lleva tocar un aviso: la conversación, la pantalla de órdenes o la de pedidos (donde se confirma el pago). */
+function destinoDelAviso(a) {
+  if (a.tipo === 'orden_nueva') return '/ordenes'
+  if (a.tipo === 'pago_reportado') return '/pedidos'
+  return a.conversacion_id ? `/conversaciones?c=${a.conversacion_id}` : '/conversaciones'
+}
 
 /** Centro de avisos (la campana): lo que entró y una persona tiene que atender, lo más nuevo arriba. */
 export default function Avisos() {
@@ -48,22 +65,22 @@ export default function Avisos() {
         {error && <ErrorCarga mensaje={`No se pudieron cargar los avisos: ${error}`} />}
         {!avisos && !error && <Cargando texto="Cargando avisos…" />}
         {avisos && avisos.length === 0 && (
-          <Tarjeta className="text-center text-sm text-gris">Todavía no hay avisos. Cuando entre un mensaje que espere a una persona, aparece aquí.</Tarjeta>
+          <Tarjeta className="text-center text-sm text-gris">Todavía no hay avisos. Cuando entre algo que una persona tenga que atender, aparece aquí.</Tarjeta>
         )}
         {avisos && avisos.length > 0 && (
           <ul className="space-y-2">
             {avisos.map((a) => {
-              const Icono = a.tipo === 'esperando_persona' ? UserRound : a.tipo === 'pedido_nuevo' ? ShoppingBag : MessageCircle
+              const Icono = ICONO_DE_AVISO[a.tipo] ?? MessageCircle
               return (
                 <li key={a.id}>
                   <button
                     type="button"
-                    onClick={() => navigate(a.conversacion_id ? `/conversaciones?c=${a.conversacion_id}` : '/conversaciones')}
+                    onClick={() => navigate(destinoDelAviso(a))}
                     className={`flex w-full items-start gap-3 rounded-2xl border p-3.5 text-left transition-colors ${
                       esNuevo(a) ? 'border-acento bg-acento-suave' : 'border-borde bg-hueso'
                     }`}
                   >
-                    <span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl ${a.tipo === 'esperando_persona' || a.tipo === 'pedido_nuevo' ? 'bg-acento-suave text-acento-oscuro' : 'bg-lila-suave text-lila'}`}>
+                    <span className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl ${TIPOS_DE_ATENCION.includes(a.tipo) ? 'bg-acento-suave text-acento-oscuro' : 'bg-lila-suave text-lila'}`}>
                       <Icono size={18} aria-hidden="true" />
                     </span>
                     <span className="min-w-0 flex-1">

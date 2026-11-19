@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Plus } from 'lucide-react'
+import { puedeVerRuta } from '@bakebrothers/domain'
+import { useAuth } from '../../context/AuthContext'
 import { useAhora } from '../../lib/datos'
 import { fechaPortada } from '../../utils/formato'
 
@@ -59,12 +61,15 @@ export function Kpi({ icono: Icono, tono = 'naranja', etiqueta, valor, detalle }
 /** Portada de cada sección: fecha en hora de Lima (naranja), título grande, subtítulo y "Acción rápida" (nuevo pedido). */
 export function Portada({ titulo, subtitulo, accion = true, children }) {
   const ahora = useAhora(30_000)
+  // «Acción rápida» abre Nuevo pedido: solo para quien puede abrir esa pantalla.
+  const { perfil } = useAuth()
+  const conAccion = accion && puedeVerRuta(perfil?.perfiles, 'nuevo-pedido')
   return (
     <section className="pb-1 pt-5">
       <p className="text-[11px] font-bold tracking-wider text-acento-oscuro">{fechaPortada(ahora)}</p>
       <h1 className="mt-3 text-[28px] font-bold leading-tight tracking-tight">{titulo}</h1>
       {subtitulo && <p className="mt-1 text-sm text-gris">{subtitulo}</p>}
-      {accion && (
+      {conAccion && (
         <Link
           to="/nuevo-pedido"
           className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-tinta px-4 py-3.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"

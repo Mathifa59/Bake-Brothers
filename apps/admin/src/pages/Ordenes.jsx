@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { veTodosLosLocales } from '@bakebrothers/domain'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, Plus } from 'lucide-react'
 import { CORTE_HORA, CORTE_MINUTO, CORTE_TEXTO, estadoEquipo, evaluarCorteOrden, fechaLimaISO, sumarDiasISO } from '@bakebrothers/domain'
@@ -110,14 +111,15 @@ function TarjetaOrden({ orden, onAnular, anulando }) {
 
 export default function Ordenes() {
   const { perfil } = useAuth()
-  const esAdmin = perfil?.rol === 'admin'
+  // Administración y los perfiles sin filtro de local (ordenes) eligen el local; el resto trabaja en el suyo.
+  const eligeLocal = veTodosLosLocales(perfil?.perfiles, 'ordenes')
   const ahora = useAhora(30_000)
   const hoy = fechaLimaISO(ahora)
   const manana = sumarDiasISO(hoy, 1)
   const [pestana, setPestana] = useState('lista')
   const [fecha, setFecha] = useState(manana)
   const [sedes, setSedes] = useState([])
-  const [sedeId, setSedeId] = useState(esAdmin ? '' : (perfil?.sedeId ?? ''))
+  const [sedeId, setSedeId] = useState(eligeLocal ? '' : (perfil?.sedeId ?? ''))
   const [errorAccion, setErrorAccion] = useState(null)
   const [anulando, setAnulando] = useState(null)
 
@@ -128,7 +130,7 @@ export default function Ordenes() {
   }, [manana, fechaManual])
 
   useEffect(() => {
-    if (!esAdmin) return
+    if (!eligeLocal) return
     supabase
       .from('sedes')
       .select('id, nombre')
@@ -136,9 +138,10 @@ export default function Ordenes() {
       .order('nombre')
       .then(({ data }) => {
         setSedes(data ?? [])
-        if (data?.length) setSedeId((s) => s || data[0].id)
+        // Administración arranca en el primer local (como siempre); el perfil Órdenes no se filtra por local: arranca en «Todos».
+        if (data?.length && perfil?.rol === 'admin') setSedeId((s) => s || data[0].id)
       })
-  }, [esAdmin])
+  }, [eligeLocal])
 
   const { datos: ordenes, error, recargar } = useDatosVivos(() => cargarOrdenes(fecha), { tablas: ['orders'], deps: [fecha] })
   const { datos: catalogo, error: errorCatalogo, recargar: recargarCatalogo } = useDatosVivos(cargarCatalogo)
@@ -202,13 +205,14 @@ export default function Ordenes() {
           }}
           className="h-11 rounded-full border border-borde bg-hueso px-3 text-sm outline-none focus:border-acento"
         />
-        {esAdmin && sedes.length > 0 && (
+        {eligeLocal && sedes.length > 0 && (
           <select
             value={sedeId}
             onChange={(e) => setSedeId(e.target.value)}
             aria-label="Local"
             className="h-11 rounded-full border border-borde bg-hueso px-3 text-sm font-semibold outline-none focus:border-acento"
           >
+            <option value="">Todos los locales</option>
             {sedes.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.nombre}
@@ -274,7 +278,7 @@ export default function Ordenes() {
                     Nuevo encargo
                   </Link>
                 </div>
-                <ImprimirHojas fecha={fecha} sedeId={sedeId} esAdmin={esAdmin} />
+                <ImprimirHojas fecha={fecha} sedeId={sedeId} esAdmin={eligeLocal} />
                 {ordenes.length === 0 ? (
                   <Tarjeta className="text-center text-sm text-gris">No hay órdenes para esa fecha. Registra una en Mayorista o Rappi.</Tarjeta>
                 ) : (
@@ -299,7 +303,7 @@ export default function Ordenes() {
             mayoristas={catalogo.mayoristas}
             fecha={fecha}
             corte={corte}
-            sedeId={esAdmin ? sedeId : undefined}
+            sedeId={eligeLocal ? sedeId : undefined}
             onRegistrada={alRegistrar}
           />
         )}
@@ -309,7 +313,7 @@ export default function Ordenes() {
             productos={catalogo.todos}
             fecha={fecha}
             corte={corte}
-            sedeId={esAdmin ? sedeId : undefined}
+            sedeId={eligeLocal ? sedeId : undefined}
             onRegistrada={alRegistrar}
           />
         )}

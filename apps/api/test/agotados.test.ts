@@ -31,7 +31,7 @@ vi.mock('../src/auth/verificarJwtOperador.js', async (importOriginal) => ({
   ) => {
     const rol = req.headers['x-test-rol']
     if (!rol) return reply.code(401).send({ error: 'NO_AUTORIZADO' })
-    req.operador = { id: 'operador-de-prueba', rol, sedeId: req.headers['x-test-sede'] ?? null }
+    req.operador = { id: 'operador-de-prueba', rol, sedeId: req.headers['x-test-sede'] ?? null, perfiles: (req.headers['x-test-perfiles'] ?? (rol === 'admin' ? 'administracion' : 'empleado_temporal')).split(',') }
   },
 }))
 

@@ -1,6 +1,6 @@
 import type pg from 'pg'
 import { estadoVentana24h, puedeTransicionarConversacion, type EstadoConversacion } from '@bakebrothers/domain'
-import type { OperadorAutenticado } from '../auth/verificarJwtOperador.js'
+import { veTodosLosLocalesEn, type OperadorAutenticado } from '../auth/verificarJwtOperador.js'
 import {
   conversacionPorId,
   phoneNumberIdPorSede,
@@ -44,7 +44,7 @@ export async function responderConversacion(
   // Una conversación SIN sede es del número del bot (la sede de cada pedido sale de lo que responde el
   // cliente): cualquier persona del personal puede atenderla, igual que la ve en su bandeja (RLS, 0030).
   // Una con sede solo la atiende un admin o el operador de esa sede.
-  if (operador.rol !== 'admin' && conversacion.sedeId !== null && conversacion.sedeId !== operador.sedeId) {
+  if (!veTodosLosLocalesEn(operador, 'conversaciones') && conversacion.sedeId !== null && conversacion.sedeId !== operador.sedeId) {
     return { ok: false, error: 'SIN_ACCESO_A_LA_CONVERSACION' }
   }
 

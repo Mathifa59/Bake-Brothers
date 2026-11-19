@@ -1,7 +1,9 @@
-import type { FastifyInstance, FastifyReply } from 'fastify'
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { withTenantTx } from '../db.js'
-import { verificarJwtOperador, type OperadorAutenticado } from '../auth/verificarJwtOperador.js'
+import { exigirPerfil, verificarJwtOperador, veTodosLosLocalesEn, type OperadorAutenticado } from '../auth/verificarJwtOperador.js'
+import type { AreaDeLocal } from '@bakebrothers/domain'
+import { avisarAlEquipo } from '../services/avisos.js'
 import {
   crearOrdenMayorista,
   crearOrdenRappi,
@@ -15,8 +17,12 @@ import { hojaAgendadosPdf, hojaDelDiaPdf, hojaEmpaqueMayoristaPdf, hojaProduccio
 /**
  * Ciclo Órdenes → Producción → Stock (apps/admin): órdenes de mayoristas y de Rappi, el plan del día, «producido»
  * que deja el stock disponible, y las hojas para imprimir. Todas exigen el JWT real del panel (ver
- * auth/verificarJwtOperador.ts). Un empleado (rol `operador`) queda SIEMPRE forzado a su propia sede; solo el
- * admin elige sede o ve todas.
+ * auth/verificarJwtOperador.ts) y un perfil que corresponda (0054):
+ *   - Órdenes (mayoristas, Rappi) y la hoja del día: perfil Órdenes (sin filtro de local) y Administración.
+ *   - Plan del día, «producido» y la hoja de producción: perfil Producción (en su local) y Administración.
+ *   - Las hojas de empaque y de agendados las imprimen Órdenes y Producción.
+ * Una cuenta que trabaja en un solo local queda SIEMPRE forzada a su propia sede; Administración y los perfiles sin
+ * filtro de local eligen sede o ven todas.
  */
 
 const fechaISO = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'fecha debe ser YYYY-MM-DD')
@@ -43,18 +49,32 @@ const ERROR_A_CODIGO_HTTP: Record<string, number> = {
 
 type Resolucion = { ok: true; sedeId: string | null } | { ok: false; codigo: number; error: string }
 
-/** Sede con la que se trabaja: la del empleado (forzada), o la que pida el admin (null = todas, solo admin). */
-function resolverSede(operador: OperadorAutenticado, solicitada: string | null | undefined): Resolucion {
-  if (operador.rol === 'operador') {
-    if (!operador.sedeId) return { ok: false, codigo: 403, error: 'SIN_SEDE_ASIGNADA' }
-    return { ok: true, sedeId: operador.sedeId }
-  }
-  return { ok: true, sedeId: solicitada ?? null }
+/**
+ * Sede con la que se trabaja: la que pida quien ve todos los locales en esa área (null = todas), o, para quien
+ * trabaja en un solo local, la suya (forzada: nunca se confía en lo que mande el navegador).
+ */
+function resolverSede(operador: OperadorAutenticado, solicitada: string | null | undefined, area: AreaDeLocal): Resolucion {
+  if (veTodosLosLocalesEn(operador, area)) return { ok: true, sedeId: solicitada ?? null }
+  if (!operador.sedeId) return { ok: false, codigo: 403, error: 'SIN_SEDE_ASIGNADA' }
+  return { ok: true, sedeId: operador.sedeId }
 }
 
 const responderOrden = (reply: FastifyReply, r: ResultadoOrdenEquipo) => {
   if (!r.ok) return reply.code(ERROR_A_CODIGO_HTTP[r.error] ?? 400).send({ error: r.error, detalle: r.detalle })
   return reply.code(201).send(r)
+}
+
+/** «Orden nueva» al equipo (campana y push a quien tiene el aviso de órdenes); nunca debe romper el registro de la orden. */
+async function avisarOrdenNueva(req: FastifyRequest, r: ResultadoOrdenEquipo, titulo: string, cuerpo: string) {
+  if (!r.ok) return
+  await avisarAlEquipo(req.log, {
+    tipo: 'orden_nueva',
+    titulo: `${titulo} · ${r.numero}`,
+    cuerpo,
+    conversacionId: null,
+    sedeId: r.sedeId,
+    excluirUsuarioId: req.operador?.id,
+  })
 }
 
 const empanadaSchema = z.object({
@@ -97,17 +117,21 @@ async function nombreDeSede(client: import('pg').PoolClient, sedeId: string | nu
 }
 
 export function dashboardProduccionRoutes(app: FastifyInstance) {
-  const pre = { preHandler: verificarJwtOperador }
+  const base = verificarJwtOperador
+  // El transitorio (cuentas anteriores) conserva el acceso que tenía a todo esto.
+  const produccion = { preHandler: [base, exigirPerfil('produccion', 'empleado_temporal')] }
+  const ordenes = { preHandler: [base, exigirPerfil('ordenes', 'empleado_temporal')] }
+  const hojas = { preHandler: [base, exigirPerfil('ordenes', 'produccion', 'empleado_temporal')] }
 
   // ————————————————————————————————————————————————————————— plan del día ————
-  app.get('/api/dashboard/produccion/plan', pre, async (req, reply) => {
+  app.get('/api/dashboard/produccion/plan', produccion, async (req, reply) => {
     const q = consultaDia.parse(req.query)
-    const sede = resolverSede(req.operador!, q.sedeId)
+    const sede = resolverSede(req.operador!, q.sedeId, 'produccion')
     if (!sede.ok) return reply.code(sede.codigo).send({ error: sede.error })
     return withTenantTx(req.tenantId, (client) => cargarPlanDelDia(client, req.tenantId, q.fecha, sede.sedeId))
   })
 
-  app.post('/api/dashboard/produccion/producido', pre, async (req, reply) => {
+  app.post('/api/dashboard/produccion/producido', produccion, async (req, reply) => {
     const body = z
       .object({
         fecha: fechaISO,
@@ -117,7 +141,7 @@ export function dashboardProduccionRoutes(app: FastifyInstance) {
         cantidadProducida: z.number().int().min(0).max(99999),
       })
       .parse(req.body)
-    const sede = resolverSede(req.operador!, body.sedeId)
+    const sede = resolverSede(req.operador!, body.sedeId, 'produccion')
     if (!sede.ok) return reply.code(sede.codigo).send({ error: sede.error })
     // Marcar producido toca el stock de UNA sede: el admin tiene que decir cuál.
     if (!sede.sedeId) return reply.code(400).send({ error: 'SEDE_REQUERIDA' })
@@ -136,9 +160,9 @@ export function dashboardProduccionRoutes(app: FastifyInstance) {
   })
 
   // ——————————————————————————————————————————————————————————— hojas PDF ————
-  app.get('/api/dashboard/produccion/hoja.pdf', pre, async (req, reply) => {
+  app.get('/api/dashboard/produccion/hoja.pdf', produccion, async (req, reply) => {
     const q = consultaDia.parse(req.query)
-    const sede = resolverSede(req.operador!, q.sedeId)
+    const sede = resolverSede(req.operador!, q.sedeId, 'produccion')
     if (!sede.ok) return reply.code(sede.codigo).send({ error: sede.error })
     const pdf = await withTenantTx(req.tenantId, async (client) => {
       const plan = await cargarPlanDelDia(client, req.tenantId, q.fecha, sede.sedeId)
@@ -155,9 +179,9 @@ export function dashboardProduccionRoutes(app: FastifyInstance) {
   })
 
   // LA hoja del día: mayoristas + agendados + resumen de producción en un solo PDF (lo que se imprime).
-  app.get('/api/dashboard/ordenes/hoja-del-dia.pdf', pre, async (req, reply) => {
+  app.get('/api/dashboard/ordenes/hoja-del-dia.pdf', hojas, async (req, reply) => {
     const q = consultaHoja.parse(req.query)
-    const sede = resolverSede(req.operador!, q.sedeId)
+    const sede = resolverSede(req.operador!, q.sedeId, 'hoja_del_dia')
     if (!sede.ok) return reply.code(sede.codigo).send({ error: sede.error })
     const pdf = await withTenantTx(req.tenantId, async (client) => {
       const bloques = await cargarEmpaqueMayorista(client, req.tenantId, q.fecha, sede.sedeId)
@@ -180,9 +204,9 @@ export function dashboardProduccionRoutes(app: FastifyInstance) {
     return reply.send(pdf)
   })
 
-  app.get('/api/dashboard/ordenes/empaque-mayorista.pdf', pre, async (req, reply) => {
+  app.get('/api/dashboard/ordenes/empaque-mayorista.pdf', hojas, async (req, reply) => {
     const q = consultaHoja.parse(req.query)
-    const sede = resolverSede(req.operador!, q.sedeId)
+    const sede = resolverSede(req.operador!, q.sedeId, 'hoja_del_dia')
     if (!sede.ok) return reply.code(sede.codigo).send({ error: sede.error })
     const pdf = await withTenantTx(req.tenantId, async (client) => {
       const bloques = await cargarEmpaqueMayorista(client, req.tenantId, q.fecha, sede.sedeId)
@@ -199,9 +223,9 @@ export function dashboardProduccionRoutes(app: FastifyInstance) {
   })
 
   // Pedidos agendados (venta digital): la hoja que hoy se llena a mano en el Excel.
-  app.get('/api/dashboard/ordenes/agendados.pdf', pre, async (req, reply) => {
+  app.get('/api/dashboard/ordenes/agendados.pdf', hojas, async (req, reply) => {
     const q = consultaHoja.parse(req.query)
-    const sede = resolverSede(req.operador!, q.sedeId)
+    const sede = resolverSede(req.operador!, q.sedeId, 'hoja_del_dia')
     if (!sede.ok) return reply.code(sede.codigo).send({ error: sede.error })
     const pdf = await withTenantTx(req.tenantId, async (client) => {
       const grupos = await cargarAgendados(client, req.tenantId, q.fecha, sede.sedeId)
@@ -213,9 +237,9 @@ export function dashboardProduccionRoutes(app: FastifyInstance) {
   })
 
   // ———————————————————————————————————————————— órdenes de mayoristas y Rappi ————
-  app.post('/api/dashboard/ordenes/mayorista', pre, async (req, reply) => {
+  app.post('/api/dashboard/ordenes/mayorista', ordenes, async (req, reply) => {
     const body = mayoristaSchema.parse(req.body)
-    const sede = resolverSede(req.operador!, body.sedeId)
+    const sede = resolverSede(req.operador!, body.sedeId, 'ordenes')
     if (!sede.ok) return reply.code(sede.codigo).send({ error: sede.error })
     const r = await withTenantTx(req.tenantId, (client) =>
       crearOrdenMayorista(client, req.tenantId, {
@@ -228,20 +252,21 @@ export function dashboardProduccionRoutes(app: FastifyInstance) {
         nota: body.nota,
       })
     )
+    await avisarOrdenNueva(req, r, 'Orden mayorista', `${body.fechaEntrega} · ${body.hora}${body.cliente.nombre ? ` · ${body.cliente.nombre}` : ''}`)
     return responderOrden(reply, r)
   })
 
   // «Repetir el anterior»: las líneas de la última orden de ese mayorista, para precargar el formulario.
-  app.get('/api/dashboard/ordenes/mayorista/ultima', pre, async (req, reply) => {
+  app.get('/api/dashboard/ordenes/mayorista/ultima', ordenes, async (req, reply) => {
     const { clienteId } = z.object({ clienteId: uuid }).parse(req.query)
     const r = await withTenantTx(req.tenantId, (client) => ultimaOrdenMayorista(client, req.tenantId, clienteId))
     if (!r) return reply.code(404).send({ error: 'SIN_ORDEN_ANTERIOR' })
     return r
   })
 
-  app.post('/api/dashboard/ordenes/rappi', pre, async (req, reply) => {
+  app.post('/api/dashboard/ordenes/rappi', ordenes, async (req, reply) => {
     const body = rappiSchema.parse(req.body)
-    const sede = resolverSede(req.operador!, body.sedeId)
+    const sede = resolverSede(req.operador!, body.sedeId, 'ordenes')
     if (!sede.ok) return reply.code(sede.codigo).send({ error: sede.error })
     const r = await withTenantTx(req.tenantId, (client) =>
       crearOrdenRappi(client, req.tenantId, {
@@ -254,6 +279,7 @@ export function dashboardProduccionRoutes(app: FastifyInstance) {
         nota: body.nota,
       })
     )
+    await avisarOrdenNueva(req, r, 'Orden Rappi', `${body.fechaEntrega}${body.hora ? ` · ${body.hora}` : ''} · ref. ${body.referenciaExterna}`)
     return responderOrden(reply, r)
   })
 }

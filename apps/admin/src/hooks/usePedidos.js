@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { fechaLimaISO } from '@bakebrothers/domain'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
@@ -8,7 +9,7 @@ const SELECT =
 // Fetch + cambio de estado de pedidos, reusado por la pantalla de Pedidos
 // (todos los que ve el usuario según RLS) y por el historial de un cliente
 // (mismo fetch, filtrado por customer_id).
-export function usePedidos({ customerId } = {}) {
+export function usePedidos({ customerId, soloDelDia = false } = {}) {
   const { perfil } = useAuth()
   const [pedidos, setPedidos] = useState(null)
   const [error, setError] = useState(null)
@@ -18,13 +19,15 @@ export function usePedidos({ customerId } = {}) {
     setError(null)
     let query = supabase.from('orders').select(SELECT).order('creado_en', { ascending: false }).limit(100)
     if (customerId) query = query.eq('customer_id', customerId)
+    // Caja trabaja con los pedidos que se entregan hoy (fecha de Lima, no la del dispositivo).
+    if (soloDelDia) query = query.eq('fecha_entrega', fechaLimaISO())
     query.then(({ data, error }) => {
       if (error) setError(error.message)
       else setPedidos(data)
     })
   }
 
-  useEffect(cargar, [customerId])
+  useEffect(cargar, [customerId, soloDelDia])
 
   // Tiempo real: cuando cualquier pedido cambia (el propio usuario en otra
   // pestaña, un operador de otra sede si eres admin, etc.) se vuelve a
@@ -39,7 +42,7 @@ export function usePedidos({ customerId } = {}) {
       .subscribe()
     return () => supabase.removeChannel(canal)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customerId])
+  }, [customerId, soloDelDia])
 
   const cambiarEstado = async (numero, estadoActual, nuevoEstado) => {
     if (nuevoEstado === estadoActual) return

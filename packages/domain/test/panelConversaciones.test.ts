@@ -7,27 +7,32 @@ import {
   puedeVerRuta,
   rutaInicial,
   telefonoLegible,
+  perfilesEfectivos,
 } from '../src/index.js'
 
-describe('permisos del panel: el empleado ve solo Pedidos, Órdenes, Producción, Conversaciones y Stock', () => {
+// El «empleado» de antes (rol operador) es ahora el perfil transitorio `empleado_temporal`: conserva exactamente su acceso.
+// Los perfiles nuevos se prueban en permisosPanel.test.ts.
+describe('permisos del panel: el empleado transitorio ve solo Pedidos, Órdenes, Producción, Conversaciones y Stock', () => {
+  const empleado = perfilesEfectivos('operador')
+  const admin = perfilesEfectivos('admin')
   it('un empleado (rol operador) abre lo suyo, incluido Nuevo pedido', () => {
     for (const r of ['pedidos', 'nuevo-pedido', 'ordenes', 'produccion', 'conversaciones', 'stock', 'ajustes', 'avisos', '/pedidos', '#/ordenes', '#/stock', 'pedidos?x=1'])
-      expect(puedeVerRuta('operador', r)).toBe(true)
+      expect(puedeVerRuta(empleado, r)).toBe(true)
   })
   it('y NO abre lo de dirección', () => {
     for (const r of ['resumen', 'control-tower', 'clientes', 'atencion', 'metricas', 'atribucion', 'mifact', 'simulador', 'plan-vitrina', '/metricas', 'desconocida'])
-      expect(puedeVerRuta('operador', r)).toBe(false)
+      expect(puedeVerRuta(empleado, r)).toBe(false)
   })
-  it('el admin abre todo; sin rol, nada', () => {
-    for (const r of ['resumen', 'metricas', 'mifact', 'simulador', 'pedidos']) expect(puedeVerRuta('admin', r)).toBe(true)
-    expect(puedeVerRuta(null, 'pedidos')).toBe(false)
+  it('el admin abre todo; sin perfiles, nada', () => {
+    for (const r of ['resumen', 'metricas', 'mifact', 'simulador', 'pedidos']) expect(puedeVerRuta(admin, r)).toBe(true)
+    expect(puedeVerRuta(perfilesEfectivos(null), 'pedidos')).toBe(false)
     expect(puedeVerRuta(undefined, 'pedidos')).toBe(false)
   })
   it('pantalla inicial y nombre del rol', () => {
-    expect(rutaInicial('admin')).toBe('/resumen')
-    expect(rutaInicial('operador')).toBe('/pedidos')
+    expect(rutaInicial(admin)).toBe('/resumen')
+    expect(rutaInicial(empleado)).toBe('/pedidos')
     expect(nombreDeRol('operador')).toBe('Empleado')
-    expect(nombreDeRol('admin')).toBe('Dirección')
+    expect(nombreDeRol('admin')).toBe('Administración')
   })
 })
 

@@ -2,7 +2,8 @@ import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { normalizarTelefono } from '@bakebrothers/domain'
 import { withTenantTx, tenantPorSlug } from '../db.js'
-import { verificarJwtOperador } from '../auth/verificarJwtOperador.js'
+import { exigirPerfil, verificarJwtOperador, veTodosLosLocalesEn } from '../auth/verificarJwtOperador.js'
+import { avisarAlEquipo } from '../services/avisos.js'
 import { crearPedidoDashboard, type ItemPedidoDashboardInput } from '../services/crearPedidoDashboard.js'
 import { generarComprobantePdf } from '../services/comprobantePdf.js'
 
@@ -76,13 +77,16 @@ const crearPedidoDashboardSchema = z.object({
  * mano). Todas exigen JWT real verificado — ver auth/verificarJwtOperador.ts.
  */
 export function dashboardOrdersRoutes(app: FastifyInstance) {
-  app.post('/api/dashboard/orders', { preHandler: verificarJwtOperador }, async (req, reply) => {
+  // Nuevo pedido: Venta digital y Administración (y el empleado transitorio de las cuentas anteriores).
+  const puedeArmarPedidos = [verificarJwtOperador, exigirPerfil('venta_digital', 'empleado_temporal')]
+
+  app.post('/api/dashboard/orders', { preHandler: puedeArmarPedidos }, async (req, reply) => {
     const body = crearPedidoDashboardSchema.parse(req.body)
     const operador = req.operador!
 
-    // sede_id: nunca se confía en lo que mande el cliente si es operador —
-    // se fuerza a la suya. Solo un admin puede elegir sede.
-    const sedeId = operador.rol === 'operador' ? operador.sedeId : (body.sedeId ?? null)
+    // sede_id: nunca se confía en lo que mande el cliente si la cuenta trabaja en un solo local — se fuerza al suyo.
+    // Administración y Venta digital (que atiende los dos locales) pueden elegir local o dejarlo sin local.
+    const sedeId = veTodosLosLocalesEn(operador, 'nuevo_pedido') ? (body.sedeId ?? null) : operador.sedeId
 
     const tenant = await tenantPorSlug(req.tenantSlug)
     if (!tenant) return reply.code(404).send({ error: 'TENANT_NO_ENCONTRADO' })
@@ -109,12 +113,22 @@ export function dashboardOrdersRoutes(app: FastifyInstance) {
       return reply.code(codigo).send({ error: resultado.error, detalle: resultado.detalle })
     }
 
+    // Un pedido armado por el equipo es una orden nueva para quien tiene ese aviso (no se le avisa a quien lo registró).
+    await avisarAlEquipo(req.log, {
+      tipo: 'orden_nueva',
+      titulo: `Pedido nuevo · ${resultado.numero}`,
+      cuerpo: `${body.fechaEntrega}${body.horario ? ` · ${body.horario}` : ''} · ${body.cliente.nombre}`,
+      conversacionId: null,
+      sedeId,
+      excluirUsuarioId: operador.id,
+    })
+
     return reply.code(201).send(resultado)
   })
 
   app.get(
     '/api/dashboard/orders/:numero/comprobante.pdf',
-    { preHandler: verificarJwtOperador },
+    { preHandler: puedeArmarPedidos },
     async (req, reply) => {
       const { numero } = z.object({ numero: z.string().min(1) }).parse(req.params)
       const pdf = await withTenantTx(req.tenantId, (client) =>

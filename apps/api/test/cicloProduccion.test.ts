@@ -27,7 +27,7 @@ vi.mock('../src/auth/verificarJwtOperador.js', async (importOriginal) => ({
   ) => {
     const rol = req.headers['x-test-rol']
     if (!rol) return reply.code(401).send({ error: 'NO_AUTORIZADO' })
-    req.operador = { id: req.headers['x-test-id'] ?? null, rol, sedeId: req.headers['x-test-sede'] ?? null }
+    req.operador = { id: req.headers['x-test-id'] ?? null, rol, sedeId: req.headers['x-test-sede'] ?? null, perfiles: (req.headers['x-test-perfiles'] ?? (rol === 'admin' ? 'administracion' : 'empleado_temporal')).split(',') }
   },
 }))
 
@@ -62,6 +62,8 @@ describe.skipIf(!hayBaseDeDatosReal)('ciclo Órdenes → Producción → Stock',
   const limpiar = async () => {
     await pool.query(`delete from order_items where order_id in (select id from orders where fecha_entrega in ($1,$2))`, [LUNES, DOMINGO])
     await pool.query(`delete from orders where fecha_entrega in ($1,$2)`, [LUNES, DOMINGO])
+    // Registrar una orden deja un aviso «orden nueva» para el equipo (0054): los de estas pruebas se borran.
+    await pool.query(`delete from avisos where tipo = 'orden_nueva' and (cuerpo like $1 or cuerpo like $2)`, [`${LUNES}%`, `${DOMINGO}%`])
     await pool.query(`delete from customers where nombre like $1 or nombre = 'Rappi'`, [`${PREFIJO}%`])
     await pool.query(`delete from produccion_dia where fecha in ($1,$2)`, [LUNES, DOMINGO])
     await pool.query(`delete from plan_vitrina where product_id = any($1::uuid[])`, [Object.values(prod)])
