@@ -9,7 +9,9 @@
 --   3. guarda el código de Mifact de cada uno en `mifact_codigos` (para emitir comprobantes);
 --   4. deja en el precio de Mifact a los combos con el mismo nombre (los combos no tienen tabla de códigos).
 -- NO crea ni oculta ningún producto: lo que está en Mifact y no aquí (o al revés) no se toca.
--- NO se emparejaron los dudosos (Trufas, Tres leches familiar, Mini Torta tres leches y Jugo): esperan respuesta del cliente.
+-- Dudosos resueltos por el cliente: Trufas = «Caja de Trufas x 4» (la «Caja de trufas» de S/ 25.90 queda sin pareja); «Tres leches
+-- familiar» y «Mini Torta tres leches» de Mifact son la de VAINILLA; cada jugo de Mifact es un SABOR dentro de «Jugo» (se crean
+-- las variantes que falten, clase «sabor», con el precio de Mifact).
 --
 -- Seguridad: si algún emparejamiento no encuentra EXACTAMENTE un producto/tamaño, o un código ya está guardado para
 -- otro, la migración se cancela entera (no deja nada a medias). Es idempotente: repetirla no cambia nada.
@@ -105,6 +107,14 @@ begin
     ('159', '9810085001592', 'TODOS', 48.5, 'Torta Tres Leches Chocolate', 'Mini 16cm', 'Mini Torta tres leches chocolate'),
     ('161', '9810085001615', 'TODOS', 48.5, 'Torta de Alfajor', 'Mini 16cm', 'Mini Torta de Alfajor'),
     ('188', null, 'TODOS', 49.9, 'Torta Selva Negra', 'Mini 16cm', 'Mini Selva negra'),
+    ('39', '9810085000397', 'TODOS', 7.9, 'Trufas', null, 'Caja de Trufas x 4'),
+    ('143', '9810085001431', 'TODOS', 79.9, 'Tres Leches de Vainilla', 'Familiar 24cm', 'Tres leches familiar'),
+    ('158', '9810085001585', 'TODOS', 48.5, 'Tres Leches de Vainilla', 'Mini 16cm', 'Mini Torta tres leches'),
+    ('100', '9810085001004', 'TODOS', 9.0, 'Jugo', 'Mango', 'Jugo de mango'),
+    ('102', '9810085001028', 'TODOS', 9.0, 'Jugo', 'Fresa', 'Jugo de fresa'),
+    ('95', '9810085000953', 'TODOS', 9.0, 'Jugo', 'Lúcuma', 'Jugo de lucuma'),
+    ('98', '9810085000984', 'TODOS', 9.0, 'Jugo', 'Piña', 'Jugo de piña'),
+    ('99', '9810085000991', 'TODOS', 9.0, 'Jugo', 'Papaya', 'Jugo de papaya'),
     ('114', '9810085001141', 'TODOS', 10.9, 'Mil Hojas', '200g', 'Milhojas 200 gr'),
     ('113', '9810085001134', 'TODOS', 22.9, 'Mil Hojas', '500g', 'Milhojas 500 gr'),
     ('136', '9810085001363', 'TODOS', 49.9, 'Mil Hojas', '1kg', 'Milhojas familiar 1kg');
@@ -119,6 +129,19 @@ begin
     ('Pack Trio Imperdible', 32.9, 'Trio Imperdible'),
     ('Pack Postres de Locura', 29.9, 'Pack postres de locura'),
     ('Pack Trio Cheesebake', 25.9, 'Pack Trio Cheesebake');
+
+  -- Sabores de «Jugo» que todavía no existen: se crean como variantes (clase «sabor») con el precio de Mifact.
+  insert into product_sizes (tenant_id, product_id, tamano, precio, clase, orden)
+  select p.tenant_id, p.id, v.tamano, v.precio, 'sabor', v.orden
+    from (values
+    ('Jugo', 'Mango', 9.0, 1),
+    ('Jugo', 'Fresa', 9.0, 2),
+    ('Jugo', 'Lúcuma', 9.0, 3),
+    ('Jugo', 'Piña', 9.0, 4),
+    ('Jugo', 'Papaya', 9.0, 5)
+    ) as v(producto, tamano, precio, orden)
+    join products p on p.nombre = v.producto
+   where not exists (select 1 from product_sizes s where s.product_id = p.id and s.tamano = v.tamano);
 
   -- Destino de cada fila: el producto (tamano null) o el tamaño del producto.
   create temp table _mf_destino on commit drop as
