@@ -1,4 +1,10 @@
 User-agent: *
 Allow: /
 
+# URL de spam de enlaces que terceros apuntan a este dominio con parámetros inventados (Search Console las lista como
+# «Bloqueada por robots.txt»). El sitio no usa estos parámetros: no hace falta que Google las rastree.
+Disallow: /*?*_uc=
+Disallow: /*?*srd=
+Disallow: /*?*path=http
+
 Sitemap: https://www.bakebrothers.pe/sitemap.xml
