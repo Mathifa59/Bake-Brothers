@@ -1,5 +1,9 @@
 import { useState } from 'react'
+import { correoDeAcceso, DOMINIO_EQUIPO_POR_DEFECTO } from '@bakebrothers/domain'
 import { useAuth } from '../context/AuthContext'
+
+// Dominio del correo interno de las cuentas creadas desde Equipo (se completa solo si escriben el usuario sin «@»).
+const DOMINIO_EQUIPO = import.meta.env.VITE_DOMINIO_EQUIPO || DOMINIO_EQUIPO_POR_DEFECTO
 
 export default function Login() {
   const { login } = useAuth()
@@ -12,7 +16,7 @@ export default function Login() {
     e.preventDefault()
     setError(null)
     setEnviando(true)
-    const { error } = await login(email, password)
+    const { error } = await login(correoDeAcceso(email, DOMINIO_EQUIPO), password)
     setEnviando(false)
     if (error) setError(error.message)
   }
@@ -32,10 +36,14 @@ export default function Login() {
 
         <form onSubmit={enviar} className="mt-6 space-y-4">
           <div>
-            <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-gris">Correo</label>
+            <label htmlFor="usuario-o-correo" className="mb-1 block text-xs font-bold uppercase tracking-wide text-gris">Usuario o correo</label>
             <input
-              type="email"
+              id="usuario-o-correo"
+              type="text"
               required
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}

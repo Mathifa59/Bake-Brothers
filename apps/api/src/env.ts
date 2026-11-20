@@ -53,6 +53,16 @@ const schema = z
     WHATSAPP_MAYORISTAS: z.string().trim().regex(/^[0-9]{8,15}$/, 'solo dígitos, con código de país').default('51986639228'),
     DATOS_PAGO: textoLibre,
     DATOS_PAGO_CEDROS: textoLibre,
+    // Gestión del equipo desde el panel (Equipo, solo Administración): crear/editar/desactivar cuentas en Supabase
+    // Auth. La llave de SERVICIO se salta toda la seguridad de Supabase: vive SOLO acá (Coolify, como secreto), nunca en
+    // el panel ni en git, y solo la usa auth/supabaseAdmin.ts detrás de la barrera de Administración. Sin ella, Equipo
+    // responde 503 y el resto de la API funciona igual. SUPABASE_URL es opcional (por defecto, el proyecto real).
+    SUPABASE_URL: z.string().trim().url().optional(),
+    SUPABASE_SERVICE_ROLE_KEY: z.string().trim().optional(),
+    // Dominio del correo interno de las cuentas creadas desde Equipo (usuario@<dominio>).
+    DOMINIO_EQUIPO: z.string().trim().min(3).default('equipo.bakebrothers.pe'),
+    // A dónde llevan los enlaces de las invitaciones por correo (solo cuentas de administradores).
+    URL_PANEL: z.string().trim().url().default('https://dashboard.bakebrothers.pe'),
     // Embedded Signup de Meta (conectar números desde el dashboard): NO se terminó de construir y el plan
     // vigente no lo usa (el número del bot se registra a mano). Reservado y APAGADO; hoy ninguna ruta lo lee.
     WHATSAPP_EMBEDDED_SIGNUP: z.enum(['true', 'false']).default('false'),

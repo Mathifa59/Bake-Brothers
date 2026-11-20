@@ -39,9 +39,31 @@ Una sola regla en la base (`usuario_recibe_aviso`) para la campana y para el pus
   A quien registró la orden no se le manda el push.
 - `pago_reportado` (el bot leyó una captura de pago): solo cuentas con **aviso de pagos** (`avisa_pagos`) que vean pedidos.
 
-## Crear o cambiar una cuenta
-1. Supabase → Authentication → Users → **Invite user** (el correo lleva a `dashboard.bakebrothers.pe` → «Define tu contraseña»).
-2. Asignar perfiles (idempotente, por correo; ejemplo con un correo de muestra):
+## Equipo: crear y gestionar cuentas desde el panel (migración 0056)
+Solo Administración. Pantalla **Equipo** (`/equipo`): lista con perfiles, local, avisos, Encargado, estado y último ingreso;
+**Historial** con quién creó, cambió o desactivó cada cuenta.
+- **Crear**: nombre, usuario (ej. `caja.cedros`) y contraseña que define el administrador (puede generarla y copiarla), perfiles,
+  local, avisos de órdenes y de pagos, y Encargado. Por dentro se crea en Supabase Auth con el correo interno
+  `usuario@equipo.bakebrothers.pe`, **ya confirmado y sin enviar ningún correo**. Una cuenta con correo real (administradores)
+  se crea con «Con correo real»; solo a esas se les puede mandar una invitación por correo (Resend) en vez de fijar contraseña.
+- **Ingreso**: el campo dice «Usuario o correo». Sin «@» se completa `@equipo.bakebrothers.pe`. Las cuentas con correo real
+  (y las dos viejas) siguen entrando con su correo.
+- **Editar / cambiar contraseña / desactivar / reactivar**. **Nunca se borra** una cuenta: se desactiva y conserva su historial.
+  Desactivar corta el acceso **al instante** en los datos (la base mira `usuarios_dashboard.activo`, aunque su sesión siga vigente
+  hasta 1 h) y además bloquea su inicio de sesión en Supabase Auth.
+- **Guardias** (en la API y sostenidas por la base): nadie puede quitarse a sí mismo Administración ni desactivarse, y siempre
+  queda al menos un administrador activo. `empleado_temporal` no se puede dar a cuentas nuevas.
+- **Auditoría** (`equipo_auditoria`): la escribe la base (trigger), así queda también lo que se haga a mano en el SQL Editor; no se
+  puede editar ni borrar; no guarda contraseñas (solo «cambió la contraseña»).
+- **Llave de Supabase**: `SUPABASE_SERVICE_ROLE_KEY` (y opcional `SUPABASE_URL`) en Coolify, **solo en la API**. La usa un único
+  módulo (`apps/api/src/auth/supabaseAdmin.ts`), detrás de `soloAdmin`; nunca va al panel ni a los logs. Sin ella la pantalla
+  Equipo lista las cuentas pero crear/cambiar responde 503 y el resto del panel no se entera.
+- Rutas (todas `403 SOLO_ADMIN` para cualquier otro perfil, probado por ruta × perfil en `equipoApi.test.ts`):
+  `GET|POST /api/dashboard/equipo`, `PATCH /api/dashboard/equipo/:id`, `POST …/:id/password|desactivar|reactivar`,
+  `GET …/auditoria`.
+
+### Crear una cuenta a mano (respaldo, si Equipo no está disponible)
+Invitar desde Supabase (Authentication → Users) y asignar perfiles por SQL (idempotente, por correo):
    ```sql
    insert into usuarios_dashboard (id, rol, sede_id, perfiles, nombre, avisa_ordenes, avisa_pagos)
    select u.id, 'operador', (select id from sedes where nombre = 'Cedros'), array['caja'], 'Caja Cedros', true, false
@@ -50,14 +72,14 @@ Una sola regla en la base (`usuario_recibe_aviso`) para la campana y para el pus
         avisa_ordenes = excluded.avisa_ordenes, avisa_pagos = excluded.avisa_pagos;
    ```
    Sin fila en `usuarios_dashboard`, la persona define su contraseña pero ve «Tu cuenta no tiene acceso al panel».
-3. Los correos reales del equipo **no** van al repo (viven en `BakeBrothers-datos-privados\perfiles-equipo\`).
+Los correos reales del equipo **no** van al repo (viven en `BakeBrothers-datos-privados\perfiles-equipo\`).
 
 ## Retirar las cuentas anteriores
 `adminalameda` y `adminsantamaria` conservan su acceso hasta que las cuentas nuevas estén probadas. Después se desactivan (sin
 borrar nada) con el script `3_DESACTIVAR_cuentas_anteriores…` y se retira el perfil `empleado_temporal`.
 
 ## Orden de despliegue
-1. Aplicar `0054` (y, aparte, `0055` de precios y códigos de Mifact) al Supabase real.
+1. Aplicar `0054` (y, aparte, `0055` de precios y códigos de Mifact) y `0056` (Equipo) al Supabase real.
 2. Correr el SQL que borra la cuenta de prueba y, ya invitadas las cuentas, el que asigna perfiles.
 3. Redeploy de `apps/api` y deploy de `apps/admin`. Ninguno de los dos exige un orden estricto con la migración: la API y el
    panel leen la cuenta sin la columna `perfiles` si todavía no existe y la derivan del rol (nadie queda sin acceso).

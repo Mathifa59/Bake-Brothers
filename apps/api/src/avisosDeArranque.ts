@@ -33,5 +33,10 @@ export function avisosDeArranque(entorno: Record<string, string | undefined>): A
       variable: 'VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY',
       consecuencia: 'no llegan notificaciones al celular; la campana y el centro de avisos del panel sí funcionan',
     })
+  if (falta('SUPABASE_SERVICE_ROLE_KEY'))
+    avisos.push({
+      variable: 'SUPABASE_SERVICE_ROLE_KEY',
+      consecuencia: 'la pantalla Equipo (crear, editar y desactivar cuentas) responde 503; el resto del panel y de la API funciona',
+    })
   return avisos
 }

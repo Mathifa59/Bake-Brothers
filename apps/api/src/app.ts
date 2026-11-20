@@ -17,6 +17,7 @@ import { dashboardProduccionRoutes } from './routes/dashboardProduccion.js'
 import { dashboardWhatsAppRoutes } from './routes/dashboardWhatsApp.js'
 import { dashboardSimuladorRoutes } from './routes/dashboardSimulador.js'
 import { dashboardMifactRoutes } from './routes/dashboardMifact.js'
+import { dashboardEquipoRoutes } from './routes/dashboardEquipo.js'
 import { commitDesplegado } from './version.js'
 
 declare module 'fastify' {
@@ -125,6 +126,7 @@ export async function buildApp() {
   dashboardWhatsAppRoutes(app)
   dashboardSimuladorRoutes(app)
   dashboardMifactRoutes(app)
+  dashboardEquipoRoutes(app)
   dashboardPushRoutes(app)
 
   return app

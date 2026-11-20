@@ -58,23 +58,36 @@ export async function verificarJwtOperador(req: FastifyRequest, reply: FastifyRe
   if (!fila || (fila.rol !== 'admin' && fila.rol !== 'operador')) {
     return reply.code(403).send({ error: 'SIN_ACCESO_AL_PANEL' })
   }
+  // Cuenta desactivada desde Equipo (0056): su sesión (JWT) puede seguir vigente hasta 1 h, pero la API ya no la atiende.
+  if (fila.activo === false) {
+    return reply.code(403).send({ error: 'CUENTA_DESACTIVADA' })
+  }
 
   req.operador = { id: sub, rol: fila.rol, sedeId: fila.sede_id, perfiles: perfilesEfectivos(fila.rol, fila.perfiles) }
 }
 
 /**
- * Rol, local y perfiles de la cuenta. Si la API se despliega antes que la migración 0054 (la columna `perfiles` aún
- * no existe, 42703), se lee sin ella y los perfiles se derivan del rol: nadie queda sin acceso por el orden del deploy.
+ * Rol, local, perfiles y estado de la cuenta. La API puede desplegarse antes que las migraciones 0054 (columna
+ * `perfiles`, 42703) o 0056 (columna `activo`): se lee con las columnas que existan y lo que falte se deriva
+ * (perfiles del rol; activo = true). Nadie queda sin acceso por el orden del deploy.
  */
-async function leerCuenta(id: string): Promise<{ rol: string; sede_id: string | null; perfiles: string[] | null } | undefined> {
-  try {
-    const { rows } = await pool.query(`select rol, sede_id, perfiles from usuarios_dashboard where id = $1`, [id])
-    return rows[0]
-  } catch (err) {
-    if ((err as { code?: string }).code !== '42703') throw err
-    const { rows } = await pool.query(`select rol, sede_id from usuarios_dashboard where id = $1`, [id])
-    return rows[0] ? { ...rows[0], perfiles: null } : undefined
+async function leerCuenta(
+  id: string
+): Promise<{ rol: string; sede_id: string | null; perfiles: string[] | null; activo: boolean | null } | undefined> {
+  const intentos = [
+    `select rol, sede_id, perfiles, activo from usuarios_dashboard where id = $1`,
+    `select rol, sede_id, perfiles from usuarios_dashboard where id = $1`,
+    `select rol, sede_id from usuarios_dashboard where id = $1`,
+  ]
+  for (let i = 0; i < intentos.length; i++) {
+    try {
+      const { rows } = await pool.query(intentos[i], [id])
+      return rows[0] ? { perfiles: null, activo: null, ...rows[0] } : undefined
+    } catch (err) {
+      if ((err as { code?: string }).code !== '42703' || i === intentos.length - 1) throw err
+    }
   }
+  return undefined
 }
 
 /** preHandler adicional, SIEMPRE después de verificarJwtOperador: solo admin (ej. conectar números de WhatsApp). El rol sale de usuarios_dashboard, nunca del cliente. */

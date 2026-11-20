@@ -20,6 +20,7 @@ import Conversaciones from './pages/Conversaciones'
 import Metricas from './pages/Metricas'
 import Mifact from './pages/Mifact'
 import { MIFACT_ACTIVO } from './config/funciones'
+import Equipo from './pages/Equipo'
 import Ajustes from './pages/Ajustes'
 import Avisos from './pages/Avisos'
 
@@ -38,7 +39,7 @@ function ConGuardia({ children }) {
       <div className="grid min-h-screen place-items-center px-4 text-center">
         <div>
           <p className="font-bold">Tu cuenta no tiene acceso al panel.</p>
-          <p className="mt-1 text-sm text-gris">Pídele a un admin que te dé de alta en usuarios_dashboard.</p>
+          <p className="mt-1 text-sm text-gris">Puede que tu cuenta esté desactivada o que todavía no te hayan dado de alta. Pídele a un administrador que lo revise en Equipo.</p>
         </div>
       </div>
     )
@@ -89,6 +90,7 @@ function Contenido() {
           <Route path="/metricas" element={protegida(<Metricas />)} />
           <Route path="/atribucion" element={protegida(<Atribucion />)} />
           {MIFACT_ACTIVO && <Route path="/mifact" element={protegida(<Mifact />)} />}
+          <Route path="/equipo" element={protegida(<Equipo />)} />
           <Route path="/ajustes" element={protegida(<Ajustes />)} />
           <Route path="/avisos" element={protegida(<Avisos />)} />
           <Route path="/inicio" element={<Inicio />} />

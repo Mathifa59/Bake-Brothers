@@ -267,3 +267,26 @@ export {
   type OrdenMayorista,
   type BloqueMayorista,
 } from './planProduccion.js'
+
+export {
+  DOMINIO_EQUIPO_POR_DEFECTO,
+  FORMATO_USUARIO,
+  LARGO_MINIMO_CONTRASENA,
+  LARGO_MAXIMO_CONTRASENA,
+  normalizarUsuario,
+  validarUsuario,
+  validarContrasena,
+  correoInterno,
+  correoDeAcceso,
+  esCorreoInterno,
+  esCorreoValido,
+} from './cuentasEquipo.js'
+
+export {
+  tituloAuditoria,
+  cambiosAuditoria,
+  resumenCreacion,
+  valorLegible,
+  type AccionAuditoria,
+  type RegistroAuditoriaVista,
+} from './auditoriaEquipo.js'
