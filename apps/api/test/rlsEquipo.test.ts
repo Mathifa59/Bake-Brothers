@@ -15,12 +15,12 @@ import { DATABASE_URL_PLACEHOLDER } from './testEnv.js'
 const hayBaseDeDatosReal = !!process.env.DATABASE_URL && process.env.DATABASE_URL !== DATABASE_URL_PLACEHOLDER
 
 const U = {
-  adminActivo: '66666666-0000-0000-0000-000000000001',
-  adminInactivo: '66666666-0000-0000-0000-000000000002',
-  cajaActiva: '66666666-0000-0000-0000-000000000003',
-  cajaInactiva: '66666666-0000-0000-0000-000000000004',
-  ventaInactiva: '66666666-0000-0000-0000-000000000005',
-  ordenesInactiva: '66666666-0000-0000-0000-000000000006',
+  adminActivo: '77777777-0000-0000-0000-000000000001',
+  adminInactivo: '77777777-0000-0000-0000-000000000002',
+  cajaActiva: '77777777-0000-0000-0000-000000000003',
+  cajaInactiva: '77777777-0000-0000-0000-000000000004',
+  ventaInactiva: '77777777-0000-0000-0000-000000000005',
+  ordenesInactiva: '77777777-0000-0000-0000-000000000006',
 }
 
 describe.skipIf(!hayBaseDeDatosReal)('Equipo en la base: cuentas desactivadas, guardias y auditoría', () => {
