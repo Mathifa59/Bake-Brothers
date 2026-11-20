@@ -25,6 +25,23 @@ async function pedirConAuth(path, options = {}) {
   })
 }
 
+/**
+ * Llamada genérica a la API con la sesión del panel. Devuelve el JSON; si falla, lanza un Error con
+ * .codigo (el código estable de la API), .detalle (el texto para mostrar) y .estado (HTTP).
+ */
+export async function llamarApi(path, { method = 'GET', body } = {}) {
+  const res = await pedirConAuth(path, { method, ...(body === undefined ? {} : { body: JSON.stringify(body) }) })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(data.detalle || data.error || `Error del servidor (${res.status})`)
+    err.codigo = data.error
+    err.detalle = data.detalle
+    err.estado = res.status
+    throw err
+  }
+  return data
+}
+
 /** Crea un pedido real vía apps/api. Lanza un Error con .codigo/.detalle si falla. */
 export async function crearPedidoDashboard(payload) {
   const res = await pedirConAuth('/api/dashboard/orders', {

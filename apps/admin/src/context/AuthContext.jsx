@@ -5,7 +5,7 @@ import { supabase, CLAVE_DEFINIR_CONTRASENA } from '../lib/supabase'
 const AuthContext = createContext(null)
 
 // session: la sesión de Supabase Auth (null = no logueado).
-// perfil: { rol, perfiles, sedeId, sedeNombre, nombre, avisaOrdenes, avisaPagos } leído de usuarios_dashboard tras el login — null
+// perfil: { rol, perfiles, sedeId, sedeNombre, nombre, avisaOrdenes, avisaPagos, esEncargado } leído de usuarios_dashboard tras el login — null
 // mientras carga, o si el usuario se autenticó pero no tiene fila ahí (no
 // tiene acceso al panel, aunque su login en Supabase Auth sea válido).
 export function AuthProvider({ children }) {
@@ -68,6 +68,8 @@ export function AuthProvider({ children }) {
       const consulta = (columnas) =>
         supabase.from('usuarios_dashboard').select(columnas).eq('id', userId).maybeSingle()
       const intentos = [
+        'rol, perfiles, sede_id, nombre, avisa_ordenes, avisa_pagos, es_encargado, sedes(nombre)',
+        // Sin 0056 (es_encargado): se conservan igual los perfiles de la 0054, para no cambiarle el acceso a nadie.
         'rol, perfiles, sede_id, nombre, avisa_ordenes, avisa_pagos, sedes(nombre)',
         'rol, sede_id, nombre, sedes(nombre)',
         'rol, sede_id, sedes(nombre)',
@@ -92,6 +94,7 @@ export function AuthProvider({ children }) {
                 nombre: data.nombre ?? null,
                 avisaOrdenes: Boolean(data.avisa_ordenes),
                 avisaPagos: Boolean(data.avisa_pagos),
+                esEncargado: Boolean(data.es_encargado),
               }
             : null
         )

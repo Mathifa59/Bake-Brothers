@@ -47,6 +47,8 @@ export const SECCIONES_ACTIVAS = [
   // Solo admin y solo con VITE_MIFACT_ACTIVO=true: cruza el Excel de productos de Mifact con el catálogo y
   // guarda sus códigos (ver pages/Mifact.jsx). Oculto por defecto en producción.
   ...(MIFACT_ACTIVO ? [{ ruta: '/mifact', etiqueta: 'Mifact', icono: FileSpreadsheet, soloAdmin: true }] : []),
+  // Solo Administración (lo decide permisosPanel): crear, editar y desactivar cuentas del equipo. Ver pages/Equipo.jsx.
+  { ruta: '/equipo', etiqueta: 'Equipo', icono: UserCog },
   // Todos: el bot (solo dirección lo cambia) y los avisos del celular (ver pages/Ajustes.jsx).
   { ruta: '/ajustes', etiqueta: 'Ajustes', icono: Settings },
 ]
@@ -113,14 +115,6 @@ export const SECCIONES_PENDIENTES = [
     subtitulo: 'Operación · ventas · caja',
     descripcion: 'Si el negocio funciona mejor y depende menos de una sola persona.',
     necesita: 'Definir con Javier las metas y los indicadores (por ejemplo horas de intervención y cierre de caja).',
-  },
-  {
-    ruta: '/equipo',
-    etiqueta: 'Equipo',
-    icono: UserCog,
-    subtitulo: 'Roles y permisos',
-    descripcion: 'Cada persona ve lo que necesita para hacer bien su parte.',
-    necesita: 'La lista de personas, los roles nuevos y qué ve cada uno. Hoy solo existen admin y operador por sede.',
   },
   {
     ruta: '/conexiones',

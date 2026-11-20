@@ -40,7 +40,7 @@ describe('env.ts en producción', () => {
 })
 
 describe('avisosDeArranque — qué falta y qué pasa mientras tanto', () => {
-  it('con el entorno vacío avisa de las 5 funciones apagadas, cada una con su consecuencia', () => {
+  it('con el entorno vacío avisa de las 6 funciones apagadas, cada una con su consecuencia', () => {
     const avisos = avisosDeArranque({})
     expect(avisos.map((a) => a.variable)).toEqual([
       'WHATSAPP_TOKEN_ENCRYPTION_KEY',
@@ -48,6 +48,7 @@ describe('avisosDeArranque — qué falta y qué pasa mientras tanto', () => {
       'DATOS_PAGO',
       'ANTHROPIC_API_KEY',
       'VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY',
+      'SUPABASE_SERVICE_ROLE_KEY',
     ])
     expect(avisos.every((a) => a.consecuencia.length > 20)).toBe(true)
     expect(avisos.find((a) => a.variable === 'DATOS_PAGO')?.consecuencia).toMatch(/persona/)
@@ -62,6 +63,7 @@ describe('avisosDeArranque — qué falta y qué pasa mientras tanto', () => {
       ANTHROPIC_API_KEY: 'x',
       VAPID_PUBLIC_KEY: 'x',
       VAPID_PRIVATE_KEY: 'x',
+      SUPABASE_SERVICE_ROLE_KEY: 'x',
     }
     expect(avisosDeArranque(todo)).toEqual([])
     expect(avisosDeArranque({ ...todo, DATOS_PAGO: '   ' }).map((a) => a.variable)).toEqual(['DATOS_PAGO'])

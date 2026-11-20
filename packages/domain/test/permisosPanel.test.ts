@@ -12,7 +12,7 @@ import {
   type Perfil,
 } from '../src/index.js'
 
-const TODAS = ['resumen', 'control-tower', 'pedidos', 'nuevo-pedido', 'ordenes', 'produccion', 'stock', 'catalogo', 'clientes', 'atencion', 'conversaciones', 'metricas', 'atribucion', 'plan-vitrina', 'ajustes', 'avisos']
+const TODAS = ['resumen', 'control-tower', 'pedidos', 'nuevo-pedido', 'ordenes', 'produccion', 'stock', 'catalogo', 'clientes', 'atencion', 'conversaciones', 'metricas', 'atribucion', 'plan-vitrina', 'equipo', 'ajustes', 'avisos']
 const rutasDe = (perfiles: Perfil[]) => TODAS.filter((r) => puedeVerRuta(perfiles, r))
 
 describe('perfiles del panel', () => {
@@ -25,6 +25,12 @@ describe('perfiles del panel', () => {
     expect(rutasDe(['venta_digital'])).toEqual(['pedidos', 'nuevo-pedido', 'clientes', 'conversaciones', 'ajustes', 'avisos'])
     expect(rutasDe(['ordenes'])).toEqual(['ordenes', 'ajustes', 'avisos'])
     expect(rutasDe(['produccion'])).toEqual(['produccion', 'ajustes', 'avisos'])
+  })
+
+  it('Equipo (cuentas del panel) solo lo abre Administración', () => {
+    expect(puedeVerRuta(['administracion'], 'equipo')).toBe(true)
+    for (const p of PERFILES.filter((x) => x !== 'administracion')) expect(puedeVerRuta([p], 'equipo'), p).toBe(false)
+    expect(puedeVerRuta(['caja', 'venta_digital', 'ordenes', 'produccion'], 'equipo')).toBe(false)
   })
 
   it('Resumen, Métricas y Clientes completo no los abre nadie más que Administración', () => {
