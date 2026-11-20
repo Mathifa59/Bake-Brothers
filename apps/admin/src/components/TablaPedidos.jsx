@@ -4,6 +4,7 @@ import { ESTADOS_PEDIDO, puedeTransicionar } from '@bakebrothers/domain'
 import { palabraDeEstado } from '../utils/estadosPedido'
 import { formatoPrecio } from '../utils/formato'
 import { Pill } from './bakeos/ui'
+import FacturacionPedido, { mostrarFacturacion } from './FacturacionPedido'
 
 // Presentacional — la lógica de fetch/cambio de estado vive en usePedidos,
 // reusada por Pedidos.jsx y por el historial de un cliente en Clientes.jsx.
@@ -159,6 +160,7 @@ export default function TablaPedidos({ pedidos, guardando, onCambiarEstado, onTo
                 onRechazar={onRechazarPago}
               />
             )}
+            <FacturacionPedido pedido={p} perfil={perfil} />
           </li>
         ))}
       </ul>
@@ -210,6 +212,13 @@ export default function TablaPedidos({ pedidos, guardando, onCambiarEstado, onTo
                       onConfirmar={onConfirmarPago}
                       onRechazar={onRechazarPago}
                     />
+                  </td>
+                </tr>
+              )}
+              {mostrarFacturacion(p, perfil) && (
+                <tr className="border-b border-borde/60 last:border-0">
+                  <td colSpan={8} className="px-4 pb-3">
+                    <FacturacionPedido pedido={p} perfil={perfil} />
                   </td>
                 </tr>
               )}
