@@ -12,7 +12,8 @@ export default defineConfig({
     // interruptor del bot): corriendo en paralelo se pisaban entre sí y daban fallos intermitentes que no eran del
     // código. En secuencia el resultado es determinista (~90 s). Dentro de cada archivo los tests ya van en orden.
     fileParallelism: false,
-    setupFiles: ['./test/setupBotEncendido.ts'],
+    // sinDrop va primero: ninguna consulta de las pruebas puede borrar una base, una tabla ni un esquema (regla fija).
+    setupFiles: ['./test/sinDrop.ts', './test/setupBotEncendido.ts'],
     // Borra los clientes que el webhook crea solos durante las pruebas (ver test/globalSetupClientes.ts).
     globalSetup: ['./test/globalSetupClientes.ts'],
     env: {

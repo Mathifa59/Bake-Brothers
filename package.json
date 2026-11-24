@@ -7,6 +7,7 @@
     "dev:api": "pnpm --filter @bakebrothers/api dev",
     "dev:admin": "pnpm --filter @bakebrothers/admin dev",
     "build": "pnpm -r build",
-    "test": "pnpm -r test"
+    "chequeo:sin-drop": "node scripts/chequeo-sin-drop.mjs",
+    "test": "node scripts/chequeo-sin-drop.mjs && pnpm -r test"
   }
 }
