@@ -4,6 +4,7 @@ import { useMetricas } from '../hooks/useMetricas'
 import { supabase } from '../lib/supabase'
 import GraficoBarras from '../components/GraficoBarras'
 import { Portada } from '../components/bakeos/ui'
+import TransferenciasInternas from '../components/unidades/TransferenciasInternas'
 
 const formatoMoneda = (n) => `S/ ${Number(n ?? 0).toFixed(2)}`
 
@@ -205,6 +206,8 @@ export default function Metricas() {
             <TarjetaKpi etiqueta="Ingresos" valor={formatoMoneda(kpis.ingresos)} />
             <TarjetaKpi etiqueta="Ticket promedio" valor={formatoMoneda(kpis.ticket_promedio)} />
           </div>
+
+          <TransferenciasInternas desde={rango.desde} hasta={rango.hasta} />
 
           {sinAsignar && Number(sinAsignar.pedidos) > 0 && (
             <div className="mb-6 rounded-2xl border border-dashed border-caramelo/60 bg-caramelo-suave/40 p-4 text-sm">

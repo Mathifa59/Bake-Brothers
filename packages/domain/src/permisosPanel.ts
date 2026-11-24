@@ -9,7 +9,7 @@
  *  - caja             Pedidos (del día) y Stock, de su local.
  *  - venta_digital    Conversaciones, Pedidos, Nuevo pedido y Clientes (reducido). SIN filtro de local: atiende el
  *                     único WhatsApp de los dos locales, así que ve Cedros, Santa Marina y el delivery sin local.
- *  - ordenes          Órdenes (registrar e imprimir la hoja del día). SIN filtro de local: ve todas las órdenes y
+ *  - ordenes          Órdenes (registrar e imprimir la hoja del día) y Unidades (salidas a calle). SIN filtro de local: ve todas las órdenes y
  *                     todos los mayoristas.
  *  - produccion       Producción y sus hojas para imprimir, de su local.
  *  - empleado_temporal  TRANSITORIO: el acceso de empleado que tenían las cuentas anteriores (adminalameda y
@@ -38,7 +38,8 @@ export const RUTAS_COMUNES = ['ajustes', 'avisos'] as const
 export const RUTAS_POR_PERFIL: Record<Exclude<Perfil, 'administracion'>, readonly string[]> = {
   caja: ['pedidos', 'stock'],
   venta_digital: ['conversaciones', 'pedidos', 'nuevo-pedido', 'clientes'],
-  ordenes: ['ordenes'],
+  // «Unidades»: Órdenes registra las salidas a calle (los precios internos, pagos y reportes son solo de Administración, en la API).
+  ordenes: ['ordenes', 'unidades'],
   produccion: ['produccion'],
   empleado_temporal: ['pedidos', 'nuevo-pedido', 'ordenes', 'produccion', 'conversaciones', 'stock'],
 }

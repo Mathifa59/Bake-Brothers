@@ -326,3 +326,17 @@ export {
   type AccionAuditoria,
   type RegistroAuditoriaVista,
 } from './auditoriaEquipo.js'
+
+export {
+  MAX_PORCIONES_POR_REGLA,
+  MAX_ENTERAS_POR_PORCIONADO,
+  planearPorcionado,
+  planearReversion,
+  puedePorcionar,
+  reglaDeTamano,
+  type ErrorPorcionado,
+  type StockDeUnSku,
+  type PlanPorcionado,
+  type PlanReversion,
+  type ReglaPorcionadoVista,
+} from './porcionado.js'

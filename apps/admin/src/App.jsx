@@ -21,6 +21,7 @@ import Metricas from './pages/Metricas'
 import Mifact from './pages/Mifact'
 import { MIFACT_ACTIVO } from './config/funciones'
 import Equipo from './pages/Equipo'
+import Unidades from './pages/Unidades'
 import Ajustes from './pages/Ajustes'
 import Avisos from './pages/Avisos'
 
@@ -91,6 +92,7 @@ function Contenido() {
           <Route path="/atribucion" element={protegida(<Atribucion />)} />
           {MIFACT_ACTIVO && <Route path="/mifact" element={protegida(<Mifact />)} />}
           <Route path="/equipo" element={protegida(<Equipo />)} />
+          <Route path="/unidades" element={protegida(<Unidades />)} />
           <Route path="/ajustes" element={protegida(<Ajustes />)} />
           <Route path="/avisos" element={protegida(<Avisos />)} />
           <Route path="/inicio" element={<Inicio />} />

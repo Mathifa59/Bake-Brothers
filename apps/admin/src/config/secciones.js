@@ -21,6 +21,7 @@ import {
   FileSpreadsheet,
   Settings,
   ClipboardList,
+  Store,
 } from 'lucide-react'
 import { MIFACT_ACTIVO } from './funciones'
 
@@ -35,6 +36,8 @@ export const SECCIONES_ACTIVAS = [
   // Mayoristas, Rappi y encargos para el día siguiente (reemplaza el grupo de WhatsApp + Excel de la noche).
   { ruta: '/ordenes', etiqueta: 'Órdenes', icono: ClipboardList },
   { ruta: '/produccion', etiqueta: 'Producción', icono: Factory },
+  // Calle y Mayoristas a precio interno: salidas (Órdenes y Administración), reporte y precios (solo Administración).
+  { ruta: '/unidades', etiqueta: 'Unidades', icono: Store },
   { ruta: '/stock', etiqueta: 'Stock', icono: Package },
   // Solo dirección: productos, combos y catering (precios, fotos, activo/oculto, orden). Ver pages/Catalogo.jsx.
   { ruta: '/catalogo', etiqueta: 'Catálogo', icono: BookOpen },

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, Copy, Plus, X } from 'lucide-react'
 import FotosProducto from './FotosProducto'
+import SeccionPorcionado from './SeccionPorcionado'
 
 const AREAS = [
   ['', 'Sin área'],
@@ -51,6 +52,7 @@ export default function EditorProducto({
   onAgregarFotos,
   onPrincipal,
   onQuitarFoto,
+  onGuardarRegla,
 }) {
   const [datos, setDatos] = useState(() => (producto ? { ...producto, descripcion: producto.descripcion ?? '', area_produccion: producto.area_produccion ?? '', familia_operativa: producto.familia_operativa ?? '', sabor: producto.sabor ?? '' } : vacio(familiaInicial ?? familias[0])))
   const [filas, setFilas] = useState(() =>
@@ -207,6 +209,9 @@ export default function EditorProducto({
               <Plus size={16} aria-hidden="true" /> Agregar {etiquetaVariante}
             </button>
           </section>
+
+          {/* Porcionado: solo en un producto ya guardado con dos o más tamaños */}
+          {producto && onGuardarRegla && <SeccionPorcionado producto={producto} onGuardarRegla={onGuardarRegla} />}
 
           {/* Fotos */}
           <section className="flex flex-col gap-3 rounded-2xl border border-borde bg-hueso p-3.5" aria-label="Fotos">

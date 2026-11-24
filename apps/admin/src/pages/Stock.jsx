@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Search } from 'lucide-react'
+import { History, Scissors, Search } from 'lucide-react'
+import { puedePorcionar, reglaDeTamano } from '@bakebrothers/domain'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { traerTodo } from '../lib/datos'
 import { Cargando, ErrorCarga, Portada, Tarjeta } from '../components/bakeos/ui'
 import FotoProducto from '../components/bakeos/FotoProducto'
+import HojaPorcionar from '../components/stock/HojaPorcionar'
+import HistorialPorcionados from '../components/stock/HistorialPorcionados'
 
 /**
  * Stock por sede, pensado primero para el celular: una lista de tarjetas por producto, agrupadas por categoría (la
@@ -76,10 +79,10 @@ function Interruptor({ disponible, sinUnidades, atenuado, ocupado, onClick, etiq
   )
 }
 
-function FilaSku({ producto, fila, sku, bloqueado, guardando, onToggle, onCantidad }) {
+function FilaSku({ producto, fila, sku, bloqueado, guardando, onToggle, onCantidad, regla, onPorcionar }) {
   const { disponible, sinUnidades } = estadoDe(fila)
   return (
-    <li className="flex items-center gap-2 py-2">
+    <li className="flex flex-wrap items-center gap-2 py-2">
       <div className="min-w-0 flex-1">
         {sku.etiqueta && <p className={`text-sm leading-snug ${sku.entero ? 'font-bold' : 'font-medium'}`}>{sku.etiqueta}</p>}
         {sku.entero && <p className="text-[11px] leading-tight text-gris">Cubre todos los tamaños</p>}
@@ -117,6 +120,16 @@ function FilaSku({ producto, fila, sku, bloqueado, guardando, onToggle, onCantid
         onClick={() => onToggle(sku)}
         etiqueta={`${producto.nombre} ${sku.etiqueta}`.trim()}
       />
+      {regla && (
+        <button
+          type="button"
+          onClick={() => onPorcionar(sku, regla)}
+          className="flex min-h-11 w-full basis-full items-center justify-center gap-2 rounded-xl border border-borde bg-white px-3 text-sm font-semibold"
+        >
+          <Scissors size={15} aria-hidden="true" />
+          Porcionar · rinde {regla.porciones} porciones
+        </button>
+      )}
     </li>
   )
 }
@@ -124,6 +137,8 @@ function FilaSku({ producto, fila, sku, bloqueado, guardando, onToggle, onCantid
 export default function Stock() {
   const { perfil } = useAuth()
   const esAdmin = perfil?.rol === 'admin'
+  // Administración, o Caja marcada como «Encargado»: el resto ni ve el botón (la API vuelve a comprobarlo).
+  const puedePorc = puedePorcionar(perfil?.perfiles, perfil?.esEncargado)
 
   const [sedes, setSedes] = useState([])
   const [sedeId, setSedeId] = useState(esAdmin ? null : perfil?.sedeId ?? null)
@@ -134,6 +149,9 @@ export default function Stock() {
   const [guardando, setGuardando] = useState(null)
   const [busqueda, setBusqueda] = useState('')
   const [soloAgotados, setSoloAgotados] = useState(false)
+  const [reglas, setReglas] = useState([]) // reglas de porcionado activas (las lee Administración y quien trabaja con Stock)
+  const [porcionando, setPorcionando] = useState(null) // { producto, sku, regla }
+  const [verHistorial, setVerHistorial] = useState(false)
   // Enter y salir de la casilla disparan el guardado los dos: este registro evita escribir dos veces lo mismo.
   const cantidadGuardada = useRef(new Map()) // sede:sku -> última cantidad escrita (o null)
   const cantidadEnVuelo = useRef(new Set())
@@ -160,6 +178,15 @@ export default function Stock() {
       .then(([productos, tamanos]) => setCatalogo(armarCatalogo(productos, tamanos)))
       .catch((err) => setError(err.message ?? String(err)))
   }, [])
+
+  useEffect(() => {
+    if (!puedePorc) return
+    supabase
+      .from('porcionado_reglas')
+      .select('id, product_id, size_entero_id, size_porcion_id, porciones, activo')
+      .eq('activo', true)
+      .then(({ data }) => setReglas(data ?? []))
+  }, [puedePorc])
 
   const cargarStockDeSede = (sede) => {
     if (!sede) return
@@ -319,19 +346,25 @@ export default function Stock() {
           />
         </label>
 
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             aria-pressed={soloAgotados}
             onClick={() => setSoloAgotados((v) => !v)}
-            className={`h-11 rounded-full px-4 text-sm font-semibold transition-colors ${
+            className={`h-11 whitespace-nowrap rounded-full px-4 text-sm font-semibold transition-colors ${
               soloAgotados ? 'bg-red-100 text-red-800' : 'bg-borde/60 text-gris'
             }`}
           >
             Solo agotados{totalAgotados > 0 ? ` (${totalAgotados})` : ''}
           </button>
+          {esAdmin && (
+            <button type="button" onClick={() => setVerHistorial(true)} className="flex h-11 items-center gap-1.5 whitespace-nowrap rounded-full bg-borde/60 px-4 text-sm font-semibold text-gris">
+              <History size={15} aria-hidden="true" />
+              Porcionados
+            </button>
+          )}
           {productos && (
-            <p className="text-xs text-gris" aria-live="polite">
+            <p className="ml-auto whitespace-nowrap text-xs text-gris" aria-live="polite">
               {totalVisibles} producto{totalVisibles === 1 ? '' : 's'}
             </p>
           )}
@@ -368,7 +401,19 @@ export default function Stock() {
                     </div>
                     <ul className="mt-1 divide-y divide-borde/60">
                       {p.filas.map(({ sku, fila, bloqueado }) => (
-                        <FilaSku key={sku.key} producto={p} fila={fila} sku={sku} bloqueado={bloqueado} guardando={guardando} onToggle={toggleDisponible} onCantidad={guardarCantidad} />
+                        <FilaSku
+                          key={sku.key}
+                          producto={p}
+                          fila={fila}
+                          sku={sku}
+                          bloqueado={bloqueado}
+                          guardando={guardando}
+                          onToggle={toggleDisponible}
+                          onCantidad={guardarCantidad}
+                          // «Porcionar» solo en el tamaño con regla activa (las tortas mini no llevan regla) y solo a quien puede.
+                          regla={puedePorc && sku.productSizeId ? reglaDeTamano(reglas.filter((r) => r.product_id === p.id), sku.productSizeId) : null}
+                          onPorcionar={(s, r) => setPorcionando({ producto: p, sku: s, regla: r })}
+                        />
                       ))}
                     </ul>
                   </Tarjeta>
@@ -378,6 +423,23 @@ export default function Stock() {
           ))
         )}
       </div>
+
+      {porcionando && (
+        <HojaPorcionar
+          producto={porcionando.producto}
+          regla={porcionando.regla}
+          tamanoEntero={porcionando.sku.etiqueta}
+          tamanoPorcion={porcionando.producto.tamanos.find((t) => t.id === porcionando.regla.size_porcion_id)?.tamano ?? 'Individual'}
+          entero={stockPorSku.get(porcionando.sku.key)}
+          porcion={stockPorSku.get(`${porcionando.producto.id}:${porcionando.regla.size_porcion_id}`)}
+          sedeId={sedeId}
+          sedeNombre={sedeSeleccionada?.nombre}
+          esAdmin={esAdmin}
+          onCerrar={() => setPorcionando(null)}
+          onHecho={() => cargarStockDeSede(sedeId)}
+        />
+      )}
+      {verHistorial && <HistorialPorcionados sedeId={sedeId} sedeNombre={sedeSeleccionada?.nombre} onCerrar={() => setVerHistorial(false)} onCambio={() => cargarStockDeSede(sedeId)} />}
     </>
   )
 }

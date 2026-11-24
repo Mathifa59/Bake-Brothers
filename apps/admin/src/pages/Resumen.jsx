@@ -35,6 +35,7 @@ const consultaPedidos = (desde, hasta) => () =>
     .from('orders')
     .select('total, estado, creado_en, sede_id, customers!inner(es_interno)')
     .eq('customers.es_interno', false) // los envíos a un local propio no son ventas
+    .neq('canal', 'mayorista') // las órdenes de mayoristas son transferencias internas a precio interno (ver Unidades), no venta al público
     .gte('creado_en', desde.toISOString())
     .lte('creado_en', hasta.toISOString())
     .order('creado_en', { ascending: true })

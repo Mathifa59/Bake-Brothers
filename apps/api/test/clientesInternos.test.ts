@@ -117,7 +117,7 @@ describe.skipIf(!hayBaseDeDatosReal)('clientes internos', () => {
       const mayorista = (await client.query(`insert into customers (tenant_id, nombre, es_mayorista) values ($1, 'TEST Mayorista Real', true) returning id`, [tenantId])).rows[0].id
       await client.query(
         `insert into orders (tenant_id, numero, customer_id, canal, estado, tipo_entrega, fecha_entrega, horario_entrega, metodo_pago, subtotal, total)
-         values ($1, 'INT-5', $2, 'mayorista', 'confirmed', 'tienda', current_date + 3, '4pm', 'yape', 80, 80)`,
+         values ($1, 'INT-5', $2, 'whatsapp', 'confirmed', 'tienda', current_date + 3, '4pm', 'yape', 80, 80)`,
         [tenantId, mayorista]
       )
       const hoy = `(now() at time zone 'America/Lima')::date`

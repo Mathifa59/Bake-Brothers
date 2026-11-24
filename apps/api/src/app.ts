@@ -19,6 +19,8 @@ import { dashboardSimuladorRoutes } from './routes/dashboardSimulador.js'
 import { dashboardMifactRoutes } from './routes/dashboardMifact.js'
 import { dashboardComprobantesRoutes } from './routes/dashboardComprobantes.js'
 import { dashboardEquipoRoutes } from './routes/dashboardEquipo.js'
+import { dashboardPorcionadoRoutes } from './routes/dashboardPorcionado.js'
+import { dashboardUnidadesRoutes } from './routes/dashboardUnidades.js'
 import { commitDesplegado } from './version.js'
 
 declare module 'fastify' {
@@ -129,6 +131,8 @@ export async function buildApp() {
   dashboardMifactRoutes(app)
   dashboardComprobantesRoutes(app)
   dashboardEquipoRoutes(app)
+  dashboardPorcionadoRoutes(app)
+  dashboardUnidadesRoutes(app)
   dashboardPushRoutes(app)
 
   return app

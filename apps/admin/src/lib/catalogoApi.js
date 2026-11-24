@@ -18,7 +18,8 @@ const BUCKET = 'catalogo'
 const CAMPOS_PRODUCTO =
   'id, tenant_id, slug, category_id, nombre, categoria_negocio, tipo, precio_base, descripcion, disponible, orden, ' +
   'area_produccion, familia_operativa, sabor, foto_url, gradiente_desde, gradiente_hasta, ' +
-  'product_sizes(id, tamano, precio, activo, orden, clase, visible_publico), product_photos(id, url, ruta, principal, orden)'
+  'product_sizes(id, tamano, precio, activo, orden, clase, visible_publico), product_photos(id, url, ruta, principal, orden), ' +
+  'porcionado_reglas(id, size_entero_id, size_porcion_id, porciones, activo)'
 
 /** Ruta dentro del bucket de una URL pública de Storage nuestra (null si es otra cosa, p. ej. una ruta antigua). */
 const rutaDeStorage = (url) => {
@@ -46,6 +47,16 @@ export const slugificar = (texto) =>
 const ordenarTamanos = (a, b) => (a.orden ?? 0) - (b.orden ?? 0) || Number(a.precio ?? 0) - Number(b.precio ?? 0)
 
 export const catalogoApi = {
+  // ——— Porcionado: crea o actualiza una regla (de qué tamaño se porciona, a cuál y cuántas porciones rinde). Nunca se borra.
+  async guardarReglaPorcionado(productId, r) {
+    const comunes = { size_entero_id: r.sizeEnteroId, size_porcion_id: r.sizePorcionId, porciones: r.porciones, activo: r.activo }
+    const { error } = r.id
+      ? await supabase.from('porcionado_reglas').update(comunes).eq('id', r.id)
+      : await supabase.from('porcionado_reglas').insert({ product_id: productId, ...comunes })
+    if (error?.code === '23505') throw new Error('Ese tamaño ya tiene una regla.')
+    aError(error, 'No se pudo guardar la regla')
+  },
+
   // ——— Productos
   async cargarProductos() {
     const filas = await traerTodo(() => supabase.from('products').select(CAMPOS_PRODUCTO).order('orden').order('nombre'))

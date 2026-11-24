@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { createRemoteJWKSet, jwtVerify } from 'jose'
-import { esAdministracion, perfilesEfectivos, tienePerfil, veTodosLosLocales, type AreaDeLocal, type Perfil } from '@bakebrothers/domain'
+import { esAdministracion, perfilesEfectivos, puedePorcionar, tienePerfil, veTodosLosLocales, type AreaDeLocal, type Perfil } from '@bakebrothers/domain'
 import { pool } from '../db.js'
 
 /**
@@ -23,6 +23,8 @@ export interface OperadorAutenticado {
   sedeId: string | null
   /** Perfiles de la cuenta (0054). Sin la migración, se derivan del rol. */
   perfiles: Perfil[]
+  /** Permiso «Encargado» (0056): puede porcionar en Stock, además de su perfil. Administración puede sin serlo. */
+  esEncargado?: boolean
 }
 
 declare module 'fastify' {
@@ -63,7 +65,13 @@ export async function verificarJwtOperador(req: FastifyRequest, reply: FastifyRe
     return reply.code(403).send({ error: 'CUENTA_DESACTIVADA' })
   }
 
-  req.operador = { id: sub, rol: fila.rol, sedeId: fila.sede_id, perfiles: perfilesEfectivos(fila.rol, fila.perfiles) }
+  req.operador = {
+    id: sub,
+    rol: fila.rol,
+    sedeId: fila.sede_id,
+    perfiles: perfilesEfectivos(fila.rol, fila.perfiles),
+    esEncargado: fila.es_encargado === true,
+  }
 }
 
 /**
@@ -73,8 +81,9 @@ export async function verificarJwtOperador(req: FastifyRequest, reply: FastifyRe
  */
 async function leerCuenta(
   id: string
-): Promise<{ rol: string; sede_id: string | null; perfiles: string[] | null; activo: boolean | null } | undefined> {
+): Promise<{ rol: string; sede_id: string | null; perfiles: string[] | null; activo: boolean | null; es_encargado: boolean | null } | undefined> {
   const intentos = [
+    `select rol, sede_id, perfiles, activo, es_encargado from usuarios_dashboard where id = $1`,
     `select rol, sede_id, perfiles, activo from usuarios_dashboard where id = $1`,
     `select rol, sede_id, perfiles from usuarios_dashboard where id = $1`,
     `select rol, sede_id from usuarios_dashboard where id = $1`,
@@ -82,7 +91,7 @@ async function leerCuenta(
   for (let i = 0; i < intentos.length; i++) {
     try {
       const { rows } = await pool.query(intentos[i], [id])
-      return rows[0] ? { perfiles: null, activo: null, ...rows[0] } : undefined
+      return rows[0] ? { perfiles: null, activo: null, es_encargado: null, ...rows[0] } : undefined
     } catch (err) {
       if ((err as { code?: string }).code !== '42703' || i === intentos.length - 1) throw err
     }
@@ -106,6 +115,13 @@ export function exigirPerfil(...perfiles: Perfil[]) {
     if (!tienePerfil(req.operador?.perfiles, ...perfiles)) {
       return reply.code(403).send({ error: 'SIN_PERFIL_PARA_ESTA_ACCION' })
     }
+  }
+}
+
+/** preHandler: solo quien puede porcionar (Administración, o Caja marcada como Encargado). SIEMPRE después de verificarJwtOperador. */
+export async function exigirPuedePorcionar(req: FastifyRequest, reply: FastifyReply) {
+  if (!puedePorcionar(req.operador?.perfiles, req.operador?.esEncargado)) {
+    return reply.code(403).send({ error: 'SOLO_ENCARGADOS', detalle: 'Solo Administración y las encargadas de turno pueden porcionar.' })
   }
 }
 

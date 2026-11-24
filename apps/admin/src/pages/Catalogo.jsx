@@ -360,6 +360,10 @@ export default function Catalogo({ api = catalogoApi }) {
           fotosOcupado={fotosOcupado}
           errorFotos={errorFotos}
           onGuardar={guardar}
+          onGuardarRegla={async (productId, regla) => {
+            await api.guardarReglaPorcionado(productId, regla)
+            await recargar()
+          }}
           onDuplicar={duplicar}
           onCerrar={() => setEditandoId(undefined)}
           onAgregarFotos={(archivos) =>

@@ -126,6 +126,39 @@ export async function cargarPlanDelDia(
     }
   }
 
+  // Salidas a calle: lo planificado (o, ya confirmada, lo que salió de verdad) para ese día entra a la producción como
+  // demanda por pedido, igual que una orden. Las órdenes de mayoristas ya entran arriba (son pedidos).
+  const { rows: calle } = await client.query(
+    `select s.id as salida, un.nombre as unidad, si.product_id, si.nombre_producto, si.tamano,
+            case when s.estado = 'salio' then coalesce(si.cantidad_salio, 0) else si.cantidad end as cantidad,
+            p.area_produccion as area, p.modo_produccion as modo, (c.nombre = 'Empanadas') as es_empanada
+       from salidas_unidad s
+       join unidades_negocio un on un.id = s.unidad_id
+       join salidas_unidad_items si on si.salida_id = s.id
+       join products p on p.id = si.product_id
+       left join categories c on c.id = p.category_id
+      where s.fecha = $1 and s.estado in ('planificada', 'salio') ${sedeId ? 'and s.sede_id = $2' : ''}`,
+    sedeId ? [fechaISO, sedeId] : [fechaISO]
+  )
+  for (const r of calle) {
+    const cantidad = Number(r.cantidad)
+    if (cantidad <= 0) continue
+    demanda.push({
+      origen: 'producto',
+      productId: r.product_id,
+      nombre: r.nombre_producto,
+      tamano: r.tamano,
+      cantidad,
+      hora: null,
+      canal: 'calle',
+      pedido: `Calle · ${String(r.salida).slice(0, 8)}`,
+      cliente: r.unidad,
+      area: r.area,
+      modo: r.modo,
+      esEmpanada: r.es_empanada ?? false,
+    })
+  }
+
   // Combos: los de composición fija se expanden a sus productos. Los que permiten cambios ya traen su selección
   // como líneas de producto del mismo pedido (a precio 0); sin selección no hay nada que expandir.
   let combosSinDetalle = 0

@@ -12,7 +12,7 @@ import {
   type Perfil,
 } from '../src/index.js'
 
-const TODAS = ['resumen', 'control-tower', 'pedidos', 'nuevo-pedido', 'ordenes', 'produccion', 'stock', 'catalogo', 'clientes', 'atencion', 'conversaciones', 'metricas', 'atribucion', 'plan-vitrina', 'equipo', 'ajustes', 'avisos']
+const TODAS = ['resumen', 'control-tower', 'pedidos', 'nuevo-pedido', 'ordenes', 'produccion', 'stock', 'catalogo', 'clientes', 'atencion', 'conversaciones', 'metricas', 'atribucion', 'plan-vitrina', 'equipo', 'unidades', 'ajustes', 'avisos']
 const rutasDe = (perfiles: Perfil[]) => TODAS.filter((r) => puedeVerRuta(perfiles, r))
 
 describe('perfiles del panel', () => {
@@ -23,7 +23,7 @@ describe('perfiles del panel', () => {
   it('cada perfil abre solo lo suyo (más Ajustes y Avisos)', () => {
     expect(rutasDe(['caja'])).toEqual(['pedidos', 'stock', 'ajustes', 'avisos'])
     expect(rutasDe(['venta_digital'])).toEqual(['pedidos', 'nuevo-pedido', 'clientes', 'conversaciones', 'ajustes', 'avisos'])
-    expect(rutasDe(['ordenes'])).toEqual(['ordenes', 'ajustes', 'avisos'])
+    expect(rutasDe(['ordenes'])).toEqual(['ordenes', 'unidades', 'ajustes', 'avisos'])
     expect(rutasDe(['produccion'])).toEqual(['produccion', 'ajustes', 'avisos'])
   })
 
@@ -44,7 +44,7 @@ describe('perfiles del panel', () => {
   })
 
   it('una cuenta con varios perfiles abre la unión', () => {
-    expect(rutasDe(['venta_digital', 'ordenes'])).toEqual(['pedidos', 'nuevo-pedido', 'ordenes', 'clientes', 'conversaciones', 'ajustes', 'avisos'])
+    expect(rutasDe(['venta_digital', 'ordenes'])).toEqual(['pedidos', 'nuevo-pedido', 'ordenes', 'clientes', 'conversaciones', 'unidades', 'ajustes', 'avisos'])
   })
 
   it('el empleado transitorio conserva exactamente el acceso de antes (sin Clientes)', () => {
