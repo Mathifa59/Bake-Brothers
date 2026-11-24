@@ -1,0 +1,12 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell|mcp__.*__(execute_sql|apply_migration)",
+        "hooks": [
+          { "type": "command", "command": "node scripts/hook-sin-drop.mjs" }
+        ]
+      }
+    ]
+  }
+}

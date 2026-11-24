@@ -4,10 +4,12 @@
 > **Nunca usar `DROP DATABASE`, `DROP TABLE` ni `DROP SCHEMA`, ni en bases locales; usar una base nueva o `ALTER`.**
 > Vale para migraciones, scripts, pruebas y comandos sueltos (`psql`, `docker exec`…). Para empezar de cero se crea una base
 > NUEVA con otro nombre; para cambiar una tabla, `ALTER`. Borrar un trigger, una política o una función sí se permite.
-> Se hace cumplir en dos lugares: `scripts/chequeo-sin-drop.mjs` (estático, forma parte de `pnpm test`; las únicas
-> excepciones son 3 migraciones históricas ya aplicadas y 2 archivos de prueba, explicados dentro del script) y
+> Se hace cumplir en tres lugares: `scripts/chequeo-sin-drop.mjs` (estático, forma parte de `pnpm test`; las únicas
+> excepciones son 3 migraciones históricas ya aplicadas y 2 archivos de prueba, explicados dentro del script),
 > `apps/api/test/sinDrop.ts` (en ejecución: las pruebas rechazan cualquier consulta con esos borrados, antes de llegar a la
-> base). Incumplida dos veces (2026-11-24, base local `bb_equipo`): por eso está aquí arriba.
+> base) y `scripts/hook-sin-drop.mjs` (hook PreToolUse de Claude Code, registrado en `.claude/settings.json`: bloquea
+> Bash, PowerShell, `execute_sql` y `apply_migration` si el texto trae esos borrados; no cubre texto camuflado ni
+> comandos que se corran fuera de Claude Code). Incumplida dos veces (2026-11-24, base local `bb_equipo`): por eso está aquí arriba.
 
 > Documento de contexto persistente del proyecto. Léelo completo al inicio de cada sesión.
 > Si tomas una decisión relevante o cambias el rumbo, actualiza este archivo.
