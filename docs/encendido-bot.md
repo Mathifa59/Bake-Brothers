@@ -91,5 +91,5 @@ Después de apagar: revisa qué pasó (conversación + log), agrega la conversac
 ## 9. Lo que NO hace todavía (para no esperarlo)
 
 - Las plantillas se envían **a mano** desde el panel; no hay disparadores automáticos.
-- Sin avisos push de pedidos nuevos ni de pagos reportados (solo de mensajes y conversaciones esperando persona; los pagos reportados salen en el Control Tower).
+- Sin avisos push de pedidos nuevos ni de pagos reportados (solo de mensajes y conversaciones esperando persona; los pagos reportados salen en las alertas del Resumen).
 - Instagram y Facebook (ManyChat): después del lanzamiento.

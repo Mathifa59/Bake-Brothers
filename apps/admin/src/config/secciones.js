@@ -1,6 +1,5 @@
 import {
   LayoutGrid,
-  Target,
   ShoppingBag,
   Factory,
   Package,
@@ -18,20 +17,18 @@ import {
   LineChart,
   UserCog,
   Workflow,
-  FileSpreadsheet,
   Settings,
   ClipboardList,
   Store,
 } from 'lucide-react'
-import { MIFACT_ACTIVO } from './funciones'
 
 /**
  * Menú de secciones de Bake OS: solo las que funcionan con datos reales.
  * `soloAdmin` las oculta a los operadores de sede.
  */
 export const SECCIONES_ACTIVAS = [
-  { ruta: '/resumen', etiqueta: 'Resumen', icono: LayoutGrid },
-  { ruta: '/control-tower', etiqueta: 'Control Tower', icono: Target, conAlertas: true },
+  // El contador rojo son las alertas activas (antes vivían en «Control Tower»; ahora son la tarjeta de arriba del Resumen).
+  { ruta: '/resumen', etiqueta: 'Resumen', icono: LayoutGrid, conAlertas: true },
   { ruta: '/pedidos', etiqueta: 'Pedidos', icono: ShoppingBag },
   // Mayoristas, Rappi y encargos para el día siguiente (reemplaza el grupo de WhatsApp + Excel de la noche).
   { ruta: '/ordenes', etiqueta: 'Órdenes', icono: ClipboardList },
@@ -47,9 +44,6 @@ export const SECCIONES_ACTIVAS = [
   { ruta: '/metricas', etiqueta: 'Métricas', icono: TrendingUp },
   // Antes «Atribución»: de qué canal o campaña llegó cada cliente o pedido (ver pages/Atribucion.jsx).
   { ruta: '/atribucion', etiqueta: 'Origen de clientes', icono: PieChart },
-  // Solo admin y solo con VITE_MIFACT_ACTIVO=true: cruza el Excel de productos de Mifact con el catálogo y
-  // guarda sus códigos (ver pages/Mifact.jsx). Oculto por defecto en producción.
-  ...(MIFACT_ACTIVO ? [{ ruta: '/mifact', etiqueta: 'Mifact', icono: FileSpreadsheet, soloAdmin: true }] : []),
   // Solo Administración (lo decide permisosPanel): crear, editar y desactivar cuentas del equipo. Ver pages/Equipo.jsx.
   { ruta: '/equipo', etiqueta: 'Equipo', icono: UserCog },
   // Todos: el bot (solo dirección lo cambia) y los avisos del celular (ver pages/Ajustes.jsx).

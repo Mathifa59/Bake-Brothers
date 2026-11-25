@@ -4,6 +4,8 @@ import { catalogoApi } from '../lib/catalogoApi'
 import { Cargando, ErrorCarga, Portada } from '../components/bakeos/ui'
 import FotoProducto from '../components/bakeos/FotoProducto'
 import EditorProducto, { Interruptor } from '../components/catalogo/EditorProducto'
+import ImportarMifact from '../components/catalogo/ImportarMifact'
+import { MIFACT_IMPORTADOR } from '../config/funciones'
 import { formatoPrecio } from '../utils/formato'
 
 const TIPOS_EN_ORDEN = ['Tortas y Kekes', 'Postres', 'Postres en Caja', 'Alfajores', 'Empanadas', 'Sándwiches', 'Cajitas Dulces', 'Bebidas']
@@ -18,6 +20,8 @@ const PESTANAS = [
   ['productos', 'Productos'],
   ['combos', 'Combos'],
   ['catering', 'Catering'],
+  // Importar los códigos de producto del Excel de Mifact. Solo con VITE_MIFACT_IMPORTADOR=true (ver config/funciones.js).
+  ...(MIFACT_IMPORTADOR ? [['mifact', 'Códigos de Mifact']] : []),
 ]
 
 /** «desde S/ 8.90» o «S/ 8.90» según haya varias opciones activas. */
@@ -263,7 +267,7 @@ export default function Catalogo({ api = catalogoApi }) {
     <>
       <Portada titulo="Catálogo" subtitulo="Productos, combos y catering: precios, fotos y qué se ofrece" accion={false} />
 
-      <div role="tablist" aria-label="Qué catálogo" className="mt-4 flex gap-1.5">
+      <div role="tablist" aria-label="Qué catálogo" className="mt-4 flex flex-wrap gap-1.5">
         {PESTANAS.map(([v, t]) => (
           <button key={v} role="tab" aria-selected={pestana === v} onClick={() => setPestana(v)} className={`min-h-11 rounded-full px-4 text-sm font-semibold ${pestana === v ? 'bg-tinta text-white' : 'border border-borde bg-hueso'}`}>
             {t}
@@ -282,7 +286,11 @@ export default function Catalogo({ api = catalogoApi }) {
         </p>
       )}
 
-      {!productos ? (
+      {pestana === 'mifact' ? (
+        <div className="pb-6">
+          <ImportarMifact />
+        </div>
+      ) : !productos ? (
         <Cargando texto="Cargando el catálogo…" />
       ) : pestana === 'productos' ? (
         <div className="mt-4 flex flex-col gap-3 pb-6">

@@ -5,7 +5,6 @@ import LayoutBakeOS from './components/bakeos/LayoutBakeOS'
 import Login from './pages/Login'
 import DefinirContrasena from './pages/DefinirContrasena'
 import Resumen from './pages/Resumen'
-import ControlTower from './pages/ControlTower'
 import Pedidos from './pages/Pedidos'
 import NuevoPedido from './pages/NuevoPedido'
 import Ordenes from './pages/Ordenes'
@@ -18,8 +17,6 @@ import Atencion from './pages/Atencion'
 import Atribucion from './pages/Atribucion'
 import Conversaciones from './pages/Conversaciones'
 import Metricas from './pages/Metricas'
-import Mifact from './pages/Mifact'
-import { MIFACT_ACTIVO } from './config/funciones'
 import Equipo from './pages/Equipo'
 import Unidades from './pages/Unidades'
 import Ajustes from './pages/Ajustes'
@@ -77,7 +74,9 @@ function Contenido() {
         <Routes>
           <Route path="/login" element={<RutaLogin />} />
           <Route path="/resumen" element={protegida(<Resumen />)} />
-          <Route path="/control-tower" element={protegida(<ControlTower />)} />
+          {/* «Control Tower» se fundió en el Resumen y «Mifact» pasó a una pestaña de Catálogo: los enlaces viejos siguen sirviendo. */}
+          <Route path="/control-tower" element={<Navigate to="/resumen" replace />} />
+          <Route path="/mifact" element={<Navigate to="/catalogo" replace />} />
           <Route path="/pedidos" element={protegida(<Pedidos />)} />
           <Route path="/nuevo-pedido" element={protegida(<NuevoPedido />)} />
           <Route path="/ordenes" element={protegida(<Ordenes />)} />
@@ -90,7 +89,6 @@ function Contenido() {
           <Route path="/conversaciones" element={protegida(<Conversaciones />)} />
           <Route path="/metricas" element={protegida(<Metricas />)} />
           <Route path="/atribucion" element={protegida(<Atribucion />)} />
-          {MIFACT_ACTIVO && <Route path="/mifact" element={protegida(<Mifact />)} />}
           <Route path="/equipo" element={protegida(<Equipo />)} />
           <Route path="/unidades" element={protegida(<Unidades />)} />
           <Route path="/ajustes" element={protegida(<Ajustes />)} />

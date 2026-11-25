@@ -54,9 +54,9 @@ export default function Avisos() {
           <Tarjeta className="flex items-center justify-between gap-3 p-3">
             <p className="text-sm">
               <span className="font-semibold">{totalAlertas}</span> alerta{totalAlertas > 1 ? 's' : ''} del día
-              <span className="text-gris"> en el Control Tower.</span>
+              <span className="text-gris"> en el Resumen.</span>
             </p>
-            <Link to="/control-tower" className="shrink-0 text-xs font-bold text-acento-oscuro">
+            <Link to="/resumen" className="shrink-0 text-xs font-bold text-acento-oscuro">
               Ver alertas
             </Link>
           </Tarjeta>

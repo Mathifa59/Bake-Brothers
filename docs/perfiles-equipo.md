@@ -5,7 +5,7 @@ acceso en `packages/domain/src/permisosPanel.ts` (la usan el menú, las rutas de
 
 | Perfil | Ve | Alcance por local |
 |---|---|---|
-| **Administración** | Todo (Resumen, Métricas, Clientes completo, Catálogo, Atención, Origen de clientes, Mifact…) | Todos |
+| **Administración** | Todo (Resumen, Métricas, Clientes completo, Catálogo —con la pestaña de códigos de Mifact si está activada—, Atención, Origen de clientes…) | Todos |
 | **Caja** | Pedidos del día (los que se entregan hoy) y Stock | Solo su local (y los pedidos sin local, que puede «tomar») |
 | **Venta digital** | Conversaciones, Pedidos, Nuevo pedido, Clientes reducido | **Sin filtro**: Cedros, Santa Marina y el delivery sin local |
 | **Órdenes** | Órdenes (registrar e imprimir la hoja del día) | **Sin filtro**: todas las órdenes y todos los mayoristas |

@@ -1,17 +1,5 @@
 import { useMemo } from 'react'
-import { Link } from 'react-router-dom'
-import {
-  BarChart3,
-  ShoppingBag,
-  Factory,
-  Headset,
-  ChevronRight,
-  PackageX,
-  Layers,
-  MessageCircleWarning,
-  Clock3,
-  BadgeDollarSign,
-} from 'lucide-react'
+import { BarChart3, ShoppingBag, Factory, Headset } from 'lucide-react'
 import {
   diaSemanaLegible,
   partesLima,
@@ -19,7 +7,6 @@ import {
   variacionPorcentual,
   ventanasComparacion,
   ventasPorHora,
-  antiguedadLegible,
 } from '@bakebrothers/domain'
 import { useAuth } from '../context/AuthContext'
 import { useAlertas } from '../context/AlertasContext'
@@ -28,6 +15,7 @@ import { supabase } from '../lib/supabase'
 import { traerTodo, useDatosVivos } from '../lib/datos'
 import { duracionLegible, formatoPrecio, horaLegible, saludoSegunHora } from '../utils/formato'
 import { Cargando, EncabezadoBloque, ErrorCarga, Kpi, Portada, Tarjeta } from '../components/bakeos/ui'
+import TarjetaAlertas from '../components/bakeos/TarjetaAlertas'
 import GraficoArea, { etiquetaHora } from '../components/bakeos/GraficoArea'
 
 const consultaPedidos = (desde, hasta) => () =>
@@ -82,63 +70,9 @@ function seriePorHora(pedidosHoy, ahora) {
   })
 }
 
-// Prioridades del día = las mismas alertas reales del Control Tower, en un orden
-// fijo y explícito (lo que se entrega hoy primero) — sin puntajes.
-function prioridades(alertas, ahora) {
-  if (!alertas) return []
-  const items = []
-  if (alertas.paraHoySinEmpezar.length)
-    items.push({
-      icono: Clock3,
-      titulo: `${alertas.paraHoySinEmpezar.length} pedido${alertas.paraHoySinEmpezar.length > 1 ? 's' : ''} para hoy sin empezar`,
-      detalle: alertas.paraHoySinEmpezar
-        .slice(0, 3)
-        .map((p) => `${p.numero} · ${p.horario_entrega}`)
-        .join(' · '),
-      a: '/produccion',
-      accion: 'Ir a producción',
-    })
-  if (alertas.escaladasSinAtender.length)
-    items.push({
-      icono: MessageCircleWarning,
-      titulo: `${alertas.escaladasSinAtender.length} conversación${alertas.escaladasSinAtender.length > 1 ? 'es' : ''} esperando a una persona`,
-      detalle: `La más antigua, ${antiguedadLegible(alertas.escaladasSinAtender[0].ultimo_mensaje_en, ahora)}`,
-      a: '/conversaciones',
-      accion: 'Atender',
-    })
-  if (alertas.pagadosSinEmpezar.length)
-    items.push({
-      icono: BadgeDollarSign,
-      titulo: `${alertas.pagadosSinEmpezar.length} pedido${alertas.pagadosSinEmpezar.length > 1 ? 's' : ''} pagado${alertas.pagadosSinEmpezar.length > 1 ? 's' : ''} sin empezar`,
-      detalle: `El más antiguo, ${antiguedadLegible(alertas.pagadosSinEmpezar[0].actualizado_en, ahora)}`,
-      a: '/produccion',
-      accion: 'Ir a producción',
-    })
-  if (alertas.combosPorRevisar.length)
-    items.push({
-      icono: Layers,
-      titulo: `${alertas.combosPorRevisar.length} combo${alertas.combosPorRevisar.length > 1 ? 's' : ''} por revisar`,
-      detalle: alertas.combosPorRevisar.slice(0, 3).map((p) => p.numero).join(' · '),
-      a: '/pedidos',
-      accion: 'Revisar',
-    })
-  if (alertas.agotados.length)
-    items.push({
-      icono: PackageX,
-      titulo: `${alertas.agotados.length} producto${alertas.agotados.length > 1 ? 's' : ''} agotado${alertas.agotados.length > 1 ? 's' : ''}`,
-      detalle: alertas.agotados
-        .slice(0, 3)
-        .map((s) => s.producto)
-        .join(' · '),
-      a: '/stock',
-      accion: 'Ver stock',
-    })
-  return items
-}
-
 export default function Resumen() {
   const { perfil } = useAuth()
-  const { alertas, ahora } = useAlertas()
+  const { alertas, error: errorAlertas, ahora } = useAlertas()
   const { resumen: atencion } = useAtencion()
   const { datos, error } = useDatosVivos(() => cargarResumen(ahora, perfil?.rol === 'admin' ? null : perfil?.sedeId), {
     tablas: ['orders'],
@@ -163,7 +97,6 @@ export default function Resumen() {
   const saludo = saludoSegunHora(ahora)
   const nombre = perfil?.nombre ?? (perfil?.rol === 'admin' ? null : `Equipo ${perfil?.sedeNombre ?? ''}`.trim())
   const titulo = nombre ? `${saludo}, ${nombre}` : saludo
-  const lista = prioridades(alertas, ahora)
 
   const detalleVentas = !comparacion
     ? ''
@@ -177,6 +110,8 @@ export default function Resumen() {
         titulo={titulo}
         subtitulo={`Aquí tienes el pulso de ${perfil?.rol === 'admin' ? 'Bake Brothers' : (perfil?.sedeNombre ?? 'tu sede')} para tomar decisiones rápidas.`}
       />
+
+      <TarjetaAlertas alertas={alertas} error={errorAlertas} ahora={ahora} />
 
       {error && <ErrorCarga mensaje={error} />}
       {!datos && !error && <Cargando />}
@@ -237,43 +172,6 @@ export default function Resumen() {
           </Tarjeta>
         </>
       )}
-
-      <Tarjeta className="mt-4 p-4">
-        <EncabezadoBloque
-          etiqueta="Hoy"
-          titulo="Prioridades del día"
-          derecha={
-            <Link to="/control-tower" className="shrink-0 text-xs font-semibold text-acento-oscuro">
-              Ver todas
-            </Link>
-          }
-        />
-        {!alertas ? (
-          <Cargando texto="Revisando pendientes…" />
-        ) : lista.length === 0 ? (
-          <p className="py-2 text-sm text-gris">Sin pendientes críticos: no hay excepciones activas ahora mismo.</p>
-        ) : (
-          <ul className="divide-y divide-borde">
-            {lista.slice(0, 4).map((it) => (
-              <li key={it.titulo}>
-                <Link to={it.a} className="flex items-center gap-3 py-3">
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-acento-suave text-acento-oscuro">
-                    <it.icono size={17} aria-hidden="true" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold leading-snug">{it.titulo}</span>
-                    {it.detalle && <span className="block text-xs leading-snug text-gris">{it.detalle}</span>}
-                  </span>
-                  <span className="hidden shrink-0 rounded-full bg-acento-suave px-2.5 py-1 text-[11px] font-bold text-acento-oscuro sm:inline">
-                    {it.accion}
-                  </span>
-                  <ChevronRight size={16} className="shrink-0 text-gris" aria-hidden="true" />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Tarjeta>
     </>
   )
 }

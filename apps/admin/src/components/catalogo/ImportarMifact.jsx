@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Navigate } from 'react-router-dom'
 import { AlertTriangle, CheckCircle2, ChevronDown, FileSpreadsheet, Info, Upload } from 'lucide-react'
 import { readSheet } from 'read-excel-file/universal'
 import { compararCatalogoMifact, filasDesdeMatriz } from '@bakebrothers/domain'
-import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabase'
-import { traerTodo } from '../lib/datos'
-import { guardarCodigosMifact } from '../lib/apiClient'
-import { formatoPrecio } from '../utils/formato'
-import { Pill, Portada, Tarjeta } from '../components/bakeos/ui'
+import { useAuth } from '../../context/AuthContext'
+import { supabase } from '../../lib/supabase'
+import { traerTodo } from '../../lib/datos'
+import { guardarCodigosMifact } from '../../lib/apiClient'
+import { formatoPrecio } from '../../utils/formato'
+import { Pill, Tarjeta } from '../bakeos/ui'
 
-// Importador del catálogo de Mifact (solo admin). El Excel se lee y se cruza en el navegador con
+// Importador de códigos de Mifact (solo admin), pestaña «Códigos de Mifact» de Catálogo (VITE_MIFACT_IMPORTADOR). El Excel se lee y se cruza en el navegador con
 // nuestro catálogo POR NOMBRE; lo único que se guarda son los códigos de Mifact (uno por almacén)
 // de lo que el admin deja marcado. NUNCA se cambia un precio ni un nombre: las diferencias son una
 // lista para revisar a mano.
@@ -133,7 +132,7 @@ function FilaCoincidencia({ c, marcada, alCambiar, puedeGuardar }) {
   )
 }
 
-export default function Mifact() {
+export default function ImportarMifact() {
   const { perfil } = useAuth()
   const entrada = useRef(null)
   const [catalogo, setCatalogo] = useState(null)
@@ -169,7 +168,8 @@ export default function Mifact() {
     setMarcadas(new Set(comparacion.coincidencias.filter((c) => c.confianza === 'exacta' && c.variantes.some((v) => v.codigo === 'nuevo')).map((c) => c.item.id)))
   }, [comparacion])
 
-  if (perfil?.rol !== 'admin') return <Navigate to="/inicio" replace />
+  // Catálogo ya es solo de administración; esto es solo un seguro por si alguien lo monta en otro lado.
+  if (perfil?.rol !== 'admin') return null
 
   async function elegirArchivo(e) {
     const f = e.target.files?.[0]
@@ -234,8 +234,6 @@ export default function Mifact() {
 
   return (
     <>
-      <Portada titulo="Importar de Mifact" subtitulo="Cruza el Excel de productos de Mifact con nuestro catálogo." accion={false} />
-
       <div role="note" className="mt-4 flex gap-3 rounded-2xl border border-borde bg-lila-suave/60 p-4 text-sm leading-relaxed">
         <Info size={18} className="mt-0.5 shrink-0 text-lila" aria-hidden="true" />
         <p>

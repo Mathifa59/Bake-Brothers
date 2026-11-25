@@ -8,7 +8,7 @@ const AlertasContext = createContext(null)
 
 const ESTADOS_PRE_PRODUCCION = ['draft', 'confirmed', 'payment_pending', 'paid']
 
-// Las cuatro consultas del Control Tower — todas sobre datos que ya existen y
+// Las consultas de las alertas del Resumen — todas sobre datos que ya existen y
 // sujetas a la RLS por sede (un operador solo ve lo de su sede; un admin, todo).
 async function cargarAlertas() {
   const [stock, pedidos, conversaciones] = await Promise.all([
@@ -59,15 +59,15 @@ async function cargarAlertas() {
 }
 
 /**
- * Alertas reales de Control Tower, compartidas por el menú (contador del
- * Control Tower), la campana, el Resumen (prioridades del día) y la propia
- * pantalla — una sola carga, no una por componente. Pedidos y conversaciones
+ * Alertas reales del día, compartidas por el menú (contador rojo de «Resumen»),
+ * la pantalla Avisos y la tarjeta de alertas del Resumen (antes «Control Tower»)
+ * — una sola carga, no una por componente. Pedidos y conversaciones
  * llegan por Realtime; el stock no está en la publicación de Realtime, así que
  * se refresca cada 60 s y al volver a la pestaña.
  */
 export function AlertasProvider({ children }) {
   const ahora = useAhora(60_000)
-  // Las alertas (Control Tower, Resumen) son de Administración: las demás cuentas no las ven, así que ni se consultan
+  // Las alertas (tarjeta del Resumen) son de Administración: las demás cuentas no las ven, así que ni se consultan
   // (además la base ya no les deja leer conversaciones ni stock).
   const { perfil } = useAuth()
   const esAdmin = esAdministracion(perfil?.perfiles)
