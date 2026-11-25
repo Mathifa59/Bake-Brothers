@@ -14,6 +14,17 @@
          siempre, así el sitio puede publicar eventos (src/utils/analitica.js) aunque GTM no se cargue. -->
     <script>
       window.dataLayer = window.dataLayer || []
+      // Consentimiento de Google (Consent Mode): TODO empieza denegado y GTM lo respeta. Se vuelve «granted» solo si la
+      // persona aceptó el aviso de cookies (src/utils/consentimiento.js guarda su elección en localStorage 'bb_cookies').
+      // Tiene que ir ANTES de cargar GTM.
+      function gtag() {
+        dataLayer.push(arguments)
+      }
+      gtag('consent', 'default', { analytics_storage: 'denied', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', wait_for_update: 500 })
+      try {
+        var elegido = JSON.parse(localStorage.getItem('bb_cookies') || 'null')
+        if (elegido && elegido.estado === 'aceptadas') gtag('consent', 'update', { analytics_storage: 'granted' })
+      } catch (e) {}
       if (/^(www\.)?bakebrothers\.pe$/.test(location.hostname)) {
         ;(function (w, d, s, l, i) {
           w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' })

@@ -1,6 +1,6 @@
 import { whatsappNumeroFormateado, whatsappUrl } from '../utils/whatsapp'
 
-const ACTUALIZADO = '5 de noviembre de 2026'
+const ACTUALIZADO = '25 de noviembre de 2026'
 
 function Seccion({ titulo, children }) {
   return (
@@ -64,6 +64,22 @@ export default function Privacidad() {
         </p>
       </Seccion>
 
+      <Seccion titulo="Cookies y estadísticas del sitio web">
+        <p>
+          Este sitio usa Google Analytics, a través de Google Tag Manager, para medir de forma agregada cuántas personas lo visitan, qué
+          páginas ven, desde qué tipo de dispositivo y cuántas tocan los botones de WhatsApp. Así sabemos qué se antoja más y qué mejorar.
+        </p>
+        <p>
+          Esas cookies de estadísticas solo se activan si pulsas «Aceptar» en el aviso que ves al entrar. Si eliges «Solo necesarias», no se
+          instalan cookies de estadísticas en tu dispositivo; Google puede recibir señales básicas de la visita (por ejemplo, la página que
+          abriste) sin cookies que te identifiquen. No usamos cookies de publicidad.
+        </p>
+        <p>
+          Puedes cambiar tu elección cuando quieras con «Preferencias de cookies», al final de cualquier página. Si cambias a «Solo
+          necesarias», borramos las cookies de Google que ya se hubieran guardado en tu navegador.
+        </p>
+      </Seccion>
+
       <Seccion titulo="Con quién compartimos los datos">
         <p>Solo con los proveedores que hacen posible el servicio, cada uno para su función:</p>
         <ul className="list-disc space-y-1.5 pl-5">
@@ -71,6 +87,7 @@ export default function Privacidad() {
           <li>Anthropic, que opera el asistente de inteligencia artificial.</li>
           <li>Supabase y nuestros servicios de alojamiento, donde se guardan los datos de forma protegida.</li>
           <li>Mifact, para emitir comprobantes electrónicos cuando corresponda.</li>
+          <li>Google (Google Analytics y Google Tag Manager), para las estadísticas de este sitio web, según tu elección de cookies.</li>
         </ul>
         <p>También podemos compartirlos con autoridades cuando la ley lo exija.</p>
       </Seccion>
