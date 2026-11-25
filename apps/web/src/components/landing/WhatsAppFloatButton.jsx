@@ -11,6 +11,9 @@ import { mensajeWhatsappGenerico } from '../../config/landing'
 // fade con opacity/scale (nunca display:none de golpe, ni display/visibility
 // que no se puedan animar) y pointer-events-none para que no capture clics
 // mientras está invisible.
+//
+// Si el aviso de cookies (barra de ancho completo, AvisoCookies.jsx) está en pantalla, el botón se sube su alto
+// (variable CSS --aviso-cookies-alto) para que la barra no lo tape.
 export default function WhatsAppFloatButton({ oculto = false }) {
   return (
     <WhatsAppCTA
@@ -19,7 +22,7 @@ export default function WhatsAppFloatButton({ oculto = false }) {
       ariaLabel="Pedir por WhatsApp"
       ariaHidden={oculto || undefined}
       tabIndex={oculto ? -1 : undefined}
-      className={`group fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-[#0F7B3F] py-3 pl-3.5 pr-5 font-bold text-white shadow-xl shadow-[#0F7B3F]/40 transition-all duration-300 hover:scale-105 active:scale-95 ${
+      className={`group fixed bottom-[calc(1.25rem_+_var(--aviso-cookies-alto,0px))] right-5 z-50 flex items-center gap-2 rounded-full bg-[#0F7B3F] py-3 pl-3.5 pr-5 font-bold text-white shadow-xl shadow-[#0F7B3F]/40 transition-all duration-300 hover:scale-105 active:scale-95 ${
         oculto ? 'pointer-events-none translate-y-3 scale-90 opacity-0' : 'anim-respirar opacity-100'
       }`}
     >
