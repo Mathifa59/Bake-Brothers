@@ -37,7 +37,7 @@ vi.mock('../src/auth/verificarJwtOperador.js', async (importOriginal) => ({
 }))
 
 const { buildApp } = await import('../src/app.js')
-const { avisarAlEquipo } = await import('../src/services/avisos.js')
+const { avisarAlEquipo, payloadDeAviso } = await import('../src/services/avisos.js')
 
 const ID = (n: number) => `66666666-0000-0000-0000-00000000000${n}`
 const SARA = ID(1) // Administración · aviso de órdenes y de pagos
@@ -191,6 +191,17 @@ describe.skipIf(!hayBaseDeDatosReal)('avisos por perfil: cada tipo llega solo a 
     expect(rows).toEqual([{ tipo: 'orden_nueva', titulo: `Orden Rappi · ${numero}`, sede_id: null }])
     // La campana: Operaciones sí la ve en la campana (el aviso es de la orden, no solo del push)
     expect(await quienVeLaCampana(`Orden Rappi · ${numero}`)).toEqual(['Caja', 'Empaque', 'Operaciones', 'Sara'])
+  })
+
+  it('un pedido nuevo del bot abre Pedidos, y ni un pedido ni un pago reemplazan la notificación del mensaje de esa conversación', () => {
+    const conv = '11111111-2222-3333-4444-555555555555'
+    const p = (tipo: 'mensaje_nuevo' | 'pedido_nuevo' | 'pago_reportado') =>
+      payloadDeAviso({ tipo, titulo: 't', cuerpo: 'c', conversacionId: conv, sedeId: null })
+    expect(p('mensaje_nuevo').tag).toBe(`conv-${conv}`)
+    expect(p('pedido_nuevo').url).toBe('/#/pedidos')
+    expect(p('pedido_nuevo').tag).toMatch(/^pedido_nuevo-/)
+    expect(p('pago_reportado').tag).toMatch(/^pago_reportado-/)
+    expect(new Set([p('mensaje_nuevo').tag, p('pedido_nuevo').tag, p('pago_reportado').tag]).size).toBe(3)
   })
 
   it('el push de «orden nueva» abre Órdenes y el de «pago reportado» abre Pedidos', async () => {

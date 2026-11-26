@@ -29,11 +29,39 @@ export interface ConversacionEscalada {
   sede: string | null
 }
 
+/** Un comprobante (boleta/factura) que sigue esperando respuesta de Mifact/SUNAT. */
+export interface ComprobanteEsperando {
+  id: string
+  /** «B002-00000001». */
+  numero: string
+  pedido: string
+  /** pendiente_envio | en_proceso | anulacion_solicitada */
+  estado: string
+  estadoLegible: string
+  /** YYYY-MM-DD. */
+  fechaEmision: string
+}
+
+/**
+ * SUNAT acepta las boletas por el resumen diario: a la mañana siguiente ya deberían estar aceptadas. Pasados más de
+ * estos días sin respuesta algo falló y hay que avisar a Mifact.
+ */
+export const DIAS_SIN_RESPUESTA_COMPROBANTE = 2
+/** Estados que significan «todavía esperando a Mifact/SUNAT» (los demás ya tienen respuesta, buena o mala). */
+export const ESTADOS_COMPROBANTE_ESPERANDO: readonly string[] = ['pendiente_envio', 'en_proceso', 'anulacion_solicitada']
+
+/** Días completos entre dos fechas YYYY-MM-DD (hora de Lima ya resuelta por quien las da). */
+export function diasEntreFechas(desde: string, hasta: string): number {
+  return Math.round((Date.parse(`${hasta}T00:00:00Z`) - Date.parse(`${desde}T00:00:00Z`)) / 86_400_000)
+}
+
 export interface EntradaAlertas {
   stockAgotado: StockAgotado[]
   /** Pedidos aún sin entrar a producción (draft/confirmed/payment_pending/paid). */
   pedidosPreProduccion: PedidoPreProduccion[]
   escaladas: ConversacionEscalada[]
+  /** Comprobantes que siguen esperando a Mifact/SUNAT (se miden aquí: solo cuentan los de más de 2 días). Solo Administración los carga. */
+  comprobantes?: ComprobanteEsperando[]
   /** YYYY-MM-DD de hoy en Lima. */
   hoy: string
 }
@@ -50,7 +78,9 @@ export interface AlertasControlTower {
   paraHoySinEmpezar: PedidoPreProduccion[]
   /** Pagos reportados con captura que nadie ha confirmado ni rechazado (el más antiguo primero). El bot no los confirma solo. */
   pagosPorConfirmar: PedidoPreProduccion[]
-  /** Excepciones activas: agotados + combos + escaladas + pagados sin empezar + pagos por confirmar. */
+  /** Boletas/facturas con más de 2 días sin respuesta de Mifact/SUNAT (la más antigua primero). */
+  comprobantesSinRespuesta: (ComprobanteEsperando & { dias: number })[]
+  /** Excepciones activas: agotados + combos + escaladas + pagados sin empezar + pagos por confirmar + comprobantes sin respuesta. */
   total: number
 }
 
@@ -65,6 +95,11 @@ export function construirAlertas(entrada: EntradaAlertas): AlertasControlTower {
   const escaladasSinAtender = [...entrada.escaladas].sort(
     (a, b) => new Date(a.ultimo_mensaje_en).getTime() - new Date(b.ultimo_mensaje_en).getTime()
   )
+  const comprobantesSinRespuesta = (entrada.comprobantes ?? [])
+    .filter((c) => ESTADOS_COMPROBANTE_ESPERANDO.includes(c.estado))
+    .map((c) => ({ ...c, dias: diasEntreFechas(c.fechaEmision, entrada.hoy) }))
+    .filter((c) => c.dias > DIAS_SIN_RESPUESTA_COMPROBANTE)
+    .sort((a, b) => b.dias - a.dias)
   return {
     agotados: entrada.stockAgotado,
     combosPorRevisar,
@@ -74,12 +109,14 @@ export function construirAlertas(entrada: EntradaAlertas): AlertasControlTower {
     ),
     paraHoySinEmpezar,
     pagosPorConfirmar,
+    comprobantesSinRespuesta,
     total:
       entrada.stockAgotado.length +
       combosPorRevisar.length +
       escaladasSinAtender.length +
       pagadosSinEmpezar.length +
-      pagosPorConfirmar.length,
+      pagosPorConfirmar.length +
+      comprobantesSinRespuesta.length,
   }
 }
 

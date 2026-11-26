@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BadgeDollarSign, ChevronRight, Clock3, Layers, MessageCircleWarning, PackageX } from 'lucide-react'
+import { BadgeDollarSign, ChevronRight, Clock3, FileWarning, Layers, MessageCircleWarning, PackageX } from 'lucide-react'
 import { antiguedadLegible } from '@bakebrothers/domain'
 import { Cargando, EncabezadoBloque, ErrorCarga, Pill, Tarjeta } from './ui'
 
@@ -112,6 +112,16 @@ export default function TarjetaAlertas({ alertas, error, ahora }) {
               detalle={`El bot vendió un combo con sustitución — confirmar antes de preparar · entrega ${p.fecha_entrega} ${p.horario_entrega}`}
               a="/pedidos"
               accion="Abrir pedido"
+            />
+          ))}
+          {alertas.comprobantesSinRespuesta.map((c) => (
+            <Fila
+              key={`comprobante-${c.id}`}
+              icono={FileWarning}
+              titulo={`${c.numero} lleva ${c.dias} días sin respuesta de SUNAT`}
+              detalle={`${c.estadoLegible} · pedido ${c.pedido} · emitido ${c.fechaEmision} · avisa a Mifact`}
+              a="/pedidos"
+              accion="Ver pedido"
             />
           ))}
           {agotados.map((s) => (

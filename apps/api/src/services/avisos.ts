@@ -99,18 +99,22 @@ export interface PayloadPush {
   tipo: TipoAviso | 'prueba'
 }
 
+const esDeConversacion = (tipo: TipoAviso) => tipo === 'mensaje_nuevo' || tipo === 'esperando_persona'
+
 export function payloadDeAviso(aviso: NuevoAviso): PayloadPush {
   const porDefecto =
-    aviso.tipo === 'orden_nueva' ? '/#/ordenes' : aviso.tipo === 'pago_reportado' ? '/#/pedidos' : null
+    aviso.tipo === 'orden_nueva' ? '/#/ordenes' : aviso.tipo === 'pago_reportado' || aviso.tipo === 'pedido_nuevo' ? '/#/pedidos' : null
   return {
     titulo: aviso.titulo,
     cuerpo: recortar(aviso.cuerpo),
     url: aviso.url ?? porDefecto ?? (aviso.conversacionId ? `/#/conversaciones?c=${aviso.conversacionId}` : '/#/conversaciones'),
-    tag: aviso.conversacionId
-      ? `conv-${aviso.conversacionId}`
-      : aviso.tipo === 'orden_nueva' || aviso.tipo === 'pago_reportado'
-        ? `${aviso.tipo}-${Date.now()}`
-        : 'conversaciones',
+    // Los mensajes reemplazan al anterior de la misma conversación. Un pedido o un pago NUNCA reemplaza a otro aviso
+    // (ni al mensaje de esa misma conversación): cada uno es su propia notificación.
+    tag: esDeConversacion(aviso.tipo)
+      ? aviso.conversacionId
+        ? `conv-${aviso.conversacionId}`
+        : 'conversaciones'
+      : `${aviso.tipo}-${Date.now()}`,
     tipo: aviso.tipo,
   }
 }

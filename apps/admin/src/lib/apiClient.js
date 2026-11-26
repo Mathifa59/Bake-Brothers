@@ -258,6 +258,9 @@ export const traerFacturacionDePedido = (numero) => llamar(`/api/dashboard/pedid
 /** Emite la boleta o factura. El receptor sale del cliente del pedido (el servidor lo decide, aquí no se manda). */
 export const emitirComprobante = (pedido, tipo) => llamar('/api/dashboard/comprobantes', { method: 'POST', body: { pedido, tipo } })
 
+/** Boletas/facturas con más de 2 días esperando a Mifact/SUNAT (alerta del Resumen). */
+export const traerComprobantesSinRespuesta = () => llamar('/api/dashboard/comprobantes/sin-respuesta')
+
 export const consultarEstadoComprobante = (id) => llamar(`/api/dashboard/comprobantes/${idc(id)}/estado`, { method: 'POST', body: {} })
 export const reintentarComprobante = (id) => llamar(`/api/dashboard/comprobantes/${idc(id)}/reintentar`, { method: 'POST', body: {} })
 export const anularComprobante = (id, motivo) => llamar(`/api/dashboard/comprobantes/${idc(id)}/anular`, { method: 'POST', body: { motivo } })

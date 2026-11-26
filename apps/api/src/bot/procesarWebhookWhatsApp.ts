@@ -141,14 +141,14 @@ export async function procesarMensajeWhatsAppEnBackground(
     if (resultado) {
       await enviarMensajeMeta('whatsapp', mensaje.phoneNumberId, mensaje.telefono, resultado.textoRespuesta)
     }
-    // Un pedido PARA HOY que el bot registró (ya validado: stock, horario del local, no solo por encargo): se avisa al
-    // local (campana + push) para que lo prepare. Los pedidos para otro día no necesitan aviso.
+    // Todo pedido que el bot registra se avisa al equipo (campana + push, a quien tiene el «aviso de órdenes» y del local
+    // del pedido). Uno PARA HOY ya viene validado (stock, horario del local, no solo por encargo) y el local tiene que
+    // prepararlo ya: se distingue en el título.
     for (const p of resultado?.pedidosCreados ?? []) {
-      if (!p.paraHoy) continue
       await avisarAlEquipo(logger, {
         tipo: 'pedido_nuevo',
-        titulo: `Pedido para hoy ${p.numero}`,
-        cuerpo: p.resumen ?? 'Pedido nuevo para hoy',
+        titulo: p.paraHoy ? `Pedido para hoy ${p.numero}` : `Pedido nuevo ${p.numero}`,
+        cuerpo: p.resumen ?? (p.paraHoy ? 'Pedido nuevo para hoy' : 'Pedido nuevo'),
         conversacionId,
         sedeId: p.sedeId ?? null,
       })

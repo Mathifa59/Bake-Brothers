@@ -51,6 +51,10 @@ export {
 export {
   construirAlertas,
   antiguedadLegible,
+  diasEntreFechas,
+  DIAS_SIN_RESPUESTA_COMPROBANTE,
+  ESTADOS_COMPROBANTE_ESPERANDO,
+  type ComprobanteEsperando,
   type StockAgotado,
   type PedidoPreProduccion,
   type ConversacionEscalada,

@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply } from 'fastify'
 import { z } from 'zod'
+import { DIAS_SIN_RESPUESTA_COMPROBANTE } from '@bakebrothers/domain'
 import { pool } from '../db.js'
 import { verificarJwtOperador } from '../auth/verificarJwtOperador.js'
 import { soloAdmin } from '../auth/soloAdmin.js'
@@ -7,6 +8,7 @@ import {
   ComprobanteError,
   anularComprobante,
   comprobantesDePedido,
+  comprobantesSinRespuesta,
   consultarEstado,
   descargarPdf,
   emitirComprobante,
@@ -115,6 +117,15 @@ export function dashboardComprobantesRoutes(app: FastifyInstance) {
     const { pedido } = z.object({ pedido: z.string().trim().min(1).max(30) }).parse(req.query)
     try {
       return reply.send(await comprobantesDePedido(pool, req.tenantId, pedido))
+    } catch (err) {
+      return responderError(reply, err)
+    }
+  })
+
+  // Alerta del Resumen: boletas/facturas con más de 2 días esperando a Mifact/SUNAT (ver DIAS_SIN_RESPUESTA_COMPROBANTE).
+  app.get('/api/dashboard/comprobantes/sin-respuesta', pre, async (req, reply) => {
+    try {
+      return reply.send(await comprobantesSinRespuesta(pool, req.tenantId, DIAS_SIN_RESPUESTA_COMPROBANTE))
     } catch (err) {
       return responderError(reply, err)
     }

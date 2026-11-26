@@ -3,6 +3,8 @@ import { construirAlertas, esAdministracion, fechaLimaISO } from '@bakebrothers/
 import { useAuth } from './AuthContext'
 import { supabase } from '../lib/supabase'
 import { traerTodo, useAhora, useDatosVivos } from '../lib/datos'
+import { traerComprobantesSinRespuesta } from '../lib/apiClient'
+import { MIFACT_ACTIVO } from '../config/funciones'
 
 const AlertasContext = createContext(null)
 
@@ -10,8 +12,20 @@ const ESTADOS_PRE_PRODUCCION = ['draft', 'confirmed', 'payment_pending', 'paid']
 
 // Las consultas de las alertas del Resumen — todas sobre datos que ya existen y
 // sujetas a la RLS por sede (un operador solo ve lo de su sede; un admin, todo).
+// Los comprobantes no se leen por Supabase (no tienen permisos para el panel): salen de la API. Si la API no responde,
+// el resto de las alertas se muestra igual (solo falta esa fila).
+async function cargarComprobantesEsperando() {
+  if (!MIFACT_ACTIVO) return []
+  try {
+    return await traerComprobantesSinRespuesta()
+  } catch (err) {
+    console.warn('No se pudieron revisar los comprobantes sin respuesta:', err)
+    return []
+  }
+}
+
 async function cargarAlertas() {
-  const [stock, pedidos, conversaciones] = await Promise.all([
+  const [stock, pedidos, conversaciones, comprobantes] = await Promise.all([
     supabase
       .from('stock')
       .select('id, disponible, products(nombre), product_sizes(tamano), sedes(nombre)')
@@ -26,11 +40,13 @@ async function cargarAlertas() {
         .order('actualizado_en', { ascending: true })
     ),
     supabase.from('conversaciones').select('id, canal, ultimo_mensaje_en, sedes(nombre)').eq('estado', 'escalada'),
+    cargarComprobantesEsperando(),
   ])
   if (stock.error) throw stock.error
   if (conversaciones.error) throw conversaciones.error
 
   return {
+    comprobantes,
     stockAgotado: stock.data.map((s) => ({
       id: s.id,
       producto: s.products?.nombre ?? 'Producto',

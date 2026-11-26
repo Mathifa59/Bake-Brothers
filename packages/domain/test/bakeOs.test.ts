@@ -15,6 +15,7 @@ import {
   accionDeProduccion,
   armarTablero,
   construirAlertas,
+  diasEntreFechas,
   antiguedadLegible,
   puedeTransicionar,
   ESTADOS_PEDIDO,
@@ -317,5 +318,44 @@ describe('Control Tower', () => {
     expect(antiguedadLegible(d(5), ahora)).toBe('hace 5 min')
     expect(antiguedadLegible(d(125), ahora)).toBe('hace 2 h')
     expect(antiguedadLegible(d(60 * 49), ahora)).toBe('hace 2 d')
+  })
+})
+
+describe('alerta: comprobantes sin respuesta de Mifact/SUNAT', () => {
+  const base = { hoy: '2026-11-26', stockAgotado: [], escaladas: [], pedidosPreProduccion: [] }
+  const c = (estado: string, fechaEmision: string, id = fechaEmision + estado) => ({
+    id, numero: `B002-${id.slice(-8)}`, pedido: 'BB-2500', estado, estadoLegible: estado, fechaEmision,
+  })
+
+  it('solo cuentan los de MÁS de 2 días: ayer y antes de ayer son normales; hace 3 días ya es alerta', () => {
+    const a = construirAlertas({
+      ...base,
+      comprobantes: [c('en_proceso', '2026-11-25'), c('en_proceso', '2026-11-24'), c('en_proceso', '2026-11-23')],
+    })
+    expect(a.comprobantesSinRespuesta.map((x) => [x.fechaEmision, x.dias])).toEqual([['2026-11-23', 3]])
+    expect(a.total).toBe(1)
+  })
+
+  it('cuentan los que esperan a Mifact (sin enviar, en proceso, baja pedida) y no los que ya tienen respuesta', () => {
+    const a = construirAlertas({
+      ...base,
+      comprobantes: [
+        c('pendiente_envio', '2026-11-20', 'a'), c('en_proceso', '2026-11-20', 'b'), c('anulacion_solicitada', '2026-11-20', 'c'),
+        c('aceptado', '2026-11-20', 'd'), c('rechazado', '2026-11-20', 'e'), c('anulado', '2026-11-20', 'f'), c('error', '2026-11-20', 'g'),
+      ],
+    })
+    expect(a.comprobantesSinRespuesta.map((x) => x.id).sort()).toEqual(['a', 'b', 'c'])
+  })
+
+  it('el más antiguo primero, suman al total con las demás alertas, y sin datos de comprobantes no pasa nada', () => {
+    const a = construirAlertas({ ...base, comprobantes: [c('en_proceso', '2026-11-22', 'x'), c('en_proceso', '2026-11-10', 'y')] })
+    expect(a.comprobantesSinRespuesta.map((x) => x.id)).toEqual(['y', 'x'])
+    expect(construirAlertas(base).comprobantesSinRespuesta).toEqual([])
+    expect(construirAlertas(base).total).toBe(0)
+  })
+
+  it('diasEntreFechas cuenta días de calendario (también cruzando meses)', () => {
+    expect(diasEntreFechas('2026-11-28', '2026-12-01')).toBe(3)
+    expect(diasEntreFechas('2026-11-26', '2026-11-26')).toBe(0)
   })
 })

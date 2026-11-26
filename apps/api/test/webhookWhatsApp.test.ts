@@ -326,7 +326,7 @@ describe.skipIf(!hayBaseDeDatosReal)('POST /webhook — async + idempotencia rea
   )
 
   it(
-    'un pedido PARA HOY que el bot registra avisa al local (aviso «pedido_nuevo», con su sede); uno para otro día no avisa',
+    'un pedido PARA HOY que el bot registra avisa al local (aviso «pedido_nuevo», con su sede y el título «Pedido para hoy»)',
     async () => {
       const telefono = '999000779'
       const limpiar = async () => {
@@ -374,6 +374,61 @@ describe.skipIf(!hayBaseDeDatosReal)('POST /webhook — async + idempotencia rea
         expect(avisos[0].titulo).toMatch(/^Pedido para hoy BB-\d+/)
         expect(avisos[0].cuerpo).toContain('carrot cake')
         expect(avisos[0].sede_id).toBe(sedeDePruebaId) // el local de la conversación
+      } finally {
+        await limpiar()
+        await client.query(`delete from mensajes_webhook_procesados where mensaje_id = $1`, [mensajeId])
+      }
+    },
+    20_000
+  )
+
+  it(
+    'un pedido del bot para OTRO día también avisa al equipo (campana + push), con el título «Pedido nuevo» y no «para hoy»',
+    async () => {
+      const telefono = '999000779'
+      const limpiar = async () => {
+        await client.query(`delete from avisos where tipo = 'pedido_nuevo' and cuerpo like '%Cliente Otro Dia Test%'`)
+        await client.query(`delete from orders where customer_id in (select id from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = $1)`, [telefono])
+        await client.query(`delete from customers where right(regexp_replace(coalesce(telefono, ''), '\\D', '', 'g'), 9) = $1`, [telefono])
+        await client.query(`delete from conversaciones where tenant_id = $1 and canal = 'whatsapp' and external_id = $2`, [tenantId, telefono])
+      }
+      await limpiar()
+      const mensajeId = `wamid.TEST_OTRODIA_${Date.now()}`
+      await client.query(`delete from mensajes_webhook_procesados where mensaje_id = $1`, [mensajeId])
+      mockCreate.mockResolvedValueOnce({
+        content: [
+          {
+            type: 'tool_use',
+            id: 'toolu_otrodia',
+            name: 'crearPedido',
+            input: {
+              clienteNombre: 'Cliente Otro Dia Test',
+              clienteTelefono: telefono,
+              tipoEntrega: 'tienda',
+              fechaEntregaISO: '2032-03-10',
+              horario: '10:00 am',
+              items: [{ tipo: 'producto', busqueda: 'carrot cake', tamano: 'Individual', cantidad: 1 }],
+              metodoPago: 'yape',
+              pagoPorAdelantado: false,
+            },
+          },
+        ],
+      })
+      mockCreate.mockResolvedValueOnce({ content: [{ type: 'text', text: 'Tu pedido quedó registrado 😊' }] })
+
+      const app = await buildApp()
+      try {
+        const res = await app.inject({ method: 'POST', url: '/webhook', payload: payloadWhatsApp(mensajeId, telefono, 'Quiero un carrot cake individual para el 10 de marzo') })
+        expect(res.statusCode).toBe(200)
+        let avisos: { titulo: string; cuerpo: string }[] = []
+        for (let intento = 0; intento < 20; intento++) {
+          await esperar(300)
+          avisos = (await client.query(`select titulo, cuerpo from avisos where tipo = 'pedido_nuevo' and cuerpo like '%Cliente Otro Dia Test%'`)).rows
+          if (avisos.length > 0) break
+        }
+        expect(avisos).toHaveLength(1)
+        expect(avisos[0].titulo).toMatch(/^Pedido nuevo BB-\d+/)
+        expect(avisos[0].titulo).not.toMatch(/para hoy/)
       } finally {
         await limpiar()
         await client.query(`delete from mensajes_webhook_procesados where mensaje_id = $1`, [mensajeId])

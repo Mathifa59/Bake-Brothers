@@ -82,6 +82,7 @@ describe.skipIf(!hayBaseDeDatosReal)('rutas de comprobantes (administrador)', ()
     const rutas: ['GET' | 'POST' | 'PUT', string, unknown?][] = [
       ['POST', '/api/dashboard/comprobantes', { pedido: 'X', tipo: 'boleta' }],
       ['GET', '/api/dashboard/comprobantes?pedido=X'],
+      ['GET', '/api/dashboard/comprobantes/sin-respuesta'],
       ['GET', `/api/dashboard/comprobantes/${id}`],
       ['POST', `/api/dashboard/comprobantes/${id}/estado`, {}],
       ['POST', `/api/dashboard/comprobantes/${id}/reintentar`, {}],
@@ -185,6 +186,37 @@ describe.skipIf(!hayBaseDeDatosReal)('rutas de comprobantes (administrador)', ()
     delete process.env.MIFACT_BAKER_BROTHERS_URL
     salidas.push((await llamar('POST', '/api/dashboard/comprobantes', 'admin', { pedido: q.numero, tipo: 'boleta' })).body)
     for (const s of salidas) expect(s).not.toContain(TOKEN)
+  })
+
+  it('GET /comprobantes/sin-respuesta: solo los que llevan MÁS de 2 días esperando a Mifact/SUNAT, el más antiguo primero', async () => {
+    falso.estadoAlRegistrar = '101' // «En proceso», como las boletas reales
+    const emitir = async () => {
+      const p = await pedido()
+      return (await llamar('POST', '/api/dashboard/comprobantes', 'admin', { pedido: p.numero, tipo: 'boleta' })).json() as { id: string; numero: string; estado: string }
+    }
+    const reciente = await emitir() // de hoy
+    const tresDias = await emitir()
+    const diezDias = await emitir()
+    const aceptada = await emitir()
+    expect([reciente, tresDias, diezDias, aceptada].every((c) => c.estado === 'en_proceso')).toBe(true)
+    const envejecer = (id: string, dias: number, estado = 'en_proceso') =>
+      pool.query(`update comprobantes set fecha_emision = (now() at time zone 'America/Lima')::date - $2::int, estado = $3 where id = $1`, [id, dias, estado])
+    await envejecer(tresDias.id, 3)
+    await envejecer(diezDias.id, 10)
+    await envejecer(aceptada.id, 10, 'aceptado')
+
+    const r = await llamar('GET', '/api/dashboard/comprobantes/sin-respuesta')
+    expect(r.statusCode).toBe(200)
+    const lista = r.json() as { id: string; numero: string; estado: string; estadoLegible: string; fechaEmision: string; pedido: string }[]
+    const ids = lista.map((c) => c.id)
+    expect(ids).toEqual(expect.arrayContaining([diezDias.id, tresDias.id]))
+    expect(ids).not.toContain(reciente.id) // de hoy: lo normal
+    expect(ids).not.toContain(aceptada.id) // ya tiene respuesta
+    expect(ids.indexOf(diezDias.id)).toBeLessThan(ids.indexOf(tresDias.id)) // el más antiguo primero
+    expect(lista.find((c) => c.id === tresDias.id)).toMatchObject({ numero: tresDias.numero, estado: 'en_proceso', estadoLegible: 'En proceso' })
+    // Justo en el borde: hace 2 días todavía es normal.
+    await envejecer(reciente.id, 2)
+    expect((await llamar('GET', '/api/dashboard/comprobantes/sin-respuesta')).json().map((c: { id: string }) => c.id)).not.toContain(reciente.id)
   })
 
   it('GET /pedidos/:numero/facturacion: quién factura, a quién se emitiría y qué botones se habilitan', async () => {

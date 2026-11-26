@@ -709,6 +709,42 @@ export async function guardarDatosFacturacion(
   return { id: c.id, nombre: c.nombre, dni: c.dni, ruc: c.ruc, razonSocial: c.razon_social, direccionFiscal: c.direccion_fiscal, correo: c.correo }
 }
 
+// ———————————————————————————————— comprobantes que llevan días sin respuesta ————
+
+export interface ComprobanteEsperandoFila {
+  id: string
+  numero: string
+  pedido: string
+  estado: string
+  estadoLegible: string
+  fechaEmision: string
+}
+
+/**
+ * Comprobantes que siguen esperando a Mifact/SUNAT (sin enviar, en proceso o con la baja pedida) de hace MÁS de
+ * `dias` días (hora de Lima; por defecto 2). Alimenta la alerta del Resumen. Los más antiguos primero, máximo 50.
+ */
+export async function comprobantesSinRespuesta(pool: pg.Pool, tenantId: string, dias = 2): Promise<ComprobanteEsperandoFila[]> {
+  const { rows } = await pool.query(
+    `select c.id, c.serie, c.correlativo, o.numero as pedido, c.estado, to_char(c.fecha_emision, 'YYYY-MM-DD') as fecha_emision
+       from comprobantes c join orders o on o.id = c.order_id
+      where c.tenant_id = $1
+        and c.estado in ('pendiente_envio', 'en_proceso', 'anulacion_solicitada')
+        and c.fecha_emision < (now() at time zone 'America/Lima')::date - $2::int
+      order by c.fecha_emision, c.creado_en
+      limit 50`,
+    [tenantId, Math.max(0, Math.floor(dias))]
+  )
+  return rows.map((r) => ({
+    id: r.id,
+    numero: `${r.serie}-${String(r.correlativo).padStart(8, '0')}`,
+    pedido: r.pedido,
+    estado: r.estado,
+    estadoLegible: estadoComprobanteLegible(r.estado),
+    fechaEmision: r.fecha_emision,
+  }))
+}
+
 // ————————————————————————————————————————— actualización automática de estados ————
 
 export interface ResultadoActualizacion {
