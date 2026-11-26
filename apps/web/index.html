@@ -8,6 +8,35 @@
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+    <!-- Google Tag Manager (contenedor GTM-TQQGD3V9). Google Analytics 4 y las demás etiquetas se administran desde
+         tagmanager.google.com, no desde el código. Solo se carga en el sitio publicado (bakebrothers.pe): ni en localhost
+         ni en las vistas previas de Vercel, para no ensuciar las estadísticas con visitas de prueba. El dataLayer se crea
+         siempre, así el sitio puede publicar eventos (src/utils/analitica.js) aunque GTM no se cargue. -->
+    <script>
+      window.dataLayer = window.dataLayer || []
+      // Consentimiento de Google (Consent Mode): TODO empieza denegado y GTM lo respeta. Se vuelve «granted» solo si la
+      // persona aceptó el aviso de cookies (src/utils/consentimiento.js guarda su elección en localStorage 'bb_cookies').
+      // Tiene que ir ANTES de cargar GTM.
+      function gtag() {
+        dataLayer.push(arguments)
+      }
+      gtag('consent', 'default', { analytics_storage: 'denied', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', wait_for_update: 500 })
+      try {
+        var elegido = JSON.parse(localStorage.getItem('bb_cookies') || 'null')
+        if (elegido && elegido.estado === 'aceptadas') gtag('consent', 'update', { analytics_storage: 'granted' })
+      } catch (e) {}
+      if (/^(www\.)?bakebrothers\.pe$/.test(location.hostname)) {
+        ;(function (w, d, s, l, i) {
+          w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' })
+          var f = d.getElementsByTagName(s)[0]
+          var j = d.createElement(s)
+          j.async = true
+          j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i
+          f.parentNode.insertBefore(j, f)
+        })(window, document, 'script', 'dataLayer', 'GTM-TQQGD3V9')
+      }
+    </script>
+
     <title>Bake Brothers · Pastelería Artesanal en Chorrillos</title>
     <meta name="description" content="Pastelería artesanal en Chorrillos, Lima — todo hecho a mano. Pide por WhatsApp y recíbelo en Cedros o Santa Marina." />
 

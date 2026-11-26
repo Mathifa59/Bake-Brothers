@@ -8,6 +8,7 @@ import WhatsAppCTA from './WhatsAppCTA'
 import { locales, redes, mensajeWhatsappGenerico } from '../../config/landing'
 import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
 import { scrollToTop } from '../../hooks/useLenisScroll'
+import { abrirPreferenciasDeCookies } from '../../utils/consentimiento'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -154,6 +155,14 @@ export default function ClosingFooter({ onVisibilidadCambia }) {
           <Link to="/privacidad" className="font-semibold text-white/50 transition-colors hover:text-white/80">
             Política de privacidad
           </Link>
+          <span aria-hidden="true"> · </span>
+          <button
+            type="button"
+            onClick={abrirPreferenciasDeCookies}
+            className="font-semibold text-white/50 transition-colors hover:text-white/80"
+          >
+            Preferencias de cookies
+          </button>
           <span aria-hidden="true"> · </span>
           Desarrollado por{' '}
           <a

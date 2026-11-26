@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import Header from '../components/landing/Header'
 import ClosingFooter from '../components/landing/ClosingFooter'
 import WhatsAppFloatButton from '../components/landing/WhatsAppFloatButton'
+import AvisoCookies from '../components/landing/AvisoCookies'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useLenisScroll, resetScrollInstant } from '../hooks/useLenisScroll'
 import { useSeo } from '../hooks/useSeo'
@@ -36,6 +37,7 @@ export default function Layout() {
       <Outlet context={{ setHeroEnPantalla }} />
       <ClosingFooter onVisibilidadCambia={setFooterEnPantalla} />
       <WhatsAppFloatButton oculto={heroEnPantalla || footerEnPantalla} />
+      <AvisoCookies />
     </div>
   )
 }

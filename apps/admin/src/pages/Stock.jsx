@@ -173,7 +173,9 @@ export default function Stock() {
   useEffect(() => {
     Promise.all([
       traerTodo(() => supabase.from('products').select('id, nombre, tipo, orden, foto_url').eq('disponible', true).order('nombre')),
-      traerTodo(() => supabase.from('product_sizes').select('id, product_id, tamano, precio, orden').eq('activo', true).not('precio', 'is', null)),
+      // Sin los tamaños ocultos (la «Mediana» de las empanadas es solo para mayoristas): si no, la empanada que se vende
+      // aparecía con una única fila «Mediana» y no había dónde marcarla como agotada.
+      traerTodo(() => supabase.from('product_sizes').select('id, product_id, tamano, precio, orden').eq('activo', true).eq('visible_publico', true).not('precio', 'is', null)),
     ])
       .then(([productos, tamanos]) => setCatalogo(armarCatalogo(productos, tamanos)))
       .catch((err) => setError(err.message ?? String(err)))

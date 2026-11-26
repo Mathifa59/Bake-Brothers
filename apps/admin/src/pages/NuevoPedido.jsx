@@ -28,7 +28,9 @@ export default function NuevoPedido() {
   useEffect(() => {
     Promise.all([
       supabase.from('products').select('id, slug, nombre, precio_base, foto_url').eq('disponible', true).order('nombre'),
-      supabase.from('product_sizes').select('id, product_id, tamano, precio').eq('activo', true).not('precio', 'is', null),
+      // Solo los tamaños que se venden al público: la «Mediana» de las empanadas es oculta (visible_publico = false, solo
+      // para las órdenes de mayoristas) y la API la rechaza con TAMANO_NO_APLICA si se pide desde aquí.
+      supabase.from('product_sizes').select('id, product_id, tamano, precio').eq('activo', true).eq('visible_publico', true).not('precio', 'is', null),
       supabase
         .from('combos')
         .select('id, nombre, precio_promo, canal_permitido')
@@ -592,7 +594,7 @@ export default function NuevoPedido() {
 
             <label className="flex items-center gap-2 text-sm font-semibold">
               <input type="checkbox" checked={yaPago} onChange={(e) => setYaPago(e.target.checked)} />
-              ¿Ya pagó?
+              Pagado
             </label>
           </div>
           <textarea
