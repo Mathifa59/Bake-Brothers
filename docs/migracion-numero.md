@@ -4,6 +4,8 @@
 **solo desde Bake OS**. El bot contesta (cuando esté encendido), pregunta en qué local recoge el cliente, y el equipo toma las
 conversaciones desde el panel.
 
+**Razón social del portafolio: BAKER BROTHERS E.I.R.L. · nombre visible del número: «Bake Brothers».**
+
 **Qué cambió en esta versión (2026-11-26):** el portafolio comercial anterior fue **hackeado**, así que no se reutiliza nada de él
 (ni app, ni usuario del sistema, ni token, ni WABA). Todo se crea de cero en un portafolio nuevo, con la seguridad armada **antes**
 de conectar el número. Este documento dice qué creas tú en Meta y en qué orden (parte 1), qué hago yo y cuándo (parte 2), y deja
@@ -41,9 +43,11 @@ Un portafolio nuevo hereda la seguridad de quien lo crea: si esa cuenta sigue co
 ### Paso 2 — Crear el portafolio comercial nuevo
 - [ ] business.facebook.com → **Crear un portafolio comercial** *(verificar en pantalla)*. Nombre: «Bake Brothers».
 - [ ] Usar un **correo de empresa del dominio** (`…@bakebrothers.pe`, el de Zoho), no un Gmail personal.
-- [ ] **Decisión a tomar (la tomas tú):** ¿a nombre de qué razón social se verifica el portafolio? Hay dos (Corporación Hermanos Loarte S.A.C. —
-      Cedros— y BAKER BROTHERS E.I.R.L. —Santa Marina—). Meta pide los documentos de **una** entidad legal y el nombre debe coincidir. Mi
-      recomendación: la que figure como titular del negocio ante el contador. El **nombre visible** del número sigue siendo «Bake Brothers».
+- [ ] **Razón social del portafolio: BAKER BROTHERS E.I.R.L.** (RUC `20612010880`; decidido, pendiente de que Javier lo confirme). Escríbela **exactamente** como
+      figura en SUNAT: Meta compara el nombre legal, el RUC y la dirección con los documentos. El **nombre visible** del número será **«Bake Brothers»**
+      (ver el paso 11: el nombre legal lleva una «r» más —«Baker»— que la marca, y eso hay que tenerlo previsto).
+- [ ] Esto no cambia quién cobra cada venta ni la facturación: son temas distintos (el cobro y las boletas siguen como están, Cedros con Corporación Hermanos Loarte
+      S.A.C.). El portafolio solo identifica a quién pertenece la cuenta de WhatsApp.
 - **Comprobación:** el portafolio aparece en Configuración del negocio con tu cuenta como administradora.
 
 ### Paso 3 — Blindar el portafolio
@@ -55,7 +59,17 @@ Un portafolio nuevo hereda la seguridad de quien lo crea: si esa cuenta sigue co
 ### Paso 4 — Verificar el dominio y empezar la verificación del negocio
 La verificación del negocio puede tardar varios días: **empieza ya**, corre en paralelo con lo demás.
 - [ ] Configuración del negocio → Seguridad de marca → **Dominios** → agregar `bakebrothers.pe` y verificarlo con el registro **TXT** en el DNS (lo haces tú, que tienes el DNS).
-- [ ] Centro de seguridad → **Iniciar verificación del negocio**: nombre legal, RUC, dirección y un documento (ficha RUC de SUNAT u otro que pidan) de la razón social elegida en el paso 2.
+- [ ] Centro de seguridad → **Iniciar verificación del negocio**: nombre legal **BAKER BROTHERS E.I.R.L.**, RUC, dirección, teléfono y sitio web `https://www.bakebrothers.pe`.
+- [ ] **Documentos que suele pedir Meta** *(la lista exacta para Perú la ves en pantalla; prepáralos antes)*:
+      1. **Un documento que pruebe el nombre legal y el registro de la empresa:** la **ficha RUC / consulta RUC de SUNAT** (razón social, RUC, estado «activo» y «habido», domicilio fiscal) y,
+         si lo piden, la **constancia o vigencia de la empresa** (partida registral).
+      2. **Un documento que pruebe la dirección y el teléfono de la empresa** a su nombre: un recibo reciente de luz, agua o teléfono/internet, o un estado de cuenta bancario de la empresa.
+      3. Solo en algunos casos: el DNI y el poder del titular gerente.
+- [ ] **Que todo coincida letra por letra:** el nombre legal, el RUC y la dirección que escribes en Meta deben ser **idénticos** a los de los documentos, y el **sitio web** debe mostrar el nombre legal y
+      un contacto. Hoy la política de privacidad (`/privacidad`) ya nombra a BAKER BROTHERS E.I.R.L. Según la consulta pública de SUNAT que hicimos, su domicilio fiscal figura en la
+      misma dirección que Cedros (Alameda Los Horizontes, Los Cedros de Villa, Chorrillos); **confírmalo contra la ficha RUC actual** antes de escribirlo en Meta, porque si la dirección que declaras no es la
+      de los documentos, la verificación se rechaza.
+- [ ] **Teléfono y correo de contacto de la verificación:** usa un correo `@bakebrothers.pe` (Zoho) y un teléfono de la empresa que contesten (Meta puede verificar por llamada, SMS o correo).
 - **Comprobación:** el dominio figura como verificado y la verificación del negocio como «en revisión» (o «verificada»).
 - *Sin esta verificación el sistema puede funcionar, pero con límites bajos para mensajes iniciados por el negocio y sin algunas funciones; las respuestas a clientes que escriben primero no dependen de ella.*
 
@@ -101,13 +115,40 @@ Tabla de lo que va en la app de la API (nombres exactos; los valores NUNCA en el
 - **Comprobación:** las plantillas figuran «Aprobadas». El panel las lee solas desde Meta (Conversaciones → «Elegir una plantilla»).
 
 ### Paso 11 — Nombre visible del número y preparación de la SIM
-- [ ] Define el **nombre visible** «Bake Brothers» (se aprueba al agregar el número; la verificación del negocio ayuda).
+- [ ] **Nombre visible: «Bake Brothers»** (la marca). Se envía a aprobación al agregar el número. **Riesgo a prever:** el nombre legal verificado es «BAKER BROTHERS E.I.R.L.» (con «r») y el nombre visible
+      es «Bake Brothers» (sin ella). Meta exige que el nombre visible corresponda al negocio y lo contrasta con el sitio web y la verificación. Para que no lo rechace: que el **sitio web** y las
+      **redes** (Instagram/Facebook `@bakebrothers.pe`) muestren claramente «Bake Brothers», y que el sitio diga que es una **marca de BAKER BROTHERS E.I.R.L.** (propuesta: una línea en el pie de la web y en la
+      política de privacidad; es un cambio de la landing y lo puedo hacer yo, directo a `main`, cuando lo apruebes). Si Meta rechaza el nombre, se vuelve a enviar con esa evidencia o se pide revisión.
 - [ ] Ten a mano el **celular con la SIM del número** (recibe el SMS/llamada de verificación) y averigua **si el número tiene PIN de verificación en dos pasos**: si lo tiene y no lo recuerdan, Meta pide esperar 7 días. Averígualo **antes** de la noche.
 - [ ] **Respaldo de los chats del celular** (WhatsApp Business → Ajustes → Chats → Copia de seguridad). La API de WhatsApp **no trae** el historial anterior.
 - **Comprobación:** sabes si hay PIN, lo tienes (o está recuperado), y el respaldo está hecho.
 
-### ⚠️ Antes de la noche: el número no puede estar en otra cuenta de Meta
-Un número no puede estar a la vez en la app del celular, en una WABA anterior y en la nueva. Si el número **alguna vez estuvo agregado a una WABA del portafolio hackeado**, hay que **quitarlo de ahí primero** (si aún tienes acceso) o pedir a Meta que lo libere (soporte de Meta Business). Es la causa más probable de que el paso 3 de la noche falle con «número ya registrado». **Dime si el número estuvo en alguna WABA antes**, así sabemos si esto aplica.
+### ⚠️ Antes de la noche: ¿el número estuvo en el portafolio hackeado?
+Un número no puede estar a la vez en la app del celular, en otra WABA y en la nueva. Si el número **estuvo agregado a una WABA del portafolio hackeado** y esa WABA sigue existiendo, el paso 4.3 falla («ya registrado») y,
+peor, quien controle esa WABA podría reclamar el número cuando lo liberes del celular. **Hay que averiguarlo ANTES de la noche** (Meta puede tardar días en resolver un caso).
+
+**Cómo detectarlo (en este orden, de menos a más invasivo):**
+1. **Preguntar** a quien manejó el portafolio anterior: ¿se conectó alguna vez el número (o uno de los locales) a la API de WhatsApp, a un chatbot o a una herramienta de terceros (ManyChat, Wati, etc.)?
+2. **Buscar en el correo** de la cuenta dueña del portafolio anterior: mensajes de «WhatsApp Business Platform» / «Meta Business» sobre un número agregado, verificado o registrado, y alertas de seguridad de los días del hackeo.
+3. **Entrar al portafolio anterior** si aún se puede (o a su «Historial de actividad» en el Centro de seguridad): Configuración del negocio → Cuentas → **Cuentas de WhatsApp** y WhatsApp Manager → **Números de teléfono**. Anotar el **WABA ID** y el estado de cada número. Si ya no tienes acceso, anótalo: es parte del caso con soporte.
+4. **Revisar las apps de desarrollador** de tu cuenta personal (developers.facebook.com → Mis apps) por apps que no reconozcas o que sean del portafolio anterior, y en WhatsApp → Configuración de API los números listados.
+5. **Prueba en seco en la WABA NUEVA** (la confirmación definitiva): WhatsApp Manager → Números de teléfono → **Agregar número**, escribir el número y **detenerte antes de pedir el código de verificación** *(verificar en pantalla)*. Si Meta
+   dice que el número ya está registrado en otra cuenta, estuvo conectado en algún lado. **No completes la verificación antes de la noche:** registrarlo en la API lo desconecta de la app del celular.
+6. **Señal indirecta en el celular:** si WhatsApp Business del celular siempre funcionó con normalidad (recibe y envía), el número **no** está registrado como API exclusiva en otra cuenta (un número en la API deja de funcionar en la app). Eso descarta el caso más grave,
+   pero no el de una conexión en modo coexistencia: por eso no basta con esta señal.
+
+**Qué hacer según el resultado:**
+- **No estuvo / la prueba en seco no dio error:** seguir con la noche normal.
+- **Estuvo, y aún controlas esa WABA:** en la WABA anterior, WhatsApp Manager → Números de teléfono → **eliminar el número**. Después repetir la prueba en seco en la WABA nueva.
+- **Estuvo y ya no puedes liberarlo (perdiste el acceso o la controla otra persona) — caso con soporte de Meta:**
+  1. **No elimines la cuenta de WhatsApp del celular** hasta que Meta confirme la liberación (mientras el número siga en la app, lo controlas tú).
+  2. Business Support Home (business.facebook.com/business-support-home) → **Obtener ayuda** y abrir un caso de **cuenta hackeada / número de WhatsApp bloqueado en una cuenta que no controlo** *(verificar en pantalla el nombre exacto del formulario)*;
+     también el flujo de **recuperación de cuenta hackeada** del portafolio y de la cuenta personal. Si el soporte te lo deriva a chat o correo, quédate con el número de caso.
+  3. Datos que conviene tener listos: el **número** y prueba de que es tuyo (la SIM, factura de la línea a nombre de la empresa), el **WABA ID** anterior (si lo anotaste), el **portafolio nuevo ya verificado a nombre de BAKER BROTHERS E.I.R.L.** (o en revisión) y los documentos
+     de la empresa. La verificación del negocio nueva es lo que más ayuda a que acepten liberarlo.
+  4. **Plazo:** puede tardar días. Mientras tanto la atención sigue por la app del celular como hoy; **no se migra** hasta que el caso se cierre.
+  5. **Plan B si no se resuelve a tiempo:** salir con un **número nuevo solo para el bot** (como estaba planeado originalmente), dejando los números de los locales como están; es un chip y una WABA nuevos, y se hace con el mismo proceso. El número histórico se migra cuando Meta lo libere.
+- **Si el número sigue en una WABA que controla otra persona, no lo dejes desprotegido al migrar:** después de registrarlo en la WABA nueva, el **PIN de verificación en dos pasos** que fija el script es lo que impide que lo reclamen de nuevo. Guárdalo y no lo compartas.
 
 ---
 
@@ -117,7 +158,8 @@ Yo no entro a Meta ni a Coolify (no tengo esos accesos y no deben dármelos). Lo
 
 | Cuándo | Qué hago |
 |---|---|
-| **Ahora** | Dejar este documento y el código listos (hecho). Revisado: nada del portafolio anterior en la base (ver arriba). |
+| **Cuando me cuentes el resultado de la revisión del número** | Ajusto el plan: noche normal, liberación por tu cuenta o caso con soporte de Meta (y, si hace falta, el plan B del número nuevo). |
+| **Ahora (hecho)** | Dejar este documento y el código listos. Revisado: nada del portafolio anterior en la base (ver arriba). |
 | **Cuando termines el paso 8 (Redeploy)** | Comprobar `/health` (commit) y que `POST /webhook` sin firma ya responde `401` y no `503` (prueba de que `META_APP_SECRET` quedó cargada). |
 | **Cuando termines el paso 9 (webhook)** | Confirmar que la verificación pasó y que el webhook sigue cerrado a firmas inválidas. |
 | **Antes de la noche** | Correr el ensayo de las pruebas (suite completa) y verificar que **Ajustes** y las cuentas del equipo están como deben (perfiles, avisos, quién recibe qué). Revisar contigo qué cuentas existen en Equipo. |
@@ -167,7 +209,7 @@ pnpm whatsapp:alta -- --bot --waba <WABA_ID> --phone <PHONE_NUMBER_ID> --simular
 *(El `PHONE_NUMBER_ID` aparece cuando el número ya está agregado a la WABA; si todavía no, se hace el paso 4.3 y se vuelve aquí.)*
 
 ### 4.2 Eliminar la cuenta de WhatsApp del celular — **ÚLTIMO PASO PREVIO, sin vuelta fácil**
-- [ ] Confirmar que el respaldo de chats está hecho y que no hay otra WABA con ese número (ver el aviso de la parte 1).
+- [ ] Confirmar que el respaldo de chats está hecho y que la **revisión del número está cerrada** (no estuvo en el portafolio anterior, o ya se liberó): ver «¿el número estuvo en el portafolio hackeado?» en la parte 1.
 - [ ] En el celular: WhatsApp Business → Ajustes → Cuenta → **Eliminar cuenta**. Un número no puede estar a la vez en la app y en la API.
 
 ### 4.3 Agregar el número a la WABA nueva (15 min)

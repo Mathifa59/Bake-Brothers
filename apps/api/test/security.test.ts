@@ -56,10 +56,8 @@ describe('CORS — orígenes de las apps propias', () => {
     'https://dashboard.bakebrothers.pe',
     'https://www.bakebrothers.pe',
     'https://bakebrothers.pe',
-    // dominios anteriores: se mantienen mientras dure la transición
-    'https://dashboard.bake-brothers.com',
-    'https://bake-brothers-admin.vercel.app',
-    'https://www.bake-brothers.com',
+    'http://localhost:5173',
+    'http://localhost:5174',
   ])(
     'permite %s',
     async (origen) => {
@@ -75,6 +73,18 @@ describe('CORS — orígenes de las apps propias', () => {
   ])('permite la vista previa de Vercel %s', async (origen) => {
     const res = await preflight(origen)
     expect(res.headers['access-control-allow-origin']).toBe(origen)
+  })
+
+  // Dominios anteriores, retirados el 2026-11-26 (ya redirigen a los nuevos): no deben poder llamar a la API.
+  it.each([
+    'https://bake-brothers.com',
+    'https://www.bake-brothers.com',
+    'https://dashboard.bake-brothers.com',
+    'https://bake-brothers-admin.vercel.app',
+    'https://bake-brothers-git-main-mathias-projects-eaced134.vercel.app',
+  ])('ya NO permite el dominio anterior %s', async (origen) => {
+    const res = await preflight(origen)
+    expect(res.headers['access-control-allow-origin']).toBeUndefined()
   })
 
   it.each([

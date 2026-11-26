@@ -30,31 +30,20 @@ declare module 'fastify' {
   }
 }
 
-// Orígenes con permiso para llamar a la API. `origin: true` (reflejar
-// cualquier origen) era razonable mientras nada estaba desplegado; ahora que
-// apps/web sí lo está, se restringe a una lista explícita: la landing real
-// en Vercel (con su alias de rama) + localhost para desarrollo.
+// Orígenes con permiso para llamar a la API. `origin: true` (reflejar cualquier origen) era razonable mientras nada
+// estaba desplegado; ahora es una lista explícita: los dominios propios de la landing y del panel + localhost para
+// desarrollo + las vistas previas del panel en Vercel.
+//
+// Limpieza del 2026-11-26: se quitaron los dominios anteriores (bake-brothers.com y su www, dashboard.bake-brothers.com,
+// bake-brothers-admin.vercel.app y el alias de rama de la landing en Vercel). Todos redirigen (307/308) a los dominios
+// nuevos, así que el navegador ya no llama a la API desde ellos. (api.bake-brothers.com es esta API, no un origen.)
 const ORIGENES_PERMITIDOS = [
-  // Dominios nuevos (2026-11): la landing vive en www.bakebrothers.pe (el dominio raíz y bake-brothers.com
-  // redirigen ahí) y el panel en dashboard.bakebrothers.pe. Los anteriores se dejan mientras dure la transición.
+  // La landing vive en www.bakebrothers.pe (el dominio raíz redirige ahí) y el panel en dashboard.bakebrothers.pe.
   'https://www.bakebrothers.pe',
   'https://bakebrothers.pe',
   'https://dashboard.bakebrothers.pe',
-  'https://bake-brothers.com',
-  // El dominio raíz redirige a "www" como versión oficial en Vercel — el
-  // navegador manda Origin con "www", así que hace falta el permiso aparte
-  // (CORS no considera un dominio y su "www" el mismo origen).
-  'https://www.bake-brothers.com',
-  'https://bake-brothers-git-main-mathias-projects-eaced134.vercel.app',
+  // Desarrollo local: la landing (Vite, 5173) y el panel (Vite, 5174).
   'http://localhost:5173',
-  // apps/admin — el puente nuevo (POST /api/dashboard/orders) lo llama
-  // directo desde el navegador del operador.
-  'https://bake-brothers-admin.vercel.app',
-  // Dominio propio del dashboard (Cloudflare → Vercel, ver CLAUDE.md §9). Sin
-  // este origen el navegador bloquea "Nuevo pedido" y la bandeja de
-  // Conversaciones desde dashboard.bake-brothers.com — se encontró al revisar el
-  // despliegue de Bake OS: nunca estuvo en la lista.
-  'https://dashboard.bake-brothers.com',
   'http://localhost:5174',
   // Vistas previas de apps/admin que Vercel genera por rama/commit (p. ej. la
   // de feature/bake-os, antes de mergear a main). El host exacto cambia en
@@ -70,7 +59,7 @@ export async function buildApp() {
   const app = Fastify({ logger: true })
 
   // Cross-Origin-Resource-Policy: 'cross-origin' porque esta API la consume
-  // apps/web desde otro origen (bake-brothers.com) — el default de helmet
+  // la web desde otro origen (www.bakebrothers.pe) — el default de helmet
   // ('same-origin') bloquearía esas respuestas en el navegador aunque CORS
   // (abajo) las permita: son dos mecanismos independientes del browser.
   await app.register(helmet, { crossOriginResourcePolicy: { policy: 'cross-origin' } })
