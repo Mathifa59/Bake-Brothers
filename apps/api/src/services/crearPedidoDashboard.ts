@@ -52,7 +52,8 @@ export interface CrearPedidoDashboardInput {
   ahora?: Date
   horario: string
   items: ItemPedidoDashboardInput[]
-  metodoPago: 'yape' | 'plin' | 'transferencia' | 'tarjeta' | 'contraentrega'
+  /** Con qué pagó. Solo se usa si `yaPago`: un pedido sin pagar siempre se guarda como «contraentrega» (paga al recoger). */
+  metodoPago?: 'yape' | 'plin' | 'transferencia' | 'tarjeta' | 'efectivo' | 'contraentrega'
   // Toggle real de la pantalla: "Sí" → nace en 'paid' (INSERT, no
   // transición — el trigger de la máquina de estados solo corre en
   // UPDATE). "No" → nace en 'confirmed', igual que todo pedido de tienda
@@ -130,6 +131,9 @@ export async function crearPedidoDashboard(
   if (!codigoPrefijo) return { ok: false, error: 'TENANT_NO_ENCONTRADO' }
 
   const estado: EstadoPedido = input.yaPago ? 'paid' : 'confirmed'
+  // Con qué pagó: solo si ya pagó. Sin pagar, paga al recoger («contraentrega»), sin importar lo que llegue en `metodoPago`.
+  if (input.yaPago && (!input.metodoPago || input.metodoPago === 'contraentrega')) return { ok: false, error: 'METODO_PAGO_REQUERIDO' }
+  const metodoPago = input.yaPago ? input.metodoPago! : 'contraentrega'
   const total = subtotal
 
   const customerId = await findOrCreateCustomer(client, tenantId, input.cliente)
@@ -151,7 +155,7 @@ export async function crearPedidoDashboard(
       fechaEntrega: input.fechaEntregaISO,
       horario: input.horario,
       nota: input.nota ?? null,
-      metodoPago: input.metodoPago,
+      metodoPago,
       cuponCodigo: null,
       subtotal,
       descuentoCupon: 0,

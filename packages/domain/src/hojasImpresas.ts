@@ -152,6 +152,8 @@ export function medioPagoDeHoja(metodo: string | null | undefined): string {
       return 'PLIN'
     case 'transferencia':
       return 'TRANSFERENCIA'
+    case 'efectivo':
+      return 'EFECTIVO'
     case 'tarjeta':
       return 'LINK IZIPAY'
     case 'contraentrega':
