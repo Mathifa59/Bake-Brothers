@@ -57,6 +57,7 @@ describe('formato de la hoja', () => {
 
   it('medio de pago con el vocabulario del equipo', () => {
     expect(medioPagoDeHoja('yape')).toBe('YAPE')
+    expect(medioPagoDeHoja('efectivo')).toBe('EFECTIVO')
     expect(medioPagoDeHoja('tarjeta')).toBe('LINK IZIPAY')
     expect(medioPagoDeHoja('contraentrega')).toBe('CANCELÓ EN TIENDA')
     expect(medioPagoDeHoja(null)).toBe('')

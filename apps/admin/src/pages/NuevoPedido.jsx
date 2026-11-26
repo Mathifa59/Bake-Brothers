@@ -10,7 +10,14 @@ import { Portada } from '../components/bakeos/ui'
 
 // FotoProducto (components/bakeos): foto con respaldo a un ícono si no hay o no carga.
 
-const METODOS_PAGO = ['yape', 'plin', 'transferencia', 'tarjeta', 'contraentrega']
+// Con qué pagó (solo se pregunta si el pedido ya está pagado; si no, se cobra al recoger).
+const METODOS_PAGO = [
+  ['yape', 'Yape'],
+  ['plin', 'Plin'],
+  ['transferencia', 'Transferencia'],
+  ['tarjeta', 'Tarjeta'],
+  ['efectivo', 'Efectivo'],
+]
 
 export default function NuevoPedido() {
   const { perfil } = useAuth()
@@ -240,8 +247,8 @@ export default function NuevoPedido() {
               ? { tipo: 'combo', comboId: i.comboId, cantidad: i.cantidad }
               : { tipo: 'catering', busquedaItem: i.busquedaItem, cantidad: i.cantidad }
         ),
-        metodoPago,
         yaPago,
+        ...(yaPago ? { metodoPago } : {}),
         nota: nota || null,
         ...(eligeLocal ? { sedeId: sedeId || null } : {}),
       }
@@ -580,22 +587,29 @@ export default function NuevoPedido() {
         <section className="rounded-2xl border border-borde/60 bg-white p-4 lg:col-span-2">
           <h2 className="mb-3 text-sm font-bold text-gris">Pago y notas</h2>
           <div className="flex flex-wrap items-center gap-4">
-            <select
-              value={metodoPago}
-              onChange={(e) => setMetodoPago(e.target.value)}
-              className="rounded-lg border border-borde bg-white px-3 py-2 text-sm capitalize outline-none focus:border-acento"
-            >
-              {METODOS_PAGO.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-
             <label className="flex items-center gap-2 text-sm font-semibold">
               <input type="checkbox" checked={yaPago} onChange={(e) => setYaPago(e.target.checked)} />
               Pagado
             </label>
+
+            {yaPago ? (
+              <label className="flex items-center gap-2 text-sm">
+                <span className="font-semibold text-gris">¿Con qué pagó?</span>
+                <select
+                  value={metodoPago}
+                  onChange={(e) => setMetodoPago(e.target.value)}
+                  className="rounded-lg border border-borde bg-white px-3 py-2 text-sm outline-none focus:border-acento"
+                >
+                  {METODOS_PAGO.map(([valor, etiqueta]) => (
+                    <option key={valor} value={valor}>
+                      {etiqueta}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <span className="text-xs text-gris">Sin marcar: se cobra al recoger.</span>
+            )}
           </div>
           <textarea
             value={nota}

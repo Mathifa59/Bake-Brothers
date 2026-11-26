@@ -15,6 +15,16 @@ import { pedidoPorNumero } from '../repositories/ordersRepo.js'
  * para un layout simple de recibo (logo, texto, una tabla de líneas).
  */
 
+const ETIQUETA_METODO_PAGO: Record<string, string> = {
+  yape: 'Yape',
+  plin: 'Plin',
+  transferencia: 'Transferencia',
+  tarjeta: 'Tarjeta',
+  efectivo: 'Efectivo',
+  contraentrega: 'Paga al recoger',
+}
+export const etiquetaMetodoPago = (m: string): string => ETIQUETA_METODO_PAGO[m] ?? m
+
 const RUTA_LOGO = path.join(process.cwd(), 'assets', 'logo-bakebrothers.jpg')
 
 export async function generarComprobantePdf(
@@ -60,7 +70,7 @@ export async function generarComprobantePdf(
       : `Delivery — ${pedido.direccion ?? ''}, ${pedido.distrito ?? ''}`
   )
   filaInfo('Fecha de entrega:', `${pedido.fechaEntrega} — ${pedido.horario}`)
-  filaInfo('Método de pago:', pedido.metodoPago)
+  filaInfo('Método de pago:', etiquetaMetodoPago(pedido.metodoPago))
   filaInfo('Estado:', pedido.estado === 'paid' ? 'Pagado' : pedido.estadoLegible)
   if (pedido.nota) {
     filaInfo('Nota:', pedido.nota)

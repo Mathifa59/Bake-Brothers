@@ -64,12 +64,18 @@ const crearPedidoDashboardSchema = z.object({
   fechaEntrega: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'fechaEntrega debe ser YYYY-MM-DD'),
   horario: z.string().trim().min(1),
   items: z.array(itemSchema).min(1),
-  metodoPago: z.enum(['yape', 'plin', 'transferencia', 'tarjeta', 'contraentrega']),
+  // Solo importa cuando el pedido ya está pagado: ahí es CON QUÉ pagó. Un pedido sin pagar se guarda siempre como
+  // «contraentrega» (paga al recoger), diga lo que diga el navegador.
+  metodoPago: z.enum(['yape', 'plin', 'transferencia', 'tarjeta', 'efectivo', 'contraentrega']).optional(),
   yaPago: z.boolean(),
   nota: z.string().nullish(),
   // Solo se usa si el operador logueado es admin — un operador normal
   // siempre queda forzado a su propia sede, sin importar lo que mande acá.
   sedeId: z.string().nullish(),
+}).superRefine((b, ctx) => {
+  // Pagado = hay que decir con qué: «contraentrega» (paga al recoger) es justo lo contrario de haber pagado.
+  if (b.yaPago && (!b.metodoPago || b.metodoPago === 'contraentrega'))
+    ctx.addIssue({ code: 'custom', path: ['metodoPago'], message: 'Si el pedido ya está pagado, indica con qué pagó (Yape, Plin, transferencia, tarjeta o efectivo).' })
 })
 
 /**
