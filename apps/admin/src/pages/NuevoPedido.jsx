@@ -594,7 +594,7 @@ export default function NuevoPedido() {
 
             <label className="flex items-center gap-2 text-sm font-semibold">
               <input type="checkbox" checked={yaPago} onChange={(e) => setYaPago(e.target.checked)} />
-              ¿Ya pagó?
+              Pagado
             </label>
           </div>
           <textarea
