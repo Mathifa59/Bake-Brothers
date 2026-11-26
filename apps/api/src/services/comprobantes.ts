@@ -708,3 +708,62 @@ export async function guardarDatosFacturacion(
   const c = rows[0]
   return { id: c.id, nombre: c.nombre, dni: c.dni, ruc: c.ruc, razonSocial: c.razon_social, direccionFiscal: c.direccion_fiscal, correo: c.correo }
 }
+
+// ————————————————————————————————————————— actualización automática de estados ————
+
+export interface ResultadoActualizacion {
+  /** Cuántos comprobantes se consultaron a Mifact. */
+  consultados: number
+  /** De esos, cuántos cambiaron de estado (p. ej. «En proceso» → «Aceptado»). */
+  cambiaron: number
+  /** Cuántos fallaron (Mifact sin respuesta, no configurado, entorno distinto…). */
+  fallaron: number
+}
+
+export interface OpcionesActualizacion {
+  /** Tope de consultas por vuelta (por defecto 50). */
+  maximo?: number
+  /** No se vuelve a consultar uno consultado hace menos de estos minutos (por defecto 60). */
+  minutosEntreConsultas?: number
+  /** Para el log: se llama por cada consulta que falló. */
+  alFallar?: (id: string, err: unknown) => void
+}
+
+/**
+ * Consulta a Mifact los comprobantes que quedaron esperando a SUNAT de un DÍA ANTERIOR (hora de Lima): las boletas
+ * llegan a SUNAT por el resumen diario y Mifact las pasa de «En proceso» a «Aceptado» en la madrugada siguiente, y
+ * una baja solicitada (108) pasa a «Anulado» al terminar el día. Es lo mismo que el botón «Actualizar estado» del
+ * panel (`consultarEstado`), solo que sin que nadie tenga que acordarse.
+ *
+ * Nunca toca lo de HOY (todavía no hay nada que preguntar), ni un `pendiente_envio` (eso lo decide una persona: un
+ * reintento puede gastar un número), ni lo que ya está en un estado final. Va de a uno, con un tope por vuelta, y un
+ * fallo de uno no corta a los demás.
+ */
+export async function actualizarEstadosPendientes(pool: pg.Pool, tenantId: string, opciones: OpcionesActualizacion = {}): Promise<ResultadoActualizacion> {
+  const maximo = Math.max(1, Math.floor(opciones.maximo ?? 50))
+  const minutos = Math.max(0, Math.floor(opciones.minutosEntreConsultas ?? 60))
+  const { rows } = await pool.query<{ id: string; estado: string }>(
+    `select c.id, c.estado
+       from comprobantes c
+      where c.tenant_id = $1
+        and ( (c.estado = 'en_proceso' and c.fecha_emision < (now() at time zone 'America/Lima')::date)
+           or (c.estado = 'anulacion_solicitada'
+               and (coalesce(c.anulacion_solicitada_en, c.actualizado_en) at time zone 'America/Lima')::date < (now() at time zone 'America/Lima')::date) )
+        and (c.consultado_en is null or c.consultado_en < now() - make_interval(mins => $2))
+      order by c.consultado_en nulls first, c.creado_en
+      limit $3`,
+    [tenantId, minutos, maximo]
+  )
+  const r: ResultadoActualizacion = { consultados: 0, cambiaron: 0, fallaron: 0 }
+  for (const fila of rows) {
+    r.consultados++
+    try {
+      const nuevo = await consultarEstado(pool, tenantId, fila.id)
+      if (nuevo.estado !== fila.estado) r.cambiaron++
+    } catch (err) {
+      r.fallaron++
+      opciones.alFallar?.(fila.id, err)
+    }
+  }
+  return r
+}

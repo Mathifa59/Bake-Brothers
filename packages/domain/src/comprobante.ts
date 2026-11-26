@@ -224,3 +224,18 @@ export const ESTADOS_VIGENTES: readonly EstadoComprobante[] = ['pendiente_envio'
 /** Un pedido se factura cuando ya es una venta firme: no en borrador, ni esperando el pago, ni anulado. */
 export const ESTADOS_PEDIDO_FACTURABLES = ['confirmed', 'paid', 'in_production', 'out_for_delivery', 'delivered'] as const
 export const pedidoEsFacturable = (estadoPedido: string): boolean => (ESTADOS_PEDIDO_FACTURABLES as readonly string[]).includes(estadoPedido)
+
+/**
+ * Nota que explica en el panel por qué un comprobante sigue esperando. Las boletas llegan a SUNAT por el resumen diario:
+ * Mifact las deja «En proceso» y SUNAT las acepta la madrugada siguiente (la API consulta sola a Mifact cada 30 min).
+ * `fechaEmision` y `hoyLima` son fechas `YYYY-MM-DD` (hora de Lima). Devuelve null si no hay nada que explicar.
+ */
+export function notaEstadoComprobante(c: { estado: EstadoComprobante; fechaEmision: string }, hoyLima: string): string | null {
+  if (c.estado === 'en_proceso') {
+    return c.fechaEmision < hoyLima
+      ? 'Sigue esperando la respuesta de SUNAT. Se actualiza sola; si pasan más de 2 días, avisa a Mifact.'
+      : 'Normal: SUNAT confirma las boletas en la madrugada (resumen diario). Se actualizará sola mañana.'
+  }
+  if (c.estado === 'anulacion_solicitada') return 'La baja ya se pidió. SUNAT la confirma al terminar el día y el estado se actualizará solo.'
+  return null
+}

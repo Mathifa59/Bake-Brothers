@@ -16,6 +16,7 @@ import {
   enviarCorreoComprobante,
   guardarDatosFacturacion,
   obtenerComprobante,
+  actualizarEstadosPendientes,
   reintentarEnvio,
   resumenFacturacionDelPedido,
 } from '../src/services/comprobantes.js'
@@ -639,6 +640,113 @@ describe.skipIf(!hayBaseDeDatosReal)('comprobantes electrónicos desde un pedido
     it('un cliente que no existe', async () => {
       const e = await error(guardarDatosFacturacion(pool, tenantId, '00000000-0000-0000-0000-000000000000', { razonSocial: 'X SAC' }))
       expect(e?.codigo).toBe('CLIENTE_NO_ENCONTRADO')
+    })
+  })
+
+  // ———————————————————— actualización automática (la boleta «En proceso» pasa a «Aceptado» sola) ————
+  describe('actualización automática de estados', () => {
+    const clave = (c: { tipo: string; serie: string; correlativo: number }) => `${c.tipo === 'boleta' ? '03' : '01'}|${c.serie}|${c.correlativo}`
+    /** Emite con Mifact respondiendo «101 en proceso» (como las boletas reales: SUNAT las acepta al día siguiente). */
+    const enProceso = async () => {
+      falso.estadoAlRegistrar = '101'
+      const c = await emitirComprobante(pool, tenantId, { pedido: (await pedido()).numero, tipo: 'boleta' })
+      expect(c.estado).toBe('en_proceso')
+      return c
+    }
+    /** Hace como si la boleta se hubiera emitido hace `dias` días (hora de Lima) y nunca se hubiera consultado. */
+    const emitidaHaceDias = (id: string, dias: number) =>
+      pool.query(`update comprobantes set fecha_emision = (now() at time zone 'America/Lima')::date - $2::int, consultado_en = null where id = $1`, [id, dias])
+    const estadoEnBase = async (id: string) => (await pool.query(`select estado, estado_codigo from comprobantes where id = $1`, [id])).rows[0]
+
+    it('una boleta en proceso de AYER se consulta sola y queda aceptada', async () => {
+      const c = await enProceso()
+      await emitidaHaceDias(c.id, 1)
+      falso.documentos.get(clave(c))!.estado = '102'
+      const r = await actualizarEstadosPendientes(pool, tenantId)
+      expect(r).toEqual({ consultados: 1, cambiaron: 1, fallaron: 0 })
+      expect(await estadoEnBase(c.id)).toEqual({ estado: 'aceptado', estado_codigo: 102 })
+      expect(falso.llamadasA('GetEstatusInvoice')).toHaveLength(1)
+    })
+
+    it('lo de HOY no se consulta: todavía no hay nada que preguntarle a SUNAT', async () => {
+      const c = await enProceso()
+      const r = await actualizarEstadosPendientes(pool, tenantId)
+      expect(r.consultados).toBe(0)
+      expect(falso.llamadasA('GetEstatusInvoice')).toHaveLength(0)
+      expect((await estadoEnBase(c.id)).estado).toBe('en_proceso')
+    })
+
+    it('si SUNAT todavía no responde, sigue «En proceso»: se anota la consulta y no se repite de inmediato', async () => {
+      const c = await enProceso()
+      await emitidaHaceDias(c.id, 1)
+      const a = await actualizarEstadosPendientes(pool, tenantId)
+      expect(a).toEqual({ consultados: 1, cambiaron: 0, fallaron: 0 })
+      expect((await estadoEnBase(c.id)).estado).toBe('en_proceso')
+      expect((await obtenerComprobante(pool, tenantId, c.id)).consultadoEn).not.toBeNull()
+      // Una segunda vuelta enseguida no vuelve a molestar a Mifact por el mismo comprobante…
+      expect((await actualizarEstadosPendientes(pool, tenantId)).consultados).toBe(0)
+      // …pero pasada la hora sí, y entonces lo encuentra aceptado.
+      await pool.query(`update comprobantes set consultado_en = now() - interval '2 hours' where id = $1`, [c.id])
+      falso.documentos.get(clave(c))!.estado = '102'
+      expect(await actualizarEstadosPendientes(pool, tenantId)).toEqual({ consultados: 1, cambiaron: 1, fallaron: 0 })
+    })
+
+    it('una baja solicitada de un día anterior pasa sola a «Anulado»', async () => {
+      const c = await enProceso()
+      await anularComprobante(pool, tenantId, c.id, { motivo: 'Error en el pedido' })
+      await pool.query(`update comprobantes set anulacion_solicitada_en = now() - interval '2 days', consultado_en = null where id = $1`, [c.id])
+      falso.documentos.get(clave(c))!.estado = '105'
+      expect(await actualizarEstadosPendientes(pool, tenantId)).toEqual({ consultados: 1, cambiaron: 1, fallaron: 0 })
+      expect(await estadoEnBase(c.id)).toEqual({ estado: 'anulado', estado_codigo: 105 })
+    })
+
+    it('NO toca lo que ya terminó, lo pendiente de envío ni lo que tiene error', async () => {
+      const aceptada = await emitirComprobante(pool, tenantId, { pedido: (await pedido()).numero, tipo: 'boleta' })
+      falso.estadoAlRegistrar = '101'
+      const pendiente = await emitirComprobante(pool, tenantId, { pedido: (await pedido()).numero, tipo: 'boleta' })
+      const conError = await emitirComprobante(pool, tenantId, { pedido: (await pedido()).numero, tipo: 'boleta' })
+      await pool.query(`update comprobantes set estado = 'pendiente_envio' where id = $1`, [pendiente.id])
+      await pool.query(`update comprobantes set estado = 'error', ultimo_error = 'x' where id = $1`, [conError.id])
+      for (const c of [aceptada, pendiente, conError]) await emitidaHaceDias(c.id, 3)
+      const r = await actualizarEstadosPendientes(pool, tenantId)
+      expect(r.consultados).toBe(0)
+      expect(falso.llamadasA('GetEstatusInvoice')).toHaveLength(0)
+    })
+
+    it('si Mifact falla con uno, sigue con los demás y no lanza', async () => {
+      const a = await enProceso()
+      const b = await enProceso()
+      for (const c of [a, b]) await emitidaHaceDias(c.id, 1)
+      falso.documentos.get(clave(b))!.estado = '102'
+      falso.fallar('GetEstatusInvoice', { tipo: 'sin_conexion' })
+      const falladas: string[] = []
+      const r = await actualizarEstadosPendientes(pool, tenantId, { alFallar: (id) => falladas.push(id) })
+      expect(r).toMatchObject({ consultados: 2, fallaron: 1 })
+      expect(falladas).toHaveLength(1)
+      // El que falló sigue como estaba y se reintenta en la próxima vuelta; el otro se actualizó.
+      const estados = (await Promise.all([a, b].map((c) => estadoEnBase(c.id)))).map((x) => x.estado).sort()
+      expect(estados).toEqual(['aceptado', 'en_proceso'])
+    })
+
+    it('respeta el tope por vuelta y empieza por los que nunca se consultaron', async () => {
+      const cs = [await enProceso(), await enProceso(), await enProceso()]
+      for (const c of cs) await emitidaHaceDias(c.id, 1)
+      const r = await actualizarEstadosPendientes(pool, tenantId, { maximo: 2 })
+      expect(r.consultados).toBe(2)
+      const consultadas = (await pool.query(`select count(*)::int as n from comprobantes where id = any($1) and consultado_en is not null`, [cs.map((c) => c.id)])).rows[0].n
+      expect(consultadas).toBe(2)
+      // La siguiente vuelta toma el que quedó sin consultar.
+      expect((await actualizarEstadosPendientes(pool, tenantId, { maximo: 2 })).consultados).toBe(1)
+    })
+
+    it('un comprobante del demo no se consulta con la configuración de producción: se cuenta como fallo y no cambia', async () => {
+      const c = await enProceso()
+      await emitidaHaceDias(c.id, 1)
+      process.env.MIFACT_BAKER_BROTHERS_URL = 'https://mifact.net.pe/mifactapi99/invoiceService.svc'
+      process.env.MIFACT_BAKER_BROTHERS_RUC = '20612010880'
+      const r = await actualizarEstadosPendientes(pool, tenantId)
+      expect(r).toMatchObject({ consultados: 1, cambiaron: 0, fallaron: 1 })
+      expect(falso.llamadasA('GetEstatusInvoice')).toHaveLength(0)
     })
   })
 })

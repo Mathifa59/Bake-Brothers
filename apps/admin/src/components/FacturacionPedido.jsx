@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ChevronDown, FileText } from 'lucide-react'
-import { ESTADOS_ANULABLES, pedidoEsFacturable } from '@bakebrothers/domain'
+import { ESTADOS_ANULABLES, fechaLimaISO, notaEstadoComprobante, pedidoEsFacturable } from '@bakebrothers/domain'
 import {
   abrirPdfDeComprobante,
   anularComprobante,
@@ -91,6 +91,7 @@ function DatosDelCliente({ cliente, onGuardar, guardando, error }) {
 
 function FilaComprobante({ c, ocupado, onVerPdf, onActualizar, onReintentar, onPedirAnular }) {
   const anulable = ESTADOS_ANULABLES.includes(c.estado)
+  const nota = notaEstadoComprobante(c, fechaLimaISO())
   return (
     <li className="rounded-xl border border-borde bg-hueso p-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -102,6 +103,7 @@ function FilaComprobante({ c, ocupado, onVerPdf, onActualizar, onReintentar, onP
       <p className="mt-1 text-xs capitalize text-gris">
         {c.tipo} · {c.receptor.nombre} · {textoDoc(c.receptor.tipoDoc, c.receptor.documento)} · {c.fechaEmision}
       </p>
+      {nota && <p className="mt-1 text-xs text-gris">{nota}</p>}
       {c.sunat?.descripcion && <p className="mt-1 text-xs text-gris">SUNAT: {c.sunat.descripcion}</p>}
       {c.motivoAnulacion && <p className="mt-1 text-xs text-gris">Motivo de la anulación: {c.motivoAnulacion}</p>}
       {c.ultimoError && (c.estado === 'error' || c.estado === 'pendiente_envio') && (

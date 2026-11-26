@@ -10,6 +10,7 @@ import {
   estadoComprobanteLegible,
   estadoDeCodigoMifact,
   pedidoEsFacturable,
+  notaEstadoComprobante,
   resolverReceptor,
   totalesCoinciden,
   validarDni,
@@ -164,5 +165,23 @@ describe('lista de datos de ejemplo de Mifact', () => {
     expect(esDocumentoDeEjemploMifact('20612010880')).toBe(false) // Baker Brothers E.I.R.L., real
     expect(esDocumentoDeEjemploMifact('20605451005')).toBe(false) // Hermanos Loarte, real
     expect(todosLosDatosDeEjemploMifact().length).toBe(Object.values(DATOS_EJEMPLO_MIFACT).flat().length)
+  })
+})
+
+describe('notaEstadoComprobante', () => {
+  it('una boleta en proceso emitida hoy explica que SUNAT la confirma en la madrugada', () => {
+    expect(notaEstadoComprobante({ estado: 'en_proceso', fechaEmision: '2026-11-26' }, '2026-11-26')).toMatch(/madrugada/)
+  })
+  it('una en proceso de un día anterior cambia el texto (ya debería haberse resuelto)', () => {
+    const n = notaEstadoComprobante({ estado: 'en_proceso', fechaEmision: '2026-11-25' }, '2026-11-26')
+    expect(n).toMatch(/Sigue esperando/)
+    expect(n).not.toMatch(/Normal/)
+  })
+  it('una baja solicitada explica que se confirma al terminar el día', () => {
+    expect(notaEstadoComprobante({ estado: 'anulacion_solicitada', fechaEmision: '2026-11-26' }, '2026-11-26')).toMatch(/baja/)
+  })
+  it('los estados finales o de error no llevan nota', () => {
+    for (const estado of ['aceptado', 'aceptado_con_observaciones', 'rechazado', 'anulado', 'pendiente_envio', 'error'] as const)
+      expect(notaEstadoComprobante({ estado, fechaEmision: '2026-11-25' }, '2026-11-26')).toBeNull()
   })
 })

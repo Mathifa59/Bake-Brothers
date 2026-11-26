@@ -283,6 +283,7 @@ export {
   ESTADOS_VIGENTES,
   ESTADOS_PEDIDO_FACTURABLES,
   pedidoEsFacturable,
+  notaEstadoComprobante,
   type TipoComprobante,
   type LineaVenta,
   type LineaDesglosada,
